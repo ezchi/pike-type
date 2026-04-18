@@ -1,0 +1,78 @@
+{
+  "modules": [
+    {
+      "basename": "constants",
+      "constants": [
+        {
+          "name": "FOO",
+          "resolved_value": 3,
+          "source": {
+            "column": null,
+            "line": 3,
+            "path": "alpha/typist/constants.py"
+          }
+        },
+        {
+          "name": "BAR",
+          "resolved_value": 0,
+          "source": {
+            "column": null,
+            "line": 4,
+            "path": "alpha/typist/constants.py"
+          }
+        }
+      ],
+      "dependencies": [],
+      "generated_outputs": {
+        "sv": "gen/sv/alpha/typist/constants_pkg.sv"
+      },
+      "namespace_parts": [
+        "alpha",
+        "typist",
+        "constants"
+      ],
+      "python_module_name": "alpha.typist.constants",
+      "repo_relative_path": "alpha/typist/constants.py",
+      "source": {
+        "column": null,
+        "line": 1,
+        "path": "alpha/typist/constants.py"
+      }
+    },
+    {
+      "basename": "more",
+      "constants": [
+        {
+          "name": "BAZ",
+          "resolved_value": 7,
+          "source": {
+            "column": null,
+            "line": 3,
+            "path": "beta/typist/more.py"
+          }
+        }
+      ],
+      "dependencies": [],
+      "generated_outputs": {
+        "sv": "gen/sv/beta/typist/more_pkg.sv"
+      },
+      "namespace_parts": [
+        "beta",
+        "typist",
+        "more"
+      ],
+      "python_module_name": "beta.typist.more",
+      "repo_relative_path": "beta/typist/more.py",
+      "source": {
+        "column": null,
+        "line": 1,
+        "path": "beta/typist/more.py"
+      }
+    }
+  ],
+  "repo_root": ".",
+  "runtime_outputs": {
+    "sv": "gen/sv/runtime/typist_runtime_pkg.sv"
+  },
+  "tool_version": "0.1.0"
+}

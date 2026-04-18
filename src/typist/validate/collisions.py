@@ -1,0 +1,1 @@
+"""Collision validation placeholders."""

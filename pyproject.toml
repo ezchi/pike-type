@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "typist"
+version = "0.1.0"
+description = "Python-based code generator for FPGA-oriented type definitions"
+readme = "docs/rfc-v1.md"
+requires-python = ">=3.12"
+license = { text = "GPL-3.0-or-later" }
+authors = [
+  { name = "ezchi" },
+]
+dependencies = [
+  "Jinja2>=3.1",
+]
+
+[project.optional-dependencies]
+dev = [
+  "basedpyright>=1.20.0",
+  "pytest>=8.0",
+]
+
+[project.scripts]
+typist = "typist.cli:main"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.basedpyright]
+pythonVersion = "3.12"
+typeCheckingMode = "strict"
+reportMissingTypeStubs = false
+reportAny = false
+reportExplicitAny = false
