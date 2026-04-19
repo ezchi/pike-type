@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+from math import ceil
 from pathlib import Path
 
 from typist.backends.common.headers import render_header
 from typist.ir.nodes import BinaryExprIR, ConstRefExprIR, IntLiteralExprIR, ModuleIR, RepoIR, ScalarAliasIR, UnaryExprIR
-from typist.paths import sv_module_output_path
+from typist.paths import sv_module_output_path, sv_test_module_output_path
 
 
 def emit_sv(repo: RepoIR) -> list[Path]:
@@ -14,18 +15,26 @@ def emit_sv(repo: RepoIR) -> list[Path]:
     written_paths: list[Path] = []
     repo_root = Path(repo.repo_root)
     for module in repo.modules:
-        output_path = sv_module_output_path(
+        synth_output_path = sv_module_output_path(
             repo_root=repo_root,
             module_path=repo_root / module.ref.repo_relative_path,
         )
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.write_text(render_module_sv(module), encoding="utf-8")
-        written_paths.append(output_path)
+        synth_output_path.parent.mkdir(parents=True, exist_ok=True)
+        synth_output_path.write_text(render_module_sv(module), encoding="utf-8")
+        written_paths.append(synth_output_path)
+        if module.types:
+            test_output_path = sv_test_module_output_path(
+                repo_root=repo_root,
+                module_path=repo_root / module.ref.repo_relative_path,
+            )
+            test_output_path.parent.mkdir(parents=True, exist_ok=True)
+            test_output_path.write_text(render_module_test_sv(module), encoding="utf-8")
+            written_paths.append(test_output_path)
     return written_paths
 
 
 def render_module_sv(module: ModuleIR) -> str:
-    """Render a constant-only SystemVerilog package."""
+    """Render a synthesizable SystemVerilog package."""
     header = render_header(source_paths=(module.ref.repo_relative_path,))
     body_lines = [f"package {module.ref.basename}_pkg;"]
     for const in module.constants:
@@ -41,6 +50,20 @@ def render_module_sv(module: ModuleIR) -> str:
         body_lines.append(f"  localparam {sv_type} {const.name} = {sv_expr};")
     for scalar_alias in module.types:
         body_lines.append(f"  {_render_sv_scalar_alias(type_ir=scalar_alias)}")
+    body_lines.append("endpackage")
+    return f"{header}\n" + "\n".join(body_lines) + "\n"
+
+
+def render_module_test_sv(module: ModuleIR) -> str:
+    """Render a verification-only SystemVerilog package."""
+    header = render_header(source_paths=(module.ref.repo_relative_path,))
+    body_lines = [
+        f"package {module.ref.basename}_test_pkg;",
+        f"  import {module.ref.basename}_pkg::*;",
+    ]
+    for type_ir in module.types:
+        body_lines.append("")
+        body_lines.extend(f"  {line}" for line in _render_sv_scalar_helper_class(type_ir=type_ir))
     body_lines.append("endpackage")
     return f"{header}\n" + "\n".join(body_lines) + "\n"
 
@@ -88,3 +111,76 @@ def _render_sv_scalar_alias(*, type_ir: ScalarAliasIR) -> str:
     if type_ir.resolved_width == 1:
         return f"typedef {base_type}{signed_kw} {type_ir.name};"
     return f"typedef {base_type}{signed_kw} [{width_expr}-1:0] {type_ir.name};"
+
+
+def _render_sv_scalar_helper_class(*, type_ir: ScalarAliasIR) -> list[str]:
+    """Render a lightweight verification helper class for a scalar alias."""
+    class_name = _scalar_class_name(type_ir.name)
+    width_expr = _render_sv_expr(expr=type_ir.width_expr)
+    byte_count = ceil(type_ir.resolved_width / 8)
+    return [
+        f"class {class_name};",
+        f"  localparam int WIDTH = {width_expr};",
+        f"  localparam int BYTE_COUNT = {byte_count};",
+        f"  rand {type_ir.name} value;",
+        "",
+        f"  function new({type_ir.name} value_in = '0);",
+        "    value = value_in;",
+        "  endfunction",
+        "",
+        f"  function automatic {type_ir.name} to_slv();",
+        "    return value;",
+        "  endfunction",
+        "",
+        f"  function void from_slv({type_ir.name} value_in);",
+        "    value = value_in;",
+        "  endfunction",
+        "",
+        "  task automatic to_bytes(output byte unsigned bytes[]);",
+        "    bit [BYTE_COUNT*8-1:0] packed_bits;",
+        "    bytes = new[BYTE_COUNT];",
+        "    packed_bits = '0;",
+        "    packed_bits[WIDTH-1:0] = value;",
+        "    for (int idx = 0; idx < BYTE_COUNT; idx++) begin",
+        "      bytes[idx] = packed_bits[idx*8 +: 8];",
+        "    end",
+        "  endtask",
+        "",
+        "  function void from_bytes(input byte unsigned bytes[]);",
+        "    bit [BYTE_COUNT*8-1:0] packed_bits;",
+        "    if (bytes.size() != BYTE_COUNT) begin",
+        f'      $fatal(1, "{class_name}.from_bytes size mismatch: expected %0d got %0d", BYTE_COUNT, bytes.size());',
+        "    end",
+        "    packed_bits = '0;",
+        "    for (int idx = 0; idx < BYTE_COUNT; idx++) begin",
+        "      packed_bits[idx*8 +: 8] = bytes[idx];",
+        "    end",
+        f"    value = {type_ir.name}'(packed_bits[WIDTH-1:0]);",
+        "  endfunction",
+        "",
+        f"  function void copy(input {class_name} rhs);",
+        "    value = rhs.value;",
+        "  endfunction",
+        "",
+        f"  function automatic {class_name} clone();",
+        f"    {class_name} cloned = new();",
+        "    cloned.value = value;",
+        "    return cloned;",
+        "  endfunction",
+        "",
+        f"  function automatic bit compare(input {class_name} rhs);",
+        "    return value === rhs.value;",
+        "  endfunction",
+        "",
+        "  function automatic string sprint();",
+        f'    return $sformatf("{class_name}(value=0x%0h)", value);',
+        "  endfunction",
+        f"endclass : {class_name}",
+    ]
+
+
+def _scalar_class_name(type_name: str) -> str:
+    """Convert a scalar alias name to its SV helper class name."""
+    if type_name.endswith("_t"):
+        return f"{type_name[:-2]}_ct"
+    return f"{type_name}_ct"

@@ -24,6 +24,12 @@ def sv_module_output_path(*, repo_root: Path, module_path: Path) -> Path:
     return gen_root(repo_root=repo_root) / "sv" / relative.parent / f"{relative.stem}_pkg.sv"
 
 
+def sv_test_module_output_path(*, repo_root: Path, module_path: Path) -> Path:
+    """Return the generated SV verification package path for a module."""
+    relative = repo_relative_path(module_path, repo_root=repo_root)
+    return gen_root(repo_root=repo_root) / "sv" / relative.parent / f"{relative.stem}_test_pkg.sv"
+
+
 def sv_runtime_output_path(*, repo_root: Path) -> Path:
     """Return the generated SV runtime package path."""
     return gen_root(repo_root=repo_root) / "sv" / "runtime" / "typist_runtime_pkg.sv"

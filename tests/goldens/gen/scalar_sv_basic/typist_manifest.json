@@ -19,7 +19,8 @@
       "generated_outputs": {
         "cpp": "gen/cpp/alpha/typist/types_types.hpp",
         "py": "gen/py/alpha/typist/types_types.py",
-        "sv": "gen/sv/alpha/typist/types_pkg.sv"
+        "sv": "gen/sv/alpha/typist/types_pkg.sv",
+        "sv_test": "gen/sv/alpha/typist/types_test_pkg.sv"
       },
       "namespace_parts": [
         "alpha",
