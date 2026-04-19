@@ -20,17 +20,8 @@ class addr_ct:
             raise ValueError("addr_ct value out of range")
         self.value = value
 
-    def to_slv(self) -> int:
-        return self.value
-
     def to_bytes(self) -> bytes:
         return self.value.to_bytes(self.BYTE_COUNT, "little", signed=False)
-
-    @classmethod
-    def from_slv(cls, value: int) -> "addr_ct":
-        if not isinstance(value, int):
-            raise TypeError("addr_ct.from_slv expects int")
-        return cls(value)
 
     @classmethod
     def from_bytes(cls, data: bytes | bytearray) -> "addr_ct":
@@ -76,20 +67,8 @@ class mask_ct:
             raise ValueError("mask_ct value out of range")
         self.value = value
 
-    def to_slv(self) -> int:
-        return self.value & self.MASK
-
     def to_bytes(self) -> bytes:
-        return self.to_slv().to_bytes(self.BYTE_COUNT, "little", signed=False)
-
-    @classmethod
-    def from_slv(cls, value: int) -> "mask_ct":
-        if not isinstance(value, int):
-            raise TypeError("mask_ct.from_slv expects int")
-        if value < 0 or value > cls.MASK:
-            raise ValueError("mask_ct.from_slv value out of range")
-        signed_value = value - (1 << cls.WIDTH) if (value & cls.SIGN_BIT) else value
-        return cls(signed_value)
+        return (self.value & self.MASK).to_bytes(self.BYTE_COUNT, "little", signed=False)
 
     @classmethod
     def from_bytes(cls, data: bytes | bytearray) -> "mask_ct":
@@ -98,7 +77,11 @@ class mask_ct:
         raw = bytes(data)
         if len(raw) != cls.BYTE_COUNT:
             raise ValueError("mask_ct.from_bytes size mismatch")
-        return cls.from_slv(int.from_bytes(raw, "little", signed=False))
+        value = int.from_bytes(raw, "little", signed=False)
+        if value > cls.MASK:
+            raise ValueError("mask_ct.from_bytes value out of range")
+        signed_value = value - (1 << cls.WIDTH) if (value & cls.SIGN_BIT) else value
+        return cls(signed_value)
 
     def clone(self) -> "mask_ct":
         return type(self)(self.value)
@@ -133,17 +116,8 @@ class flag_ct:
             raise ValueError("flag_ct value out of range")
         self.value = value
 
-    def to_slv(self) -> int:
-        return self.value
-
     def to_bytes(self) -> bytes:
         return self.value.to_bytes(self.BYTE_COUNT, "little", signed=False)
-
-    @classmethod
-    def from_slv(cls, value: int) -> "flag_ct":
-        if not isinstance(value, int):
-            raise TypeError("flag_ct.from_slv expects int")
-        return cls(value)
 
     @classmethod
     def from_bytes(cls, data: bytes | bytearray) -> "flag_ct":

@@ -18,15 +18,11 @@ class addr_ct {
   static constexpr std::size_t kWidth = 13;
   static constexpr bool kSigned = false;
   static constexpr std::size_t kByteCount = 2;
-  using value_type = std::uint32_t;
+  using value_type = std::uint16_t;
   value_type value;
   static constexpr value_type kMaxValue = static_cast<value_type>(8191U);
   addr_ct() : value(0) {}
   explicit addr_ct(value_type value_in) : value(validate_value(value_in)) {}
-
-  std::vector<std::uint8_t> to_slv() const {
-    return to_bytes();
-  }
 
   std::vector<std::uint8_t> to_bytes() const {
     std::vector<std::uint8_t> bytes(kByteCount, 0);
@@ -37,11 +33,7 @@ class addr_ct {
     return bytes;
   }
 
-  static addr_ct from_slv(const std::vector<std::uint8_t>& bytes) {
-    return from_bytes(bytes);
-  }
-
-  static addr_ct from_bytes(const std::vector<std::uint8_t>& bytes) {
+  void from_bytes(const std::vector<std::uint8_t>& bytes) {
     if (bytes.size() != kByteCount) {
       throw std::invalid_argument("byte width mismatch");
     }
@@ -49,7 +41,7 @@ class addr_ct {
     for (std::size_t idx = 0; idx < kByteCount; ++idx) {
       bits |= static_cast<std::uint64_t>(bytes[idx]) << (8U * idx);
     }
-    return addr_ct(static_cast<value_type>(bits));
+    value = validate_value(static_cast<value_type>(bits));
   }
 
   addr_ct clone() const {
@@ -76,17 +68,13 @@ class mask_ct {
   static constexpr std::size_t kWidth = 8;
   static constexpr bool kSigned = true;
   static constexpr std::size_t kByteCount = 1;
-  using value_type = std::int32_t;
+  using value_type = std::int8_t;
   value_type value;
   static constexpr value_type kMinValue = static_cast<value_type>(-128);
   static constexpr value_type kMaxValue = static_cast<value_type>(127);
   static constexpr std::uint64_t kMask = 255U;
   mask_ct() : value(0) {}
   explicit mask_ct(value_type value_in) : value(validate_value(value_in)) {}
-
-  std::vector<std::uint8_t> to_slv() const {
-    return to_bytes();
-  }
 
   std::vector<std::uint8_t> to_bytes() const {
     std::vector<std::uint8_t> bytes(kByteCount, 0);
@@ -97,11 +85,7 @@ class mask_ct {
     return bytes;
   }
 
-  static mask_ct from_slv(const std::vector<std::uint8_t>& bytes) {
-    return from_bytes(bytes);
-  }
-
-  static mask_ct from_bytes(const std::vector<std::uint8_t>& bytes) {
+  void from_bytes(const std::vector<std::uint8_t>& bytes) {
     if (bytes.size() != kByteCount) {
       throw std::invalid_argument("byte width mismatch");
     }
@@ -114,7 +98,7 @@ class mask_ct {
     if ((bits & 128U) != 0U && kWidth < 64) {
       signed_value -= static_cast<std::int64_t>(256U);
     }
-    return mask_ct(static_cast<value_type>(signed_value));
+    value = validate_value(static_cast<value_type>(signed_value));
   }
 
   mask_ct clone() const {
@@ -141,15 +125,11 @@ class flag_ct {
   static constexpr std::size_t kWidth = 1;
   static constexpr bool kSigned = false;
   static constexpr std::size_t kByteCount = 1;
-  using value_type = std::uint32_t;
+  using value_type = std::uint8_t;
   value_type value;
   static constexpr value_type kMaxValue = static_cast<value_type>(1U);
   flag_ct() : value(0) {}
   explicit flag_ct(value_type value_in) : value(validate_value(value_in)) {}
-
-  std::vector<std::uint8_t> to_slv() const {
-    return to_bytes();
-  }
 
   std::vector<std::uint8_t> to_bytes() const {
     std::vector<std::uint8_t> bytes(kByteCount, 0);
@@ -160,11 +140,7 @@ class flag_ct {
     return bytes;
   }
 
-  static flag_ct from_slv(const std::vector<std::uint8_t>& bytes) {
-    return from_bytes(bytes);
-  }
-
-  static flag_ct from_bytes(const std::vector<std::uint8_t>& bytes) {
+  void from_bytes(const std::vector<std::uint8_t>& bytes) {
     if (bytes.size() != kByteCount) {
       throw std::invalid_argument("byte width mismatch");
     }
@@ -172,7 +148,7 @@ class flag_ct {
     for (std::size_t idx = 0; idx < kByteCount; ++idx) {
       bits |= static_cast<std::uint64_t>(bytes[idx]) << (8U * idx);
     }
-    return flag_ct(static_cast<value_type>(bits));
+    value = validate_value(static_cast<value_type>(bits));
   }
 
   flag_ct clone() const {
