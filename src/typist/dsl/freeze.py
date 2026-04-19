@@ -8,8 +8,9 @@ from types import ModuleType
 
 from typist.discovery.module_name import module_basename, module_name_from_path
 from typist.dsl.const import Const, ConstExpr
+from typist.dsl.scalar import ScalarType
 from typist.errors import ValidationError
-from typist.ir.nodes import BinaryExprIR, ConstIR, ConstRefExprIR, IntLiteralExprIR, ModuleIR, ModuleRefIR, RepoIR, SourceSpanIR, UnaryExprIR
+from typist.ir.nodes import BinaryExprIR, ConstIR, ConstRefExprIR, IntLiteralExprIR, ModuleIR, ModuleRefIR, RepoIR, ScalarAliasIR, SourceSpanIR, UnaryExprIR
 from typist.paths import repo_relative_path
 
 
@@ -68,11 +69,35 @@ def freeze_module(*, loaded_module: LoadedModule, definition_map: dict[int, tupl
     """Freeze one loaded Python module into constant-only IR."""
     module_source = SourceSpanIR(path=str(loaded_module.module_path), line=1, column=None)
     local_constants: list[ConstIR] = []
+    local_types: list[ScalarAliasIR] = []
+    seen_local_object_ids: set[int] = set()
 
     for name, value in loaded_module.module.__dict__.items():
         if name.startswith("__"):
             continue
+        if isinstance(value, (Const, ScalarType)):
+            if id(value) in seen_local_object_ids:
+                raise ValidationError(f"{loaded_module.module_path}: DSL object bound to multiple top-level names")
+            seen_local_object_ids.add(id(value))
         if not isinstance(value, Const):
+            if isinstance(value, ScalarType):
+                if Path(value.source.path).resolve() != loaded_module.module_path.resolve():
+                    continue
+                type_source = SourceSpanIR(
+                    path=value.source.path,
+                    line=value.source.line,
+                    column=value.source.column,
+                )
+                local_types.append(
+                    ScalarAliasIR(
+                        name=name,
+                        source=type_source,
+                        state_kind=value.state_kind,
+                        signed=value.signed,
+                        width_expr=_freeze_expr(expr=value.width_expr, definition_map=definition_map),
+                        resolved_width=value.width_value,
+                    )
+                )
             continue
         if Path(value.source.path).resolve() != loaded_module.module_path.resolve():
             continue
@@ -98,14 +123,15 @@ def freeze_module(*, loaded_module: LoadedModule, definition_map: dict[int, tupl
         )
 
     local_constants.sort(key=lambda const: (const.source.line, const.name))
+    local_types.sort(key=lambda type_ir: (type_ir.source.line, type_ir.name))
     module_ir = ModuleIR(
         ref=loaded_module.module_ref,
         source=module_source,
         constants=tuple(local_constants),
-        types=(),
+        types=tuple(local_types),
         dependencies=(),
     )
-    return FrozenModule(module_ir=module_ir, has_local_definitions=bool(local_constants))
+    return FrozenModule(module_ir=module_ir, has_local_definitions=bool(local_constants or local_types))
 
 
 def freeze_repo(*, repo_root: Path, frozen_modules: list[FrozenModule], tool_version: str | None) -> RepoIR:

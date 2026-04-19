@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+from math import ceil
 from pathlib import Path
 
 from typist.backends.common.headers import render_header
-from typist.ir.nodes import BinaryExprIR, ConstRefExprIR, IntLiteralExprIR, ModuleIR, RepoIR, UnaryExprIR
+from typist.ir.nodes import BinaryExprIR, ConstRefExprIR, IntLiteralExprIR, ModuleIR, RepoIR, ScalarAliasIR, UnaryExprIR
 from typist.paths import py_module_output_path
 
 
@@ -30,7 +31,17 @@ def emit_py(repo: RepoIR) -> list[Path]:
 def render_module_py(module: ModuleIR) -> str:
     """Render a constant-only Python module."""
     header = render_header(source_paths=(module.ref.repo_relative_path,)).replace("//", "#")
-    body_lines = [f"{const.name} = {_render_py_expr(expr=const.expr)}" for const in module.constants]
+    body_lines: list[str] = []
+    if module.types:
+        body_lines.append("from __future__ import annotations")
+        body_lines.append("")
+    body_lines.extend(f"{const.name} = {_render_py_expr(expr=const.expr)}" for const in module.constants)
+    if module.constants and module.types:
+        body_lines.append("")
+    for index, type_ir in enumerate(module.types):
+        if index > 0:
+            body_lines.append("")
+        body_lines.extend(_render_py_scalar_alias(type_ir=type_ir))
     return f"{header}\n" + "\n".join(body_lines) + "\n"
 
 
@@ -64,3 +75,197 @@ def _render_py_expr(*, expr: IntLiteralExprIR | ConstRefExprIR | UnaryExprIR | B
             return f"({_render_py_expr(expr=lhs)} {op} {_render_py_expr(expr=rhs)})"
         case _:
             raise ValueError(f"unsupported Python expression node {type(expr).__name__}")
+
+
+def _render_py_scalar_alias(*, type_ir: ScalarAliasIR) -> list[str]:
+    """Render a Python scalar wrapper class."""
+    class_name = _scalar_class_name(type_ir.name)
+    byte_count = ceil(type_ir.resolved_width / 8)
+    lines = [
+        f"class {class_name}:",
+        f"    WIDTH = {type_ir.resolved_width}",
+        f"    SIGNED = {type_ir.signed}",
+        f"    BYTE_COUNT = {byte_count}",
+    ]
+    if type_ir.resolved_width <= 64:
+        if type_ir.signed:
+            minimum = -(2 ** (type_ir.resolved_width - 1))
+            maximum = 2 ** (type_ir.resolved_width - 1) - 1
+            mask = (1 << type_ir.resolved_width) - 1
+            sign_bit = 1 << (type_ir.resolved_width - 1)
+            lines.extend(
+                [
+                    f"    MIN_VALUE = {minimum}",
+                    f"    MAX_VALUE = {maximum}",
+                    f"    MASK = {mask}",
+                    f"    SIGN_BIT = {sign_bit}",
+                    "",
+                    "    def __init__(self, value: int = 0) -> None:",
+                    '        if not isinstance(value, int):',
+                    f'            raise TypeError("{class_name} value must be int")',
+                    "        if value < self.MIN_VALUE or value > self.MAX_VALUE:",
+                    f'            raise ValueError("{class_name} value out of range")',
+                    "        self.value = value",
+                    "",
+                    "    def to_slv(self) -> int:",
+                    "        return self.value & self.MASK",
+                    "",
+                    "    def to_bytes(self) -> bytes:",
+                    '        return self.to_slv().to_bytes(self.BYTE_COUNT, "little", signed=False)',
+                    "",
+                    "    @classmethod",
+                    f'    def from_slv(cls, value: int) -> "{class_name}":',
+                    '        if not isinstance(value, int):',
+                    f'            raise TypeError("{class_name}.from_slv expects int")',
+                    "        if value < 0 or value > cls.MASK:",
+                    f'            raise ValueError("{class_name}.from_slv value out of range")',
+                    "        signed_value = value - (1 << cls.WIDTH) if (value & cls.SIGN_BIT) else value",
+                    "        return cls(signed_value)",
+                    "",
+                    "    @classmethod",
+                    f'    def from_bytes(cls, data: bytes | bytearray) -> "{class_name}":',
+                    '        if not isinstance(data, (bytes, bytearray)):',
+                    f'            raise TypeError("{class_name}.from_bytes expects bytes or bytearray")',
+                    "        raw = bytes(data)",
+                    "        if len(raw) != cls.BYTE_COUNT:",
+                    f'            raise ValueError("{class_name}.from_bytes size mismatch")',
+                    '        return cls.from_slv(int.from_bytes(raw, "little", signed=False))',
+                    "",
+                    f'    def clone(self) -> "{class_name}":',
+                    "        return type(self)(self.value)",
+                    "",
+                    "    def __int__(self) -> int:",
+                    "        return self.value",
+                    "",
+                    "    def __index__(self) -> int:",
+                    "        return self.value",
+                    "",
+                    "    def __eq__(self, other: object) -> bool:",
+                    "        if isinstance(other, type(self)):",
+                    "            return self.value == other.value",
+                    "        if isinstance(other, int):",
+                    "            return self.value == other",
+                    "        return NotImplemented",
+                    "",
+                    "    def __repr__(self) -> str:",
+                    f'        return f"{class_name}(value={{self.value!r}})"',
+                ]
+            )
+        else:
+            maximum = 2 ** type_ir.resolved_width - 1
+            lines.extend(
+                [
+                    "    MIN_VALUE = 0",
+                    f"    MAX_VALUE = {maximum}",
+                    "",
+                    "    def __init__(self, value: int = 0) -> None:",
+                    '        if not isinstance(value, int):',
+                    f'            raise TypeError("{class_name} value must be int")',
+                    "        if value < self.MIN_VALUE or value > self.MAX_VALUE:",
+                    f'            raise ValueError("{class_name} value out of range")',
+                    "        self.value = value",
+                    "",
+                    "    def to_slv(self) -> int:",
+                    "        return self.value",
+                    "",
+                    "    def to_bytes(self) -> bytes:",
+                    '        return self.value.to_bytes(self.BYTE_COUNT, "little", signed=False)',
+                    "",
+                    "    @classmethod",
+                    f'    def from_slv(cls, value: int) -> "{class_name}":',
+                    '        if not isinstance(value, int):',
+                    f'            raise TypeError("{class_name}.from_slv expects int")',
+                    "        return cls(value)",
+                    "",
+                    "    @classmethod",
+                    f'    def from_bytes(cls, data: bytes | bytearray) -> "{class_name}":',
+                    '        if not isinstance(data, (bytes, bytearray)):',
+                    f'            raise TypeError("{class_name}.from_bytes expects bytes or bytearray")',
+                    "        raw = bytes(data)",
+                    "        if len(raw) != cls.BYTE_COUNT:",
+                    f'            raise ValueError("{class_name}.from_bytes size mismatch")',
+                    '        return cls(int.from_bytes(raw, "little", signed=False))',
+                    "",
+                    f'    def clone(self) -> "{class_name}":',
+                    "        return type(self)(self.value)",
+                    "",
+                    "    def __int__(self) -> int:",
+                    "        return self.value",
+                    "",
+                    "    def __index__(self) -> int:",
+                    "        return self.value",
+                    "",
+                    "    def __eq__(self, other: object) -> bool:",
+                    "        if isinstance(other, type(self)):",
+                    "            return self.value == other.value",
+                    "        if isinstance(other, int):",
+                    "            return self.value == other",
+                    "        return NotImplemented",
+                    "",
+                    "    def __repr__(self) -> str:",
+                    f'        return f"{class_name}(value={{self.value!r}})"',
+                ]
+            )
+    else:
+        maximum = 2 ** type_ir.resolved_width - 1
+        lines.extend(
+            [
+                f"    MAX_VALUE = {maximum}",
+                "",
+                "    def __init__(self, value: bytes | bytearray | int = b'') -> None:",
+                "        if isinstance(value, int):",
+                "            if value < 0 or value > self.MAX_VALUE:",
+                f'                raise ValueError("{class_name} value out of range")',
+                '            self.value = value.to_bytes(self.BYTE_COUNT, "little", signed=False)',
+                "            return",
+                '        if not isinstance(value, (bytes, bytearray)):',
+                f'            raise TypeError("{class_name} value must be bytes, bytearray, or int")',
+                "        raw = bytes(value)",
+                "        if len(raw) == 0:",
+                '            raw = b"\\x00" * self.BYTE_COUNT',
+                "        if len(raw) != self.BYTE_COUNT:",
+                f'            raise ValueError("{class_name} value size mismatch")',
+                "        self.value = raw",
+                "",
+                "    def to_slv(self) -> int:",
+                '        return int.from_bytes(self.value, "little", signed=False)',
+                "",
+                "    def to_bytes(self) -> bytes:",
+                "        return self.value",
+                "",
+                "    @classmethod",
+                f'    def from_slv(cls, value: int) -> "{class_name}":',
+                '        if not isinstance(value, int):',
+                f'            raise TypeError("{class_name}.from_slv expects int")',
+                "        if value < 0 or value > cls.MAX_VALUE:",
+                f'            raise ValueError("{class_name}.from_slv value out of range")',
+                "        return cls(value)",
+                "",
+                "    @classmethod",
+                f'    def from_bytes(cls, data: bytes | bytearray) -> "{class_name}":',
+                '        if not isinstance(data, (bytes, bytearray)):',
+                f'            raise TypeError("{class_name}.from_bytes expects bytes or bytearray")',
+                "        return cls(bytes(data))",
+                "",
+                f'    def clone(self) -> "{class_name}":',
+                "        return type(self)(self.value)",
+                "",
+                "    def __eq__(self, other: object) -> bool:",
+                "        if isinstance(other, type(self)):",
+                "            return self.value == other.value",
+                "        if isinstance(other, (bytes, bytearray)):",
+                "            return self.value == bytes(other)",
+                "        return NotImplemented",
+                "",
+                "    def __repr__(self) -> str:",
+                f'        return f"{class_name}(value={{self.value!r}})"',
+            ]
+        )
+    return lines
+
+
+def _scalar_class_name(type_name: str) -> str:
+    """Convert a scalar alias name to its software wrapper class name."""
+    if type_name.endswith("_t"):
+        return f"{type_name[:-2]}_ct"
+    return f"{type_name}_ct"

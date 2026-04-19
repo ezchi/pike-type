@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from typist.backends.common.headers import render_header
-from typist.ir.nodes import BinaryExprIR, ConstRefExprIR, IntLiteralExprIR, ModuleIR, RepoIR, UnaryExprIR
+from typist.ir.nodes import BinaryExprIR, ConstRefExprIR, IntLiteralExprIR, ModuleIR, RepoIR, ScalarAliasIR, UnaryExprIR
 from typist.paths import sv_module_output_path
 
 
@@ -38,8 +38,9 @@ def render_module_sv(module: ModuleIR) -> str:
             sv_expr = sv_literal
         else:
             sv_expr = _render_sv_expr(expr=const.expr)
-        _ = sv_literal
         body_lines.append(f"  localparam {sv_type} {const.name} = {sv_expr};")
+    for scalar_alias in module.types:
+        body_lines.append(f"  {_render_sv_scalar_alias(type_ir=scalar_alias)}")
     body_lines.append("endpackage")
     return f"{header}\n" + "\n".join(body_lines) + "\n"
 
@@ -77,3 +78,13 @@ def _render_sv_expr(*, expr: IntLiteralExprIR | ConstRefExprIR | UnaryExprIR | B
             return f"({_render_sv_expr(expr=lhs)} {op} {_render_sv_expr(expr=rhs)})"
         case _:
             raise ValueError(f"unsupported SV expression node {type(expr).__name__}")
+
+
+def _render_sv_scalar_alias(*, type_ir: ScalarAliasIR) -> str:
+    """Render a named scalar typedef."""
+    base_type = type_ir.state_kind
+    signed_kw = " signed" if type_ir.signed else ""
+    width_expr = _render_sv_expr(expr=type_ir.width_expr)
+    if type_ir.resolved_width == 1:
+        return f"typedef {base_type}{signed_kw} {type_ir.name};"
+    return f"typedef {base_type}{signed_kw} [{width_expr}-1:0] {type_ir.name};"

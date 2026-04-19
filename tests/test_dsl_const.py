@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import unittest
 
-from typist.dsl import Const
+from typist.dsl import Bit, Const, Logic
 
 
 class ConstDslTest(unittest.TestCase):
@@ -29,3 +29,11 @@ class ConstDslTest(unittest.TestCase):
         base = Const(3)
         with self.assertRaisesRegex(Exception, "// only"):
             _ = base / 2
+
+    def test_builds_scalar_aliases(self) -> None:
+        bit_t = Bit(13)
+        logic_t = Logic(8, signed=True)
+        self.assertEqual(bit_t.state_kind, "bit")
+        self.assertEqual(bit_t.width_value, 13)
+        self.assertEqual(logic_t.state_kind, "logic")
+        self.assertTrue(logic_t.signed)

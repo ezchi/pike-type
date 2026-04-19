@@ -9,7 +9,8 @@ def validate_repo(repo: RepoIR) -> None:
     """Validate the frozen repository IR."""
     for module in repo.modules:
         if not module.constants:
-            raise ValidationError(f"{module.ref.repo_relative_path}: typist file defines no DSL objects")
+            if not module.types:
+                raise ValidationError(f"{module.ref.repo_relative_path}: typist file defines no DSL objects")
 
         seen_names: set[str] = set()
         for const in module.constants:
@@ -23,6 +24,15 @@ def validate_repo(repo: RepoIR) -> None:
                 module_path=module.ref.repo_relative_path,
                 const_name=const.name,
             )
+        seen_type_names: set[str] = set()
+        for type_ir in module.types:
+            if type_ir.name in seen_names or type_ir.name in seen_type_names:
+                raise ValidationError(f"{module.ref.repo_relative_path}: duplicate type name {type_ir.name}")
+            seen_type_names.add(type_ir.name)
+            if not type_ir.name.endswith("_t"):
+                raise ValidationError(f"{module.ref.repo_relative_path}: type {type_ir.name} must end with _t")
+            if type_ir.resolved_width <= 0:
+                raise ValidationError(f"{module.ref.repo_relative_path}: type {type_ir.name} width must be positive")
 
 
 def _validate_const_storage(*, value: int, signed: bool, width: int, module_path: str, const_name: str) -> None:

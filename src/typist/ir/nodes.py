@@ -64,6 +64,18 @@ type ExprIR = IntLiteralExprIR | ConstRefExprIR | UnaryExprIR | BinaryExprIR
 
 
 @dataclass(frozen=True, slots=True)
+class ScalarAliasIR:
+    """Frozen named scalar alias definition."""
+
+    name: str
+    source: SourceSpanIR
+    state_kind: str
+    signed: bool
+    width_expr: ExprIR
+    resolved_width: int
+
+
+@dataclass(frozen=True, slots=True)
 class ConstIR:
     """Frozen constant definition."""
 
@@ -90,7 +102,7 @@ class ModuleIR:
     ref: ModuleRefIR
     source: SourceSpanIR
     constants: tuple[ConstIR, ...]
-    types: tuple[object, ...]
+    types: tuple[ScalarAliasIR, ...]
     dependencies: tuple[ModuleDependencyIR, ...]
 
 

@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+from math import ceil
 from pathlib import Path
 
 from typist.backends.common.headers import render_header
 from typist.errors import ValidationError
-from typist.ir.nodes import BinaryExprIR, ConstRefExprIR, IntLiteralExprIR, ModuleIR, RepoIR, UnaryExprIR
+from typist.ir.nodes import BinaryExprIR, ConstRefExprIR, IntLiteralExprIR, ModuleIR, RepoIR, ScalarAliasIR, UnaryExprIR
 from typist.paths import cpp_header_output_path
 
 
@@ -30,7 +31,10 @@ def render_module_hpp(module: ModuleIR) -> str:
     header = render_header(source_paths=(module.ref.repo_relative_path,))
     guard = "_".join((*module.ref.namespace_parts, "types_hpp")).upper().replace(".", "_")
     namespace = "::".join(part for part in module.ref.namespace_parts if part != "typist")
-    body_lines = [f"#ifndef {guard}", f"#define {guard}", "", "#include <cstdint>", ""]
+    body_lines = [f"#ifndef {guard}", f"#define {guard}", "", "#include <cstdint>"]
+    if module.types:
+        body_lines.extend(["#include <stdexcept>", "#include <vector>"])
+    body_lines.append("")
     if namespace:
         body_lines.append(f"namespace {namespace} {{")
         body_lines.append("")
@@ -45,6 +49,12 @@ def render_module_hpp(module: ModuleIR) -> str:
         else:
             cpp_expr = _render_cpp_expr(expr=const.expr)
         body_lines.append(f"constexpr {cpp_type} {const.name} = {cpp_expr};")
+    if module.constants and module.types:
+        body_lines.append("")
+    for index, type_ir in enumerate(module.types):
+        if index > 0:
+            body_lines.append("")
+        body_lines.extend(_render_cpp_scalar_alias(type_ir=type_ir))
     if namespace:
         body_lines.append("")
         body_lines.append(f"}}  // namespace {namespace}")
@@ -78,3 +88,211 @@ def _render_cpp_expr(*, expr: IntLiteralExprIR | ConstRefExprIR | UnaryExprIR | 
             return f"({_render_cpp_expr(expr=lhs)} {op} {_render_cpp_expr(expr=rhs)})"
         case _:
             raise ValidationError(f"unsupported C++ expression node {type(expr).__name__}")
+
+
+def _render_cpp_scalar_alias(*, type_ir: ScalarAliasIR) -> list[str]:
+    """Render a C++ scalar wrapper class."""
+    class_name = _scalar_class_name(type_ir.name)
+    byte_count = ceil(type_ir.resolved_width / 8)
+    lines = [
+        f"class {class_name} {{",
+        " public:",
+        f"  static constexpr std::size_t kWidth = {type_ir.resolved_width};",
+        f"  static constexpr bool kSigned = {'true' if type_ir.signed else 'false'};",
+        f"  static constexpr std::size_t kByteCount = {byte_count};",
+    ]
+    if type_ir.resolved_width <= 64:
+        value_type = _cpp_scalar_value_type(type_ir=type_ir)
+        mask_literal = _cpp_unsigned_literal((1 << type_ir.resolved_width) - 1 if type_ir.resolved_width < 64 else 2**64 - 1)
+        lines.extend(
+            [
+                f"  using value_type = {value_type};",
+                "  value_type value;",
+            ]
+        )
+        if type_ir.signed:
+            minimum = -(2 ** (type_ir.resolved_width - 1))
+            maximum = 2 ** (type_ir.resolved_width - 1) - 1
+            lines.extend(
+                [
+                    f"  static constexpr value_type kMinValue = static_cast<value_type>({minimum});",
+                    f"  static constexpr value_type kMaxValue = static_cast<value_type>({maximum});",
+                    f"  static constexpr std::uint64_t kMask = {mask_literal};",
+                    f"  {class_name}() : value(0) {{}}",
+                    f"  explicit {class_name}(value_type value_in) : value(validate_value(value_in)) {{}}",
+                    "",
+                    "  std::vector<std::uint8_t> to_slv() const {",
+                    "    return to_bytes();",
+                    "  }",
+                    "",
+                    "  std::vector<std::uint8_t> to_bytes() const {",
+                    "    std::vector<std::uint8_t> bytes(kByteCount, 0);",
+                    "    std::uint64_t bits = static_cast<std::uint64_t>(value) & kMask;",
+                    "    for (std::size_t idx = 0; idx < kByteCount; ++idx) {",
+                    "      bytes[idx] = static_cast<std::uint8_t>((bits >> (8U * idx)) & 0xFFU);",
+                    "    }",
+                    "    return bytes;",
+                    "  }",
+                    "",
+                    f"  static {class_name} from_slv(const std::vector<std::uint8_t>& bytes) {{",
+                    "    return from_bytes(bytes);",
+                    "  }",
+                    "",
+                    f"  static {class_name} from_bytes(const std::vector<std::uint8_t>& bytes) {{",
+                    "    if (bytes.size() != kByteCount) {",
+                    '      throw std::invalid_argument("byte width mismatch");',
+                    "    }",
+                    "    std::uint64_t bits = 0;",
+                    "    for (std::size_t idx = 0; idx < kByteCount; ++idx) {",
+                    "      bits |= static_cast<std::uint64_t>(bytes[idx]) << (8U * idx);",
+                    "    }",
+                    "    bits &= kMask;",
+                    "    std::int64_t signed_value = static_cast<std::int64_t>(bits);",
+                    f"    if ((bits & {_cpp_unsigned_literal(1 << (type_ir.resolved_width - 1))}) != 0U && kWidth < 64) {{",
+                    f"      signed_value -= static_cast<std::int64_t>({_cpp_unsigned_literal(1 << type_ir.resolved_width)});",
+                    "    }",
+                    "    return "
+                    f"{class_name}(static_cast<value_type>(signed_value));",
+                    "  }",
+                    "",
+                    f"  {class_name} clone() const {{",
+                    f"    return {class_name}(value);",
+                    "  }",
+                    "",
+                    "  operator value_type() const {",
+                    "    return value;",
+                    "  }",
+                    "",
+                    "  bool operator==(const "
+                    f"{class_name}& other) const = default;",
+                    "",
+                    " private:",
+                    "  static value_type validate_value(value_type value_in) {",
+                    "    if (value_in < kMinValue || value_in > kMaxValue) {",
+                    '      throw std::out_of_range("value out of range");',
+                    "    }",
+                    "    return value_in;",
+                    "  }",
+                    "};",
+                ]
+            )
+        else:
+            maximum = 2 ** type_ir.resolved_width - 1 if type_ir.resolved_width < 64 else 2**64 - 1
+            lines.extend(
+                [
+                    f"  static constexpr value_type kMaxValue = static_cast<value_type>({_cpp_unsigned_literal(maximum)});",
+                    f"  {class_name}() : value(0) {{}}",
+                    f"  explicit {class_name}(value_type value_in) : value(validate_value(value_in)) {{}}",
+                    "",
+                    "  std::vector<std::uint8_t> to_slv() const {",
+                    "    return to_bytes();",
+                    "  }",
+                    "",
+                    "  std::vector<std::uint8_t> to_bytes() const {",
+                    "    std::vector<std::uint8_t> bytes(kByteCount, 0);",
+                    "    std::uint64_t bits = static_cast<std::uint64_t>(value);",
+                    "    for (std::size_t idx = 0; idx < kByteCount; ++idx) {",
+                    "      bytes[idx] = static_cast<std::uint8_t>((bits >> (8U * idx)) & 0xFFU);",
+                    "    }",
+                    "    return bytes;",
+                    "  }",
+                    "",
+                    f"  static {class_name} from_slv(const std::vector<std::uint8_t>& bytes) {{",
+                    "    return from_bytes(bytes);",
+                    "  }",
+                    "",
+                    f"  static {class_name} from_bytes(const std::vector<std::uint8_t>& bytes) {{",
+                    "    if (bytes.size() != kByteCount) {",
+                    '      throw std::invalid_argument("byte width mismatch");',
+                    "    }",
+                    "    std::uint64_t bits = 0;",
+                    "    for (std::size_t idx = 0; idx < kByteCount; ++idx) {",
+                    "      bits |= static_cast<std::uint64_t>(bytes[idx]) << (8U * idx);",
+                    "    }",
+                    f"    return {class_name}(static_cast<value_type>(bits));",
+                    "  }",
+                    "",
+                    f"  {class_name} clone() const {{",
+                    f"    return {class_name}(value);",
+                    "  }",
+                    "",
+                    "  operator value_type() const {",
+                    "    return value;",
+                    "  }",
+                    "",
+                    "  bool operator==(const "
+                    f"{class_name}& other) const = default;",
+                    "",
+                    " private:",
+                    "  static value_type validate_value(value_type value_in) {",
+                    "    if (value_in > kMaxValue) {",
+                    '      throw std::out_of_range("value out of range");',
+                    "    }",
+                    "    return value_in;",
+                    "  }",
+                    "};",
+                ]
+            )
+    else:
+        lines.extend(
+            [
+                "  using value_type = std::vector<std::uint8_t>;",
+                "  value_type value;",
+                f"  {class_name}() : value(kByteCount, 0U) {{}}",
+                f"  explicit {class_name}(const value_type& value_in) : value(validate_value(value_in)) {{}}",
+                "",
+                "  std::vector<std::uint8_t> to_slv() const {",
+                "    return value;",
+                "  }",
+                "",
+                "  std::vector<std::uint8_t> to_bytes() const {",
+                "    return value;",
+                "  }",
+                "",
+                f"  static {class_name} from_slv(const std::vector<std::uint8_t>& bytes) {{",
+                "    return from_bytes(bytes);",
+                "  }",
+                "",
+                f"  static {class_name} from_bytes(const std::vector<std::uint8_t>& bytes) {{",
+                f"    return {class_name}(bytes);",
+                "  }",
+                "",
+                f"  {class_name} clone() const {{",
+                f"    return {class_name}(value);",
+                "  }",
+                "",
+                "  bool operator==(const "
+                f"{class_name}& other) const = default;",
+                "",
+                " private:",
+                "  static value_type validate_value(const value_type& value_in) {",
+                "    if (value_in.size() != kByteCount) {",
+                '      throw std::invalid_argument("byte width mismatch");',
+                "    }",
+                "    return value_in;",
+                "  }",
+                "};",
+            ]
+        )
+    return lines
+
+
+def _cpp_scalar_value_type(*, type_ir: ScalarAliasIR) -> str:
+    """Choose the public C++ storage type for a scalar alias."""
+    if type_ir.resolved_width <= 32:
+        return "std::int32_t" if type_ir.signed else "std::uint32_t"
+    return "std::int64_t" if type_ir.signed else "std::uint64_t"
+
+
+def _cpp_unsigned_literal(value: int) -> str:
+    """Render an unsigned integer literal for C++."""
+    if value <= 0xFFFFFFFF:
+        return f"{value}U"
+    return f"{value}ULL"
+
+
+def _scalar_class_name(type_name: str) -> str:
+    """Convert a scalar alias name to its software wrapper class name."""
+    if type_name.endswith("_t"):
+        return f"{type_name[:-2]}_ct"
+    return f"{type_name}_ct"
