@@ -31,8 +31,9 @@ def render_module_hpp(module: ModuleIR) -> str:
     header = render_header(source_paths=(module.ref.repo_relative_path,))
     guard = "_".join((*module.ref.namespace_parts, "types_hpp")).upper().replace(".", "_")
     namespace = "::".join(part for part in module.ref.namespace_parts if part != "typist")
+    scalar_types = [type_ir for type_ir in module.types if isinstance(type_ir, ScalarAliasIR)]
     body_lines = [f"#ifndef {guard}", f"#define {guard}", "", "#include <cstdint>"]
-    if module.types:
+    if scalar_types:
         body_lines.extend(["#include <stdexcept>", "#include <vector>"])
     body_lines.append("")
     if namespace:
@@ -49,9 +50,9 @@ def render_module_hpp(module: ModuleIR) -> str:
         else:
             cpp_expr = _render_cpp_expr(expr=const.expr)
         body_lines.append(f"constexpr {cpp_type} {const.name} = {cpp_expr};")
-    if module.constants and module.types:
+    if module.constants and scalar_types:
         body_lines.append("")
-    for index, type_ir in enumerate(module.types):
+    for index, type_ir in enumerate(scalar_types):
         if index > 0:
             body_lines.append("")
         body_lines.extend(_render_cpp_scalar_alias(type_ir=type_ir))

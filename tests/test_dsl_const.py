@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import unittest
 
-from typist.dsl import Bit, Const, Logic
+from typist.dsl import Bit, Const, Logic, Struct
 
 
 class ConstDslTest(unittest.TestCase):
@@ -37,3 +37,9 @@ class ConstDslTest(unittest.TestCase):
         self.assertEqual(bit_t.width_value, 13)
         self.assertEqual(logic_t.state_kind, "logic")
         self.assertTrue(logic_t.signed)
+
+    def test_builds_struct_members(self) -> None:
+        packet_t = Struct().add_member("addr", Bit(13)).add_member("valid", Logic(1))
+        self.assertEqual(len(packet_t.members), 2)
+        self.assertEqual(packet_t.members[0].name, "addr")
+        self.assertEqual(packet_t.members[1].type.state_kind, "logic")

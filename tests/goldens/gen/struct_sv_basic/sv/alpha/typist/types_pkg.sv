@@ -8,7 +8,11 @@ package types_pkg;
 
   typedef bit [W-1:0] addr_t;
 
-  typedef logic signed [7:0] mask_t;
-
   typedef bit flag_t;
+
+  typedef struct packed {
+    addr_t addr;
+    flag_t enable;
+    logic [1:0] mode;
+  } header_t;
 endpackage

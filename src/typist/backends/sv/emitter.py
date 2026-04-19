@@ -6,7 +6,18 @@ from math import ceil
 from pathlib import Path
 
 from typist.backends.common.headers import render_header
-from typist.ir.nodes import BinaryExprIR, ConstRefExprIR, IntLiteralExprIR, ModuleIR, RepoIR, ScalarAliasIR, UnaryExprIR
+from typist.ir.nodes import (
+    BinaryExprIR,
+    ConstRefExprIR,
+    IntLiteralExprIR,
+    ModuleIR,
+    RepoIR,
+    ScalarAliasIR,
+    ScalarTypeSpecIR,
+    StructIR,
+    TypeRefIR,
+    UnaryExprIR,
+)
 from typist.paths import sv_module_output_path, sv_test_module_output_path
 
 
@@ -22,7 +33,7 @@ def emit_sv(repo: RepoIR) -> list[Path]:
         synth_output_path.parent.mkdir(parents=True, exist_ok=True)
         synth_output_path.write_text(render_module_sv(module), encoding="utf-8")
         written_paths.append(synth_output_path)
-        if module.types:
+        if any(isinstance(type_ir, ScalarAliasIR) for type_ir in module.types):
             test_output_path = sv_test_module_output_path(
                 repo_root=repo_root,
                 module_path=repo_root / module.ref.repo_relative_path,
@@ -37,6 +48,8 @@ def render_module_sv(module: ModuleIR) -> str:
     """Render a synthesizable SystemVerilog package."""
     header = render_header(source_paths=(module.ref.repo_relative_path,))
     body_lines = [f"package {module.ref.basename}_pkg;"]
+    const_lines: list[str] = []
+    type_blocks: list[list[str]] = []
     for const in module.constants:
         sv_type, sv_literal = _render_sv_const(
             value=const.resolved_value,
@@ -47,9 +60,22 @@ def render_module_sv(module: ModuleIR) -> str:
             sv_expr = sv_literal
         else:
             sv_expr = _render_sv_expr(expr=const.expr)
-        body_lines.append(f"  localparam {sv_type} {const.name} = {sv_expr};")
-    for scalar_alias in module.types:
-        body_lines.append(f"  {_render_sv_scalar_alias(type_ir=scalar_alias)}")
+        const_lines.append(f"  localparam {sv_type} {const.name} = {sv_expr};")
+    for type_ir in module.types:
+        if isinstance(type_ir, ScalarAliasIR):
+            type_blocks.append([f"  {_render_sv_scalar_alias(type_ir=type_ir)}"])
+        elif isinstance(type_ir, StructIR):
+            type_blocks.append([f"  {line}" for line in _render_sv_struct(type_ir=type_ir)])
+    if const_lines or type_blocks:
+        body_lines.append("")
+    if const_lines:
+        body_lines.extend(const_lines)
+    if const_lines and type_blocks:
+        body_lines.append("")
+    for index, type_block in enumerate(type_blocks):
+        if index > 0:
+            body_lines.append("")
+        body_lines.extend(type_block)
     body_lines.append("endpackage")
     return f"{header}\n" + "\n".join(body_lines) + "\n"
 
@@ -62,6 +88,8 @@ def render_module_test_sv(module: ModuleIR) -> str:
         f"  import {module.ref.basename}_pkg::*;",
     ]
     for type_ir in module.types:
+        if not isinstance(type_ir, ScalarAliasIR):
+            continue
         body_lines.append("")
         body_lines.extend(f"  {line}" for line in _render_sv_scalar_helper_class(type_ir=type_ir))
     body_lines.append("endpackage")
@@ -107,10 +135,36 @@ def _render_sv_scalar_alias(*, type_ir: ScalarAliasIR) -> str:
     """Render a named scalar typedef."""
     base_type = type_ir.state_kind
     signed_kw = " signed" if type_ir.signed else ""
-    width_expr = _render_sv_expr(expr=type_ir.width_expr)
     if type_ir.resolved_width == 1:
         return f"typedef {base_type}{signed_kw} {type_ir.name};"
-    return f"typedef {base_type}{signed_kw} [{width_expr}-1:0] {type_ir.name};"
+    return f"typedef {base_type}{signed_kw} {_render_sv_packed_range(expr=type_ir.width_expr, resolved_width=type_ir.resolved_width)} {type_ir.name};"
+
+
+def _render_sv_struct(*, type_ir: StructIR) -> list[str]:
+    """Render one packed struct typedef."""
+    lines = ["typedef struct packed {"]
+    for field in type_ir.fields:
+        lines.append(f"  {_render_sv_struct_field(field_type=field.type_ir)} {field.name};")
+    lines.append(f"}} {type_ir.name};")
+    return lines
+
+
+def _render_sv_struct_field(*, field_type: ScalarTypeSpecIR | TypeRefIR) -> str:
+    """Render one packed struct field type."""
+    if isinstance(field_type, TypeRefIR):
+        return field_type.name
+    base_type = field_type.state_kind
+    signed_kw = " signed" if field_type.signed else ""
+    if field_type.resolved_width == 1:
+        return f"{base_type}{signed_kw}"
+    return f"{base_type}{signed_kw} {_render_sv_packed_range(expr=field_type.width_expr, resolved_width=field_type.resolved_width)}"
+
+
+def _render_sv_packed_range(*, expr: IntLiteralExprIR | ConstRefExprIR | UnaryExprIR | BinaryExprIR, resolved_width: int) -> str:
+    """Render a packed range, simplifying literal widths."""
+    if isinstance(expr, IntLiteralExprIR):
+        return f"[{resolved_width - 1}:0]"
+    return f"[{_render_sv_expr(expr=expr)}-1:0]"
 
 
 def _render_sv_scalar_helper_class(*, type_ir: ScalarAliasIR) -> list[str]:

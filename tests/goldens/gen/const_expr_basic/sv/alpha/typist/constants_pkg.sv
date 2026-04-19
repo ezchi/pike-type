@@ -3,6 +3,7 @@
 // Do not edit by hand.
 
 package constants_pkg;
+
   localparam int A = 32'sd3;
   localparam int B = (A + 5);
   localparam int C = ((A << 2) | 1);

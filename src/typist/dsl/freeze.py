@@ -9,8 +9,25 @@ from types import ModuleType
 from typist.discovery.module_name import module_basename, module_name_from_path
 from typist.dsl.const import Const, ConstExpr
 from typist.dsl.scalar import ScalarType
+from typist.dsl.struct import StructType
 from typist.errors import ValidationError
-from typist.ir.nodes import BinaryExprIR, ConstIR, ConstRefExprIR, IntLiteralExprIR, ModuleIR, ModuleRefIR, RepoIR, ScalarAliasIR, SourceSpanIR, UnaryExprIR
+from typist.ir.nodes import (
+    BinaryExprIR,
+    ConstIR,
+    ConstRefExprIR,
+    IntLiteralExprIR,
+    ModuleIR,
+    ModuleRefIR,
+    RepoIR,
+    ScalarAliasIR,
+    ScalarTypeSpecIR,
+    SourceSpanIR,
+    StructFieldIR,
+    StructIR,
+    TypeDefIR,
+    TypeRefIR,
+    UnaryExprIR,
+)
 from typist.paths import repo_relative_path
 
 
@@ -65,17 +82,41 @@ def build_const_definition_map(*, loaded_modules: list[LoadedModule]) -> dict[in
     return definition_map
 
 
-def freeze_module(*, loaded_module: LoadedModule, definition_map: dict[int, tuple[ModuleRefIR, str]]) -> FrozenModule:
+def build_type_definition_map(*, loaded_modules: list[LoadedModule]) -> dict[int, tuple[ModuleRefIR, str]]:
+    """Build a stable mapping from top-level type object id to defining module/name."""
+    definition_map: dict[int, tuple[ModuleRefIR, str]] = {}
+    for loaded in loaded_modules:
+        seen_object_ids: set[int] = set()
+        for name, value in loaded.module.__dict__.items():
+            if name.startswith("__"):
+                continue
+            if not isinstance(value, (ScalarType, StructType)):
+                continue
+            if id(value) in seen_object_ids:
+                raise ValidationError(f"{loaded.module_path}: DSL object bound to multiple top-level names")
+            seen_object_ids.add(id(value))
+            if Path(value.source.path).resolve() != loaded.module_path.resolve():
+                continue
+            definition_map[id(value)] = (loaded.module_ref, name)
+    return definition_map
+
+
+def freeze_module(
+    *,
+    loaded_module: LoadedModule,
+    definition_map: dict[int, tuple[ModuleRefIR, str]],
+    type_definition_map: dict[int, tuple[ModuleRefIR, str]],
+) -> FrozenModule:
     """Freeze one loaded Python module into constant-only IR."""
     module_source = SourceSpanIR(path=str(loaded_module.module_path), line=1, column=None)
     local_constants: list[ConstIR] = []
-    local_types: list[ScalarAliasIR] = []
+    local_types: list[TypeDefIR] = []
     seen_local_object_ids: set[int] = set()
 
     for name, value in loaded_module.module.__dict__.items():
         if name.startswith("__"):
             continue
-        if isinstance(value, (Const, ScalarType)):
+        if isinstance(value, (Const, ScalarType, StructType)):
             if id(value) in seen_local_object_ids:
                 raise ValidationError(f"{loaded_module.module_path}: DSL object bound to multiple top-level names")
             seen_local_object_ids.add(id(value))
@@ -96,6 +137,28 @@ def freeze_module(*, loaded_module: LoadedModule, definition_map: dict[int, tupl
                         signed=value.signed,
                         width_expr=_freeze_expr(expr=value.width_expr, definition_map=definition_map),
                         resolved_width=value.width_value,
+                    )
+                )
+            elif isinstance(value, StructType):
+                if Path(value.source.path).resolve() != loaded_module.module_path.resolve():
+                    continue
+                struct_source = SourceSpanIR(
+                    path=value.source.path,
+                    line=value.source.line,
+                    column=value.source.column,
+                )
+                local_types.append(
+                    StructIR(
+                        name=name,
+                        source=struct_source,
+                        fields=tuple(
+                            _freeze_struct_field(
+                                member=member,
+                                definition_map=definition_map,
+                                type_definition_map=type_definition_map,
+                            )
+                            for member in value.members
+                        ),
                     )
                 )
             continue
@@ -138,6 +201,47 @@ def freeze_repo(*, repo_root: Path, frozen_modules: list[FrozenModule], tool_ver
     """Assemble repository IR from frozen modules."""
     modules = tuple(frozen_module.module_ir for frozen_module in frozen_modules)
     return RepoIR(repo_root=str(repo_root), modules=modules, tool_version=tool_version)
+
+
+def _freeze_struct_field(
+    *,
+    member,
+    definition_map: dict[int, tuple[ModuleRefIR, str]],
+    type_definition_map: dict[int, tuple[ModuleRefIR, str]],
+) -> StructFieldIR:
+    """Freeze one struct field."""
+    field_source = SourceSpanIR(path=member.source.path, line=member.source.line, column=member.source.column)
+    return StructFieldIR(
+        name=member.name,
+        source=field_source,
+        type_ir=_freeze_field_type(
+            type_obj=member.type,
+            definition_map=definition_map,
+            type_definition_map=type_definition_map,
+        ),
+        rand=member.rand,
+    )
+
+
+def _freeze_field_type(
+    *,
+    type_obj: ScalarType,
+    definition_map: dict[int, tuple[ModuleRefIR, str]],
+    type_definition_map: dict[int, tuple[ModuleRefIR, str]],
+):
+    """Freeze a struct field type."""
+    source = SourceSpanIR(path=type_obj.source.path, line=type_obj.source.line, column=type_obj.source.column)
+    resolved = type_definition_map.get(id(type_obj))
+    if resolved is not None:
+        module_ref, type_name = resolved
+        return TypeRefIR(module=module_ref, name=type_name, source=source)
+    return ScalarTypeSpecIR(
+        source=source,
+        state_kind=type_obj.state_kind,
+        signed=type_obj.signed,
+        width_expr=_freeze_expr(expr=type_obj.width_expr, definition_map=definition_map),
+        resolved_width=type_obj.width_value,
+    )
 
 
 def _freeze_expr(*, expr: ConstExpr, definition_map: dict[int, tuple[ModuleRefIR, str]]):

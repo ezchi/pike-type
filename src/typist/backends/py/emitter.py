@@ -31,14 +31,15 @@ def emit_py(repo: RepoIR) -> list[Path]:
 def render_module_py(module: ModuleIR) -> str:
     """Render a constant-only Python module."""
     header = render_header(source_paths=(module.ref.repo_relative_path,)).replace("//", "#")
+    scalar_types = [type_ir for type_ir in module.types if isinstance(type_ir, ScalarAliasIR)]
     body_lines: list[str] = []
-    if module.types:
+    if scalar_types:
         body_lines.append("from __future__ import annotations")
         body_lines.append("")
     body_lines.extend(f"{const.name} = {_render_py_expr(expr=const.expr)}" for const in module.constants)
-    if module.constants and module.types:
+    if module.constants and scalar_types:
         body_lines.append("")
-    for index, type_ir in enumerate(module.types):
+    for index, type_ir in enumerate(scalar_types):
         if index > 0:
             body_lines.append("")
         body_lines.extend(_render_py_scalar_alias(type_ir=type_ir))

@@ -3,5 +3,6 @@
 // Do not edit by hand.
 
 package more_pkg;
+
   localparam int BAZ = 32'sd7;
 endpackage

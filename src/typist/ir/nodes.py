@@ -76,6 +76,51 @@ class ScalarAliasIR:
 
 
 @dataclass(frozen=True, slots=True)
+class ScalarTypeSpecIR:
+    """Inline scalar type specification."""
+
+    source: SourceSpanIR
+    state_kind: str
+    signed: bool
+    width_expr: ExprIR
+    resolved_width: int
+
+
+@dataclass(frozen=True, slots=True)
+class TypeRefIR:
+    """Reference to another named type."""
+
+    module: ModuleRefIR
+    name: str
+    source: SourceSpanIR
+
+
+type FieldTypeIR = ScalarTypeSpecIR | TypeRefIR
+
+
+@dataclass(frozen=True, slots=True)
+class StructFieldIR:
+    """Frozen packed struct field."""
+
+    name: str
+    source: SourceSpanIR
+    type_ir: FieldTypeIR
+    rand: bool
+
+
+@dataclass(frozen=True, slots=True)
+class StructIR:
+    """Frozen packed struct definition."""
+
+    name: str
+    source: SourceSpanIR
+    fields: tuple[StructFieldIR, ...]
+
+
+type TypeDefIR = ScalarAliasIR | StructIR
+
+
+@dataclass(frozen=True, slots=True)
 class ConstIR:
     """Frozen constant definition."""
 
@@ -102,7 +147,7 @@ class ModuleIR:
     ref: ModuleRefIR
     source: SourceSpanIR
     constants: tuple[ConstIR, ...]
-    types: tuple[ScalarAliasIR, ...]
+    types: tuple[TypeDefIR, ...]
     dependencies: tuple[ModuleDependencyIR, ...]
 
 
