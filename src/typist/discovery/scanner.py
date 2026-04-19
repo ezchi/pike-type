@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from typist.errors import TypistError
+from typist.paths import GEN_DIRNAME
 
 
 def is_under_typist_dir(path: Path) -> bool:
@@ -27,5 +28,7 @@ def find_typist_modules(repo_root: Path) -> list[Path]:
     return sorted(
         path
         for path in repo_root.rglob("*.py")
-        if path.name != "__init__.py" and is_under_typist_dir(path.relative_to(repo_root))
+        if path.name != "__init__.py"
+        and GEN_DIRNAME not in path.relative_to(repo_root).parts
+        and is_under_typist_dir(path.relative_to(repo_root))
     )

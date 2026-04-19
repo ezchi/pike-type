@@ -3,6 +3,6 @@
 // Do not edit by hand.
 
 package constants_pkg;
-  localparam int FOO = 3;
-  localparam int BAR = 0;
+  localparam int FOO = 32'sd3;
+  localparam int BAR = 32'sd0;
 endpackage

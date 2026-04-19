@@ -33,13 +33,46 @@ class IntLiteralExprIR:
 
 
 @dataclass(frozen=True, slots=True)
+class ConstRefExprIR:
+    """Reference to a named constant."""
+
+    module: ModuleRefIR
+    name: str
+    source: SourceSpanIR
+
+
+@dataclass(frozen=True, slots=True)
+class UnaryExprIR:
+    """Unary expression."""
+
+    op: str
+    operand: ExprIR
+    source: SourceSpanIR
+
+
+@dataclass(frozen=True, slots=True)
+class BinaryExprIR:
+    """Binary expression."""
+
+    op: str
+    lhs: ExprIR
+    rhs: ExprIR
+    source: SourceSpanIR
+
+
+type ExprIR = IntLiteralExprIR | ConstRefExprIR | UnaryExprIR | BinaryExprIR
+
+
+@dataclass(frozen=True, slots=True)
 class ConstIR:
     """Frozen constant definition."""
 
     name: str
     source: SourceSpanIR
-    expr: IntLiteralExprIR
+    expr: ExprIR
     resolved_value: int
+    resolved_signed: bool
+    resolved_width: int
 
 
 @dataclass(frozen=True, slots=True)

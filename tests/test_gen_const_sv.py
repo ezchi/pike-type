@@ -67,6 +67,60 @@ class GenConstSvIntegrationTest(unittest.TestCase):
             self.assertEqual(result.returncode, 0, msg=result.stderr)
             assert_trees_equal(self, expected_root, repo_dir / "gen")
 
+    def test_generated_python_outputs_are_not_rescanned_as_dsl_modules(self) -> None:
+        fixture_root = FIXTURES_DIR / "const_sv_basic" / "project"
+        expected_root = GOLDENS_DIR / "const_sv_basic"
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo_dir = Path(tmp_dir) / "project"
+            copy_tree(fixture_root, repo_dir)
+            cli_file = repo_dir / "alpha" / "typist" / "constants.py"
+
+            first_result = self.run_typist(repo_dir, str(cli_file))
+            self.assertEqual(first_result.returncode, 0, msg=first_result.stderr)
+
+            second_result = self.run_typist(repo_dir, str(cli_file))
+            self.assertEqual(second_result.returncode, 0, msg=second_result.stderr)
+            assert_trees_equal(self, expected_root, repo_dir / "gen")
+
+    def test_generates_safe_cpp_types_for_wide_constants(self) -> None:
+        fixture_root = FIXTURES_DIR / "const_cpp_wide" / "project"
+        expected_root = GOLDENS_DIR / "const_cpp_wide"
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo_dir = Path(tmp_dir) / "project"
+            copy_tree(fixture_root, repo_dir)
+            cli_file = repo_dir / "alpha" / "typist" / "constants.py"
+
+            result = self.run_typist(repo_dir, str(cli_file))
+
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            assert_trees_equal(self, expected_root, repo_dir / "gen")
+
+    def test_generates_explicit_uint32_constant_when_requested(self) -> None:
+        fixture_root = FIXTURES_DIR / "const_cpp_explicit_uint32" / "project"
+        expected_root = GOLDENS_DIR / "const_cpp_explicit_uint32"
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo_dir = Path(tmp_dir) / "project"
+            copy_tree(fixture_root, repo_dir)
+            cli_file = repo_dir / "alpha" / "typist" / "constants.py"
+
+            result = self.run_typist(repo_dir, str(cli_file))
+
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            assert_trees_equal(self, expected_root, repo_dir / "gen")
+
+    def test_generates_const_expressions(self) -> None:
+        fixture_root = FIXTURES_DIR / "const_expr_basic" / "project"
+        expected_root = GOLDENS_DIR / "const_expr_basic"
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo_dir = Path(tmp_dir) / "project"
+            copy_tree(fixture_root, repo_dir)
+            cli_file = repo_dir / "alpha" / "typist" / "constants.py"
+
+            result = self.run_typist(repo_dir, str(cli_file))
+
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            assert_trees_equal(self, expected_root, repo_dir / "gen")
+
     def test_rejects_typist_file_with_no_dsl_objects(self) -> None:
         fixture_root = FIXTURES_DIR / "no_dsl" / "project"
         with tempfile.TemporaryDirectory() as tmp_dir:

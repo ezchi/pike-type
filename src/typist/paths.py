@@ -29,6 +29,33 @@ def sv_runtime_output_path(*, repo_root: Path) -> Path:
     return gen_root(repo_root=repo_root) / "sv" / "runtime" / "typist_runtime_pkg.sv"
 
 
+def py_module_output_path(*, repo_root: Path, module_path: Path) -> Path:
+    """Return the generated Python file path for a module."""
+    relative = repo_relative_path(module_path, repo_root=repo_root)
+    return gen_root(repo_root=repo_root) / "py" / relative.parent / f"{relative.stem}_types.py"
+
+
+def py_runtime_output_path(*, repo_root: Path) -> Path:
+    """Return the generated Python runtime module path."""
+    return gen_root(repo_root=repo_root) / "py" / "runtime" / "typist_runtime.py"
+
+
+def cpp_header_output_path(*, repo_root: Path, module_path: Path) -> Path:
+    """Return the generated C++ header path for a module."""
+    relative = repo_relative_path(module_path, repo_root=repo_root)
+    return gen_root(repo_root=repo_root) / "cpp" / relative.parent / f"{relative.stem}_types.hpp"
+
+
+def cpp_runtime_header_output_path(*, repo_root: Path) -> Path:
+    """Return the generated C++ runtime header path."""
+    return gen_root(repo_root=repo_root) / "cpp" / "runtime" / "typist_runtime.hpp"
+
+
+def cpp_runtime_source_output_path(*, repo_root: Path) -> Path:
+    """Return the generated C++ runtime source path."""
+    return gen_root(repo_root=repo_root) / "cpp" / "runtime" / "typist_runtime.cpp"
+
+
 def manifest_output_path(*, repo_root: Path) -> Path:
     """Return the generated manifest file path."""
     return gen_root(repo_root=repo_root) / "typist_manifest.json"

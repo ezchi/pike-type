@@ -14,3 +14,18 @@ class ConstDslTest(unittest.TestCase):
         const = Const(3)
         self.assertEqual(const.value, 3)
         self.assertGreaterEqual(const.source.line, 1)
+
+    def test_accepts_explicit_signed_and_width(self) -> None:
+        const = Const(3, signed=False, width=32)
+        self.assertFalse(const.signed)
+        self.assertEqual(const.width, 32)
+
+    def test_builds_expression_and_resolves_value(self) -> None:
+        base = Const(3)
+        expr_const = Const((base << 2) | 1)
+        self.assertEqual(expr_const.value, 13)
+
+    def test_rejects_true_division_operator(self) -> None:
+        base = Const(3)
+        with self.assertRaisesRegex(Exception, "// only"):
+            _ = base / 2
