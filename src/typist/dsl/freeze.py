@@ -27,6 +27,7 @@ from typist.ir.nodes import (
     TypeDefIR,
     TypeRefIR,
     UnaryExprIR,
+    padding_bits as compute_padding_bits,
 )
 from typist.paths import repo_relative_path
 
@@ -211,21 +212,32 @@ def _freeze_struct_field(
 ) -> StructFieldIR:
     """Freeze one struct field."""
     field_source = SourceSpanIR(path=member.source.path, line=member.source.line, column=member.source.column)
+    type_ir = _freeze_field_type(
+        type_obj=member.type,
+        definition_map=definition_map,
+        type_definition_map=type_definition_map,
+    )
+    if isinstance(type_ir, ScalarTypeSpecIR):
+        pad = compute_padding_bits(type_ir.resolved_width)
+    elif isinstance(type_ir, TypeRefIR):
+        if isinstance(member.type, ScalarType):
+            pad = compute_padding_bits(member.type.width_value)
+        else:
+            pad = 0
+    else:
+        pad = 0
     return StructFieldIR(
         name=member.name,
         source=field_source,
-        type_ir=_freeze_field_type(
-            type_obj=member.type,
-            definition_map=definition_map,
-            type_definition_map=type_definition_map,
-        ),
+        type_ir=type_ir,
         rand=member.rand,
+        padding_bits=pad,
     )
 
 
 def _freeze_field_type(
     *,
-    type_obj: ScalarType,
+    type_obj: ScalarType | StructType,
     definition_map: dict[int, tuple[ModuleRefIR, str]],
     type_definition_map: dict[int, tuple[ModuleRefIR, str]],
 ):
@@ -235,6 +247,8 @@ def _freeze_field_type(
     if resolved is not None:
         module_ref, type_name = resolved
         return TypeRefIR(module=module_ref, name=type_name, source=source)
+    if isinstance(type_obj, StructType):
+        raise ValidationError("inline anonymous struct member types are not supported in this milestone")
     return ScalarTypeSpecIR(
         source=source,
         state_kind=type_obj.state_kind,

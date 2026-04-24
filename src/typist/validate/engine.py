@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from typist.errors import ValidationError
-from typist.ir.nodes import RepoIR, ScalarAliasIR, ScalarTypeSpecIR, StructIR, TypeRefIR
+from typist.ir.nodes import ModuleIR, RepoIR, ScalarAliasIR, ScalarTypeSpecIR, StructIR, TypeRefIR
+
 
 def validate_repo(repo: RepoIR) -> None:
     """Validate the frozen repository IR."""
@@ -68,14 +69,18 @@ def validate_repo(repo: RepoIR) -> None:
                                 f"{module.ref.repo_relative_path}: struct {type_ir.name} field {field.name} "
                                 f"references unknown type {field.type_ir.name}"
                             )
-                        if not isinstance(target, ScalarAliasIR):
+                        if not isinstance(target, (ScalarAliasIR, StructIR)):
                             raise ValidationError(
                                 f"{module.ref.repo_relative_path}: struct {type_ir.name} field {field.name} "
-                                "must reference a scalar alias in this milestone"
+                                "must reference a scalar alias or struct in this milestone"
                             )
                         continue
                 continue
             raise ValidationError(f"{module.ref.repo_relative_path}: unsupported type node {type(type_ir).__name__}")
+        _validate_struct_cycles(module=module, type_index=type_index)
+        _validate_pad_suffix_reservation(module=module)
+        _validate_signed_width_constraint(module=module, type_index=type_index)
+        _validate_generated_identifier_collision(module=module)
 
 
 def _validate_const_storage(*, value: int, signed: bool, width: int, module_path: str, const_name: str) -> None:
@@ -93,3 +98,95 @@ def _validate_const_storage(*, value: int, signed: bool, width: int, module_path
             f"{module_path}: constant {const_name} out of supported range for "
             f"{'signed' if signed else 'unsigned'} {width}-bit storage [{minimum}, {maximum}]"
         )
+
+
+def _validate_struct_cycles(*, module, type_index: dict[tuple[str, str], object]) -> None:
+    """Reject direct or indirect same-module struct cycles."""
+    struct_graph: dict[str, set[str]] = {}
+    for type_ir in module.types:
+        if not isinstance(type_ir, StructIR):
+            continue
+        deps: set[str] = set()
+        for field in type_ir.fields:
+            if not isinstance(field.type_ir, TypeRefIR):
+                continue
+            target = type_index.get((field.type_ir.module.python_module_name, field.type_ir.name))
+            if isinstance(target, StructIR):
+                deps.add(target.name)
+        struct_graph[type_ir.name] = deps
+
+    visiting: set[str] = set()
+    visited: set[str] = set()
+
+    def visit(name: str) -> None:
+        if name in visited:
+            return
+        if name in visiting:
+            raise ValidationError(f"{module.ref.repo_relative_path}: recursive struct dependency detected at {name}")
+        visiting.add(name)
+        for dep in struct_graph.get(name, set()):
+            visit(dep)
+        visiting.remove(name)
+        visited.add(name)
+
+    for name in struct_graph:
+        visit(name)
+
+
+def _validate_pad_suffix_reservation(*, module: ModuleIR) -> None:
+    """FR-11: Reject struct fields whose name ends with _pad."""
+    for type_ir in module.types:
+        if not isinstance(type_ir, StructIR):
+            continue
+        for field in type_ir.fields:
+            if field.name.endswith("_pad"):
+                raise ValidationError(
+                    f"{module.ref.repo_relative_path}: struct {type_ir.name} "
+                    f"field '{field.name}' uses reserved '_pad' suffix"
+                )
+
+
+def _validate_signed_width_constraint(
+    *,
+    module: ModuleIR,
+    type_index: dict[tuple[str, str], object],
+) -> None:
+    """FR-13: Reject signed scalars with width > 64."""
+    for type_ir in module.types:
+        if isinstance(type_ir, ScalarAliasIR):
+            if type_ir.signed and type_ir.resolved_width > 64:
+                raise ValidationError(
+                    f"{module.ref.repo_relative_path}: signed scalar {type_ir.name} "
+                    f"width {type_ir.resolved_width} exceeds maximum 64-bit signed width"
+                )
+        elif isinstance(type_ir, StructIR):
+            for field in type_ir.fields:
+                if isinstance(field.type_ir, ScalarTypeSpecIR):
+                    if field.type_ir.signed and field.type_ir.resolved_width > 64:
+                        raise ValidationError(
+                            f"{module.ref.repo_relative_path}: struct {type_ir.name} "
+                            f"signed field '{field.name}' width {field.type_ir.resolved_width} "
+                            "exceeds maximum 64-bit signed width"
+                        )
+
+
+def _validate_generated_identifier_collision(*, module: ModuleIR) -> None:
+    """FR-14: Reject modules where constant names collide with generated identifiers."""
+    reserved: dict[str, str] = {}
+    for type_ir in module.types:
+        base = type_ir.name[:-2] if type_ir.name.endswith("_t") else type_ir.name
+        upper_base = base.upper()
+        for ident in (
+            f"LP_{upper_base}_WIDTH",
+            f"LP_{upper_base}_BYTE_COUNT",
+            f"pack_{base}",
+            f"unpack_{base}",
+        ):
+            reserved[ident] = type_ir.name
+    const_names = {const.name for const in module.constants}
+    for const_name in const_names:
+        if const_name in reserved:
+            raise ValidationError(
+                f"{module.ref.repo_relative_path}: constant '{const_name}' "
+                f"collides with generated identifier for type '{reserved[const_name]}'"
+            )

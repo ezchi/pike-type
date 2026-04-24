@@ -6,8 +6,8 @@ package types_test_pkg;
   import types_pkg::*;
 
   class addr_ct;
-    localparam int WIDTH = W;
-    localparam int BYTE_COUNT = 2;
+    localparam int WIDTH = LP_ADDR_WIDTH;
+    localparam int BYTE_COUNT = LP_ADDR_BYTE_COUNT;
     rand addr_t value;
   
     function new(addr_t value_in = '0);
@@ -23,25 +23,25 @@ package types_test_pkg;
     endfunction
   
     task automatic to_bytes(output byte unsigned bytes[]);
-      bit [BYTE_COUNT*8-1:0] packed_bits;
+      logic [15:0] padded;
       bytes = new[BYTE_COUNT];
-      packed_bits = '0;
-      packed_bits[WIDTH-1:0] = value;
+      padded = '0;
+      padded[WIDTH-1:0] = value;
       for (int idx = 0; idx < BYTE_COUNT; idx++) begin
-        bytes[idx] = packed_bits[idx*8 +: 8];
+        bytes[idx] = padded[(BYTE_COUNT - 1 - idx)*8 +: 8];
       end
     endtask
   
     function void from_bytes(input byte unsigned bytes[]);
-      bit [BYTE_COUNT*8-1:0] packed_bits;
+      logic [15:0] padded;
       if (bytes.size() != BYTE_COUNT) begin
         $fatal(1, "addr_ct.from_bytes size mismatch: expected %0d got %0d", BYTE_COUNT, bytes.size());
       end
-      packed_bits = '0;
+      padded = '0;
       for (int idx = 0; idx < BYTE_COUNT; idx++) begin
-        packed_bits[idx*8 +: 8] = bytes[idx];
+        padded[(BYTE_COUNT - 1 - idx)*8 +: 8] = bytes[idx];
       end
-      value = addr_t'(packed_bits[WIDTH-1:0]);
+      value = addr_t'(padded[WIDTH-1:0]);
     endfunction
   
     function void copy(input addr_ct rhs);
@@ -64,8 +64,8 @@ package types_test_pkg;
   endclass : addr_ct
 
   class mask_ct;
-    localparam int WIDTH = 8;
-    localparam int BYTE_COUNT = 1;
+    localparam int WIDTH = LP_MASK_WIDTH;
+    localparam int BYTE_COUNT = LP_MASK_BYTE_COUNT;
     rand mask_t value;
   
     function new(mask_t value_in = '0);
@@ -81,25 +81,25 @@ package types_test_pkg;
     endfunction
   
     task automatic to_bytes(output byte unsigned bytes[]);
-      bit [BYTE_COUNT*8-1:0] packed_bits;
+      logic [7:0] padded;
       bytes = new[BYTE_COUNT];
-      packed_bits = '0;
-      packed_bits[WIDTH-1:0] = value;
+      padded = '0;
+      padded[WIDTH-1:0] = value;
       for (int idx = 0; idx < BYTE_COUNT; idx++) begin
-        bytes[idx] = packed_bits[idx*8 +: 8];
+        bytes[idx] = padded[(BYTE_COUNT - 1 - idx)*8 +: 8];
       end
     endtask
   
     function void from_bytes(input byte unsigned bytes[]);
-      bit [BYTE_COUNT*8-1:0] packed_bits;
+      logic [7:0] padded;
       if (bytes.size() != BYTE_COUNT) begin
         $fatal(1, "mask_ct.from_bytes size mismatch: expected %0d got %0d", BYTE_COUNT, bytes.size());
       end
-      packed_bits = '0;
+      padded = '0;
       for (int idx = 0; idx < BYTE_COUNT; idx++) begin
-        packed_bits[idx*8 +: 8] = bytes[idx];
+        padded[(BYTE_COUNT - 1 - idx)*8 +: 8] = bytes[idx];
       end
-      value = mask_t'(packed_bits[WIDTH-1:0]);
+      value = mask_t'(padded[WIDTH-1:0]);
     endfunction
   
     function void copy(input mask_ct rhs);
@@ -122,8 +122,8 @@ package types_test_pkg;
   endclass : mask_ct
 
   class flag_ct;
-    localparam int WIDTH = 1;
-    localparam int BYTE_COUNT = 1;
+    localparam int WIDTH = LP_FLAG_WIDTH;
+    localparam int BYTE_COUNT = LP_FLAG_BYTE_COUNT;
     rand flag_t value;
   
     function new(flag_t value_in = '0);
@@ -139,25 +139,25 @@ package types_test_pkg;
     endfunction
   
     task automatic to_bytes(output byte unsigned bytes[]);
-      bit [BYTE_COUNT*8-1:0] packed_bits;
+      logic [7:0] padded;
       bytes = new[BYTE_COUNT];
-      packed_bits = '0;
-      packed_bits[WIDTH-1:0] = value;
+      padded = '0;
+      padded[WIDTH-1:0] = value;
       for (int idx = 0; idx < BYTE_COUNT; idx++) begin
-        bytes[idx] = packed_bits[idx*8 +: 8];
+        bytes[idx] = padded[(BYTE_COUNT - 1 - idx)*8 +: 8];
       end
     endtask
   
     function void from_bytes(input byte unsigned bytes[]);
-      bit [BYTE_COUNT*8-1:0] packed_bits;
+      logic [7:0] padded;
       if (bytes.size() != BYTE_COUNT) begin
         $fatal(1, "flag_ct.from_bytes size mismatch: expected %0d got %0d", BYTE_COUNT, bytes.size());
       end
-      packed_bits = '0;
+      padded = '0;
       for (int idx = 0; idx < BYTE_COUNT; idx++) begin
-        packed_bits[idx*8 +: 8] = bytes[idx];
+        padded[(BYTE_COUNT - 1 - idx)*8 +: 8] = bytes[idx];
       end
-      value = flag_t'(packed_bits[WIDTH-1:0]);
+      value = flag_t'(padded[WIDTH-1:0]);
     endfunction
   
     function void copy(input flag_ct rhs);

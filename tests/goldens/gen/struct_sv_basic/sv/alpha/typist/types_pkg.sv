@@ -6,13 +6,59 @@ package types_pkg;
 
   localparam int W = 32'sd13;
 
-  typedef bit [W-1:0] addr_t;
+  localparam int LP_ADDR_WIDTH = W;
+  localparam int LP_ADDR_BYTE_COUNT = 2;
+
+  typedef bit [LP_ADDR_WIDTH-1:0] addr_t;
+
+  function automatic logic [LP_ADDR_WIDTH-1:0] pack_addr(addr_t a);
+    return a;
+  endfunction
+
+  function automatic addr_t unpack_addr(logic [LP_ADDR_WIDTH-1:0] a);
+    return a;
+  endfunction
+
+  localparam int LP_FLAG_WIDTH = 1;
+  localparam int LP_FLAG_BYTE_COUNT = 1;
 
   typedef bit flag_t;
 
+  function automatic logic [LP_FLAG_WIDTH-1:0] pack_flag(flag_t a);
+    return a;
+  endfunction
+
+  function automatic flag_t unpack_flag(logic [LP_FLAG_WIDTH-1:0] a);
+    return a;
+  endfunction
+
+  localparam int LP_HEADER_WIDTH = 16;
+  localparam int LP_HEADER_BYTE_COUNT = 4;
+
   typedef struct packed {
+    logic [2:0] addr_pad;
     addr_t addr;
+    logic [6:0] enable_pad;
     flag_t enable;
+    logic [5:0] mode_pad;
     logic [1:0] mode;
   } header_t;
+
+  function automatic logic [LP_HEADER_WIDTH-1:0] pack_header(header_t a);
+    return {pack_addr(a.addr), pack_flag(a.enable), a.mode};
+  endfunction
+
+  function automatic header_t unpack_header(logic [LP_HEADER_WIDTH-1:0] a);
+    header_t result;
+    int unsigned offset;
+    result = '0;
+    offset = 0;
+    result.mode = a[offset +: 2];
+    offset += 2;
+    result.enable = unpack_flag(a[offset +: LP_FLAG_WIDTH]);
+    offset += LP_FLAG_WIDTH;
+    result.addr = unpack_addr(a[offset +: LP_ADDR_WIDTH]);
+    offset += LP_ADDR_WIDTH;
+    return result;
+  endfunction
 endpackage

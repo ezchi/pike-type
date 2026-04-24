@@ -20,8 +20,15 @@ class addr_ct:
             raise ValueError("addr_ct value out of range")
         self.value = value
 
+    def _to_packed_int(self) -> int:
+        return self.value
+
+    @classmethod
+    def _from_packed_int(cls, packed: int) -> "addr_ct":
+        return cls(packed)
+
     def to_bytes(self) -> bytes:
-        return self.value.to_bytes(self.BYTE_COUNT, "little", signed=False)
+        return self.value.to_bytes(self.BYTE_COUNT, "big", signed=False)
 
     @classmethod
     def from_bytes(cls, data: bytes | bytearray) -> "addr_ct":
@@ -30,7 +37,8 @@ class addr_ct:
         raw = bytes(data)
         if len(raw) != cls.BYTE_COUNT:
             raise ValueError("addr_ct.from_bytes size mismatch")
-        return cls(int.from_bytes(raw, "little", signed=False))
+        value = int.from_bytes(raw, "big", signed=False) & cls.MAX_VALUE
+        return cls(value)
 
     def clone(self) -> "addr_ct":
         return type(self)(self.value)
@@ -67,8 +75,21 @@ class mask_ct:
             raise ValueError("mask_ct value out of range")
         self.value = value
 
+    def _to_packed_int(self) -> int:
+        return self.value & self.MASK
+
+    @classmethod
+    def _from_packed_int(cls, packed: int) -> "mask_ct":
+        value = packed & cls.MASK
+        signed_value = value - (1 << cls.WIDTH) if (value & cls.SIGN_BIT) else value
+        return cls(signed_value)
+
     def to_bytes(self) -> bytes:
-        return (self.value & self.MASK).to_bytes(self.BYTE_COUNT, "little", signed=False)
+        mask = self.MASK
+        packed = self.value & mask
+        if self.value < 0:
+            packed |= ((1 << (self.BYTE_COUNT * 8)) - 1) ^ mask
+        return packed.to_bytes(self.BYTE_COUNT, "big", signed=False)
 
     @classmethod
     def from_bytes(cls, data: bytes | bytearray) -> "mask_ct":
@@ -77,11 +98,14 @@ class mask_ct:
         raw = bytes(data)
         if len(raw) != cls.BYTE_COUNT:
             raise ValueError("mask_ct.from_bytes size mismatch")
-        value = int.from_bytes(raw, "little", signed=False)
-        if value > cls.MASK:
-            raise ValueError("mask_ct.from_bytes value out of range")
-        signed_value = value - (1 << cls.WIDTH) if (value & cls.SIGN_BIT) else value
-        return cls(signed_value)
+        raw_int = int.from_bytes(raw, "big", signed=False)
+        data_bits = raw_int & cls.MASK
+        padding = raw_int >> cls.WIDTH
+        sign_bit = (data_bits >> (cls.WIDTH - 1)) & 1
+        expected_padding = ((1 << 0) - 1) if sign_bit else 0
+        if padding != expected_padding:
+            raise ValueError("mask_ct.from_bytes signed padding mismatch")
+        return cls._from_packed_int(data_bits)
 
     def clone(self) -> "mask_ct":
         return type(self)(self.value)
@@ -116,8 +140,15 @@ class flag_ct:
             raise ValueError("flag_ct value out of range")
         self.value = value
 
+    def _to_packed_int(self) -> int:
+        return self.value
+
+    @classmethod
+    def _from_packed_int(cls, packed: int) -> "flag_ct":
+        return cls(packed)
+
     def to_bytes(self) -> bytes:
-        return self.value.to_bytes(self.BYTE_COUNT, "little", signed=False)
+        return self.value.to_bytes(self.BYTE_COUNT, "big", signed=False)
 
     @classmethod
     def from_bytes(cls, data: bytes | bytearray) -> "flag_ct":
@@ -126,7 +157,8 @@ class flag_ct:
         raw = bytes(data)
         if len(raw) != cls.BYTE_COUNT:
             raise ValueError("flag_ct.from_bytes size mismatch")
-        return cls(int.from_bytes(raw, "little", signed=False))
+        value = int.from_bytes(raw, "big", signed=False) & cls.MAX_VALUE
+        return cls(value)
 
     def clone(self) -> "flag_ct":
         return type(self)(self.value)

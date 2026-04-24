@@ -6,6 +6,7 @@
 #define ALPHA_TYPIST_TYPES_TYPES_HPP
 
 #include <cstdint>
+#include <cstddef>
 #include <stdexcept>
 #include <vector>
 
@@ -20,15 +21,16 @@ class addr_ct {
   static constexpr std::size_t kByteCount = 2;
   using value_type = std::uint16_t;
   value_type value;
+  static constexpr std::uint64_t kMask = 8191U;
   static constexpr value_type kMaxValue = static_cast<value_type>(8191U);
   addr_ct() : value(0) {}
-  explicit addr_ct(value_type value_in) : value(validate_value(value_in)) {}
+  addr_ct(value_type value_in) : value(validate_value(value_in)) {}
 
   std::vector<std::uint8_t> to_bytes() const {
     std::vector<std::uint8_t> bytes(kByteCount, 0);
     std::uint64_t bits = static_cast<std::uint64_t>(value);
     for (std::size_t idx = 0; idx < kByteCount; ++idx) {
-      bytes[idx] = static_cast<std::uint8_t>((bits >> (8U * idx)) & 0xFFU);
+      bytes[kByteCount - 1 - idx] = static_cast<std::uint8_t>((bits >> (8U * idx)) & 0xFFU);
     }
     return bytes;
   }
@@ -39,9 +41,9 @@ class addr_ct {
     }
     std::uint64_t bits = 0;
     for (std::size_t idx = 0; idx < kByteCount; ++idx) {
-      bits |= static_cast<std::uint64_t>(bytes[idx]) << (8U * idx);
+      bits = (bits << 8U) | bytes[idx];
     }
-    value = validate_value(static_cast<value_type>(bits));
+    value = validate_value(static_cast<value_type>(bits & kMask));
   }
 
   addr_ct clone() const {
@@ -70,15 +72,16 @@ class flag_ct {
   static constexpr std::size_t kByteCount = 1;
   using value_type = std::uint8_t;
   value_type value;
+  static constexpr std::uint64_t kMask = 1U;
   static constexpr value_type kMaxValue = static_cast<value_type>(1U);
   flag_ct() : value(0) {}
-  explicit flag_ct(value_type value_in) : value(validate_value(value_in)) {}
+  flag_ct(value_type value_in) : value(validate_value(value_in)) {}
 
   std::vector<std::uint8_t> to_bytes() const {
     std::vector<std::uint8_t> bytes(kByteCount, 0);
     std::uint64_t bits = static_cast<std::uint64_t>(value);
     for (std::size_t idx = 0; idx < kByteCount; ++idx) {
-      bytes[idx] = static_cast<std::uint8_t>((bits >> (8U * idx)) & 0xFFU);
+      bytes[kByteCount - 1 - idx] = static_cast<std::uint8_t>((bits >> (8U * idx)) & 0xFFU);
     }
     return bytes;
   }
@@ -89,9 +92,9 @@ class flag_ct {
     }
     std::uint64_t bits = 0;
     for (std::size_t idx = 0; idx < kByteCount; ++idx) {
-      bits |= static_cast<std::uint64_t>(bytes[idx]) << (8U * idx);
+      bits = (bits << 8U) | bytes[idx];
     }
-    value = validate_value(static_cast<value_type>(bits));
+    value = validate_value(static_cast<value_type>(bits & kMask));
   }
 
   flag_ct clone() const {
@@ -106,6 +109,92 @@ class flag_ct {
 
  private:
   static value_type validate_value(value_type value_in) {
+    if (value_in > kMaxValue) {
+      throw std::out_of_range("value out of range");
+    }
+    return value_in;
+  }
+};
+
+class header_ct {
+ public:
+  static constexpr std::size_t kWidth = 16;
+  static constexpr std::size_t kByteCount = 4;
+  addr_ct addr{};
+  flag_ct enable{};
+  std::uint8_t mode = 0;
+
+  header_ct() = default;
+
+  std::vector<std::uint8_t> to_bytes() const {
+    std::vector<std::uint8_t> bytes;
+    bytes.reserve(kByteCount);
+    {
+      auto field_bytes = addr.to_bytes();
+      bytes.insert(bytes.end(), field_bytes.begin(), field_bytes.end());
+    }
+    {
+      auto field_bytes = enable.to_bytes();
+      bytes.insert(bytes.end(), field_bytes.begin(), field_bytes.end());
+    }
+    {
+      auto field_bytes = encode_mode(mode);
+      bytes.insert(bytes.end(), field_bytes.begin(), field_bytes.end());
+    }
+    return bytes;
+  }
+
+  void from_bytes(const std::vector<std::uint8_t>& bytes) {
+    if (bytes.size() != kByteCount) {
+      throw std::invalid_argument("byte width mismatch");
+    }
+    std::size_t offset = 0;
+    {
+      std::vector<std::uint8_t> field_bytes(bytes.begin() + static_cast<std::ptrdiff_t>(offset), bytes.begin() + static_cast<std::ptrdiff_t>(offset + 2));
+      addr.from_bytes(field_bytes);
+      offset += 2;
+    }
+    {
+      std::vector<std::uint8_t> field_bytes(bytes.begin() + static_cast<std::ptrdiff_t>(offset), bytes.begin() + static_cast<std::ptrdiff_t>(offset + 1));
+      enable.from_bytes(field_bytes);
+      offset += 1;
+    }
+    mode = decode_mode(bytes, offset);
+    offset += 1;
+  }
+
+  header_ct clone() const {
+    header_ct cloned;
+    cloned.addr = addr.clone();
+    cloned.enable = enable.clone();
+    cloned.mode = mode;
+    return cloned;
+  }
+
+  bool operator==(const header_ct& other) const = default;
+
+ private:
+  static std::vector<std::uint8_t> encode_mode(std::uint8_t v) {
+    validate_mode(v);
+    std::vector<std::uint8_t> b(1, 0U);
+    std::uint64_t bits = static_cast<std::uint64_t>(v);
+    for (std::size_t i = 0; i < 1; ++i) {
+      b[1 - 1 - i] = static_cast<std::uint8_t>((bits >> (8U * i)) & 0xFFU);
+    }
+    return b;
+  }
+
+  static std::uint8_t decode_mode(const std::vector<std::uint8_t>& bytes, std::size_t offset) {
+    std::uint64_t bits = 0;
+    for (std::size_t i = 0; i < 1; ++i) {
+      bits = (bits << 8U) | bytes[offset + i];
+    }
+    bits &= 3U;
+    return validate_mode(static_cast<std::uint8_t>(bits));
+  }
+
+  static std::uint8_t validate_mode(std::uint8_t value_in) {
+    constexpr std::uint8_t kMaxValue = static_cast<std::uint8_t>(3U);
     if (value_in > kMaxValue) {
       throw std::out_of_range("value out of range");
     }

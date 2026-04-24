@@ -1,13 +1,28 @@
-"""C++ backend."""
+"""C++ backend — big-endian, byte-aligned padding."""
 
 from __future__ import annotations
 
-from math import ceil
 from pathlib import Path
 
 from typist.backends.common.headers import render_header
 from typist.errors import ValidationError
-from typist.ir.nodes import BinaryExprIR, ConstRefExprIR, IntLiteralExprIR, ModuleIR, RepoIR, ScalarAliasIR, UnaryExprIR
+from typist.ir.nodes import (
+    BinaryExprIR,
+    ConstRefExprIR,
+    ExprIR,
+    FieldTypeIR,
+    IntLiteralExprIR,
+    ModuleIR,
+    RepoIR,
+    ScalarAliasIR,
+    ScalarTypeSpecIR,
+    StructIR,
+    StructFieldIR,
+    TypeDefIR,
+    TypeRefIR,
+    UnaryExprIR,
+    byte_count,
+)
 from typist.paths import cpp_header_output_path
 
 
@@ -27,14 +42,15 @@ def emit_cpp(repo: RepoIR) -> list[Path]:
 
 
 def render_module_hpp(module: ModuleIR) -> str:
-    """Render a constant-only C++ header."""
+    """Render a C++ header."""
     header = render_header(source_paths=(module.ref.repo_relative_path,))
     guard = "_".join((*module.ref.namespace_parts, "types_hpp")).upper().replace(".", "_")
     namespace = "::".join(part for part in module.ref.namespace_parts if part != "typist")
-    scalar_types = [type_ir for type_ir in module.types if isinstance(type_ir, ScalarAliasIR)]
+    type_index = {type_ir.name: type_ir for type_ir in module.types}
+    has_types = bool(module.types)
     body_lines = [f"#ifndef {guard}", f"#define {guard}", "", "#include <cstdint>"]
-    if scalar_types:
-        body_lines.extend(["#include <stdexcept>", "#include <vector>"])
+    if has_types:
+        body_lines.extend(["#include <cstddef>", "#include <stdexcept>", "#include <vector>"])
     body_lines.append("")
     if namespace:
         body_lines.append(f"namespace {namespace} {{")
@@ -50,12 +66,15 @@ def render_module_hpp(module: ModuleIR) -> str:
         else:
             cpp_expr = _render_cpp_expr(expr=const.expr)
         body_lines.append(f"constexpr {cpp_type} {const.name} = {cpp_expr};")
-    if module.constants and scalar_types:
+    if module.constants and module.types:
         body_lines.append("")
-    for index, type_ir in enumerate(scalar_types):
+    for index, type_ir in enumerate(module.types):
         if index > 0:
             body_lines.append("")
-        body_lines.extend(_render_cpp_scalar_alias(type_ir=type_ir))
+        if isinstance(type_ir, ScalarAliasIR):
+            body_lines.extend(_render_cpp_scalar_alias(type_ir=type_ir))
+        else:
+            body_lines.extend(_render_cpp_struct(type_ir=type_ir, type_index=type_index))
     if namespace:
         body_lines.append("")
         body_lines.append(f"}}  // namespace {namespace}")
@@ -76,7 +95,7 @@ def _render_cpp_const(*, value: int, signed: bool, width: int) -> tuple[str, str
     raise ValidationError(f"unsupported C++ constant storage: signed={signed}, width={width}")
 
 
-def _render_cpp_expr(*, expr: IntLiteralExprIR | ConstRefExprIR | UnaryExprIR | BinaryExprIR) -> str:
+def _render_cpp_expr(*, expr: ExprIR) -> str:
     """Render an expression into C++ syntax."""
     match expr:
         case IntLiteralExprIR(value=value):
@@ -91,20 +110,28 @@ def _render_cpp_expr(*, expr: IntLiteralExprIR | ConstRefExprIR | UnaryExprIR | 
             raise ValidationError(f"unsupported C++ expression node {type(expr).__name__}")
 
 
+# ---------------------------------------------------------------------------
+# Scalar alias wrapper class
+# ---------------------------------------------------------------------------
+
+
 def _render_cpp_scalar_alias(*, type_ir: ScalarAliasIR) -> list[str]:
-    """Render a C++ scalar wrapper class."""
-    class_name = _scalar_class_name(type_ir.name)
-    byte_count = ceil(type_ir.resolved_width / 8)
+    """Render a C++ scalar wrapper class (big-endian serialization)."""
+    class_name = _type_class_name(type_ir.name)
+    bc = byte_count(type_ir.resolved_width)
+    width = type_ir.resolved_width
     lines = [
         f"class {class_name} {{",
         " public:",
-        f"  static constexpr std::size_t kWidth = {type_ir.resolved_width};",
+        f"  static constexpr std::size_t kWidth = {width};",
         f"  static constexpr bool kSigned = {'true' if type_ir.signed else 'false'};",
-        f"  static constexpr std::size_t kByteCount = {byte_count};",
+        f"  static constexpr std::size_t kByteCount = {bc};",
     ]
-    if type_ir.resolved_width <= 64:
-        value_type = _cpp_scalar_value_type(type_ir=type_ir)
-        mask_literal = _cpp_unsigned_literal((1 << type_ir.resolved_width) - 1 if type_ir.resolved_width < 64 else 2**64 - 1)
+    if width <= 64:
+        value_type = _cpp_scalar_value_type(width=width, signed=type_ir.signed)
+        mask_literal = _cpp_unsigned_literal(
+            (1 << width) - 1 if width < 64 else 2**64 - 1
+        )
         lines.extend(
             [
                 f"  using value_type = {value_type};",
@@ -112,21 +139,37 @@ def _render_cpp_scalar_alias(*, type_ir: ScalarAliasIR) -> list[str]:
             ]
         )
         if type_ir.signed:
-            minimum = -(2 ** (type_ir.resolved_width - 1))
-            maximum = 2 ** (type_ir.resolved_width - 1) - 1
+            minimum = -(2 ** (width - 1))
+            maximum = 2 ** (width - 1) - 1
+            pad_bits = bc * 8 - width
             lines.extend(
                 [
                     f"  static constexpr value_type kMinValue = static_cast<value_type>({minimum});",
                     f"  static constexpr value_type kMaxValue = static_cast<value_type>({maximum});",
                     f"  static constexpr std::uint64_t kMask = {mask_literal};",
                     f"  {class_name}() : value(0) {{}}",
-                    f"  explicit {class_name}(value_type value_in) : value(validate_value(value_in)) {{}}",
+                    f"  {class_name}(value_type value_in) : value(validate_value(value_in)) {{}}",
                     "",
                     "  std::vector<std::uint8_t> to_bytes() const {",
                     "    std::vector<std::uint8_t> bytes(kByteCount, 0);",
                     "    std::uint64_t bits = static_cast<std::uint64_t>(value) & kMask;",
+                ]
+            )
+            # Sign-extend into padding bits
+            if pad_bits > 0:
+                lines.extend(
+                    [
+                        f"    if (value < 0 && kWidth < kByteCount * 8U) {{",
+                        f"      for (std::size_t i = kWidth; i < kByteCount * 8U; ++i) {{",
+                        "        bits |= (1ULL << i);",
+                        "      }",
+                        "    }",
+                    ]
+                )
+            lines.extend(
+                [
                     "    for (std::size_t idx = 0; idx < kByteCount; ++idx) {",
-                    "      bytes[idx] = static_cast<std::uint8_t>((bits >> (8U * idx)) & 0xFFU);",
+                    "      bytes[kByteCount - 1 - idx] = static_cast<std::uint8_t>((bits >> (8U * idx)) & 0xFFU);",
                     "    }",
                     "    return bytes;",
                     "  }",
@@ -137,13 +180,41 @@ def _render_cpp_scalar_alias(*, type_ir: ScalarAliasIR) -> list[str]:
                     "    }",
                     "    std::uint64_t bits = 0;",
                     "    for (std::size_t idx = 0; idx < kByteCount; ++idx) {",
-                    "      bits |= static_cast<std::uint64_t>(bytes[idx]) << (8U * idx);",
+                    "      bits = (bits << 8U) | bytes[idx];",
                     "    }",
+                ]
+            )
+            # Validate sign extension in padding bits
+            if pad_bits > 0:
+                byte_mask = _cpp_unsigned_literal((1 << (bc * 8)) - 1 if bc * 8 < 64 else 2**64 - 1)
+                lines.extend(
+                    [
+                        "    std::uint64_t data_bits = bits & kMask;",
+                        f"    bool sign_bit = ((data_bits >> ({width - 1}U)) & 1U) != 0U;",
+                        f"    std::uint64_t expected_pad = sign_bit ? (~kMask & {byte_mask}) : 0ULL;",
+                        f"    if ((bits & ~kMask & {byte_mask}) != expected_pad) {{",
+                        '      throw std::invalid_argument("signed padding mismatch");',
+                        "    }",
+                    ]
+                )
+            lines.extend(
+                [
                     "    bits &= kMask;",
                     "    std::int64_t signed_value = static_cast<std::int64_t>(bits);",
-                    f"    if ((bits & {_cpp_unsigned_literal(1 << (type_ir.resolved_width - 1))}) != 0U && kWidth < 64) {{",
-                    f"      signed_value -= static_cast<std::int64_t>({_cpp_unsigned_literal(1 << type_ir.resolved_width)});",
-                    "    }",
+                ]
+            )
+            if width < 64:
+                sign_bit_lit = _cpp_unsigned_literal(1 << (width - 1))
+                full_range_lit = _cpp_unsigned_literal(1 << width)
+                lines.extend(
+                    [
+                        f"    if ((bits & {sign_bit_lit}) != 0U && kWidth < 64) {{",
+                        f"      signed_value -= static_cast<std::int64_t>({full_range_lit});",
+                        "    }",
+                    ]
+                )
+            lines.extend(
+                [
                     "    value = validate_value(static_cast<value_type>(signed_value));",
                     "  }",
                     "",
@@ -155,8 +226,7 @@ def _render_cpp_scalar_alias(*, type_ir: ScalarAliasIR) -> list[str]:
                     "    return value;",
                     "  }",
                     "",
-                    "  bool operator==(const "
-                    f"{class_name}& other) const = default;",
+                    f"  bool operator==(const {class_name}& other) const = default;",
                     "",
                     " private:",
                     "  static value_type validate_value(value_type value_in) {",
@@ -169,18 +239,20 @@ def _render_cpp_scalar_alias(*, type_ir: ScalarAliasIR) -> list[str]:
                 ]
             )
         else:
-            maximum = 2 ** type_ir.resolved_width - 1 if type_ir.resolved_width < 64 else 2**64 - 1
+            # Unsigned <= 64
+            maximum = 2**width - 1 if width < 64 else 2**64 - 1
             lines.extend(
                 [
+                    f"  static constexpr std::uint64_t kMask = {mask_literal};",
                     f"  static constexpr value_type kMaxValue = static_cast<value_type>({_cpp_unsigned_literal(maximum)});",
                     f"  {class_name}() : value(0) {{}}",
-                    f"  explicit {class_name}(value_type value_in) : value(validate_value(value_in)) {{}}",
+                    f"  {class_name}(value_type value_in) : value(validate_value(value_in)) {{}}",
                     "",
                     "  std::vector<std::uint8_t> to_bytes() const {",
                     "    std::vector<std::uint8_t> bytes(kByteCount, 0);",
                     "    std::uint64_t bits = static_cast<std::uint64_t>(value);",
                     "    for (std::size_t idx = 0; idx < kByteCount; ++idx) {",
-                    "      bytes[idx] = static_cast<std::uint8_t>((bits >> (8U * idx)) & 0xFFU);",
+                    "      bytes[kByteCount - 1 - idx] = static_cast<std::uint8_t>((bits >> (8U * idx)) & 0xFFU);",
                     "    }",
                     "    return bytes;",
                     "  }",
@@ -191,9 +263,9 @@ def _render_cpp_scalar_alias(*, type_ir: ScalarAliasIR) -> list[str]:
                     "    }",
                     "    std::uint64_t bits = 0;",
                     "    for (std::size_t idx = 0; idx < kByteCount; ++idx) {",
-                    "      bits |= static_cast<std::uint64_t>(bytes[idx]) << (8U * idx);",
+                    "      bits = (bits << 8U) | bytes[idx];",
                     "    }",
-                    "    value = validate_value(static_cast<value_type>(bits));",
+                    "    value = validate_value(static_cast<value_type>(bits & kMask));",
                     "  }",
                     "",
                     f"  {class_name} clone() const {{",
@@ -204,8 +276,7 @@ def _render_cpp_scalar_alias(*, type_ir: ScalarAliasIR) -> list[str]:
                     "    return value;",
                     "  }",
                     "",
-                    "  bool operator==(const "
-                    f"{class_name}& other) const = default;",
+                    f"  bool operator==(const {class_name}& other) const = default;",
                     "",
                     " private:",
                     "  static value_type validate_value(value_type value_in) {",
@@ -218,12 +289,15 @@ def _render_cpp_scalar_alias(*, type_ir: ScalarAliasIR) -> list[str]:
                 ]
             )
     else:
+        # Wide unsigned > 64 — vector<uint8_t> in big-endian order
+        pad = bc * 8 - width
+        msb_mask = _cpp_unsigned_literal((1 << (8 - pad)) - 1) if pad > 0 else "0xFFU"
         lines.extend(
             [
                 "  using value_type = std::vector<std::uint8_t>;",
                 "  value_type value;",
                 f"  {class_name}() : value(kByteCount, 0U) {{}}",
-                f"  explicit {class_name}(const value_type& value_in) : value(validate_value(value_in)) {{}}",
+                f"  {class_name}(const value_type& value_in) : value(validate_value(value_in)) {{}}",
                 "",
                 "  std::vector<std::uint8_t> to_bytes() const {",
                 "    return value;",
@@ -237,15 +311,16 @@ def _render_cpp_scalar_alias(*, type_ir: ScalarAliasIR) -> list[str]:
                 f"    return {class_name}(value);",
                 "  }",
                 "",
-                "  bool operator==(const "
-                f"{class_name}& other) const = default;",
+                f"  bool operator==(const {class_name}& other) const = default;",
                 "",
                 " private:",
                 "  static value_type validate_value(const value_type& value_in) {",
                 "    if (value_in.size() != kByteCount) {",
                 '      throw std::invalid_argument("byte width mismatch");',
                 "    }",
-                "    return value_in;",
+                "    value_type normalized = value_in;",
+                f"    normalized[0] &= {msb_mask};",
+                "    return normalized;",
                 "  }",
                 "};",
             ]
@@ -253,15 +328,488 @@ def _render_cpp_scalar_alias(*, type_ir: ScalarAliasIR) -> list[str]:
     return lines
 
 
-def _cpp_scalar_value_type(*, type_ir: ScalarAliasIR) -> str:
-    """Choose the public C++ storage type for a scalar alias."""
-    if type_ir.resolved_width <= 8:
-        return "std::int8_t" if type_ir.signed else "std::uint8_t"
-    if type_ir.resolved_width <= 16:
-        return "std::int16_t" if type_ir.signed else "std::uint16_t"
-    if type_ir.resolved_width <= 32:
-        return "std::int32_t" if type_ir.signed else "std::uint32_t"
-    return "std::int64_t" if type_ir.signed else "std::uint64_t"
+# ---------------------------------------------------------------------------
+# Struct wrapper class
+# ---------------------------------------------------------------------------
+
+
+def _render_cpp_struct(*, type_ir: StructIR, type_index: dict[str, TypeDefIR]) -> list[str]:
+    """Render a C++ struct wrapper class (per-field byte-aligned, big-endian)."""
+    class_name = _type_class_name(type_ir.name)
+    data_width = _resolved_type_width(type_ir=type_ir, type_index=type_index)
+    total_bc = _type_byte_count(type_ir=type_ir, type_index=type_index)
+    lines = [
+        f"class {class_name} {{",
+        " public:",
+        f"  static constexpr std::size_t kWidth = {data_width};",
+        f"  static constexpr std::size_t kByteCount = {total_bc};",
+    ]
+    for field_ir in type_ir.fields:
+        lines.append(f"  {_render_cpp_field_decl(field_ir=field_ir, type_index=type_index)}")
+    lines.extend(
+        [
+            "",
+            f"  {class_name}() = default;",
+            "",
+            "  std::vector<std::uint8_t> to_bytes() const {",
+            "    std::vector<std::uint8_t> bytes;",
+            "    bytes.reserve(kByteCount);",
+        ]
+    )
+    for field_ir in type_ir.fields:
+        lines.extend(_render_cpp_struct_pack_step(field_ir=field_ir, type_index=type_index))
+    lines.extend(
+        [
+            "    return bytes;",
+            "  }",
+            "",
+            "  void from_bytes(const std::vector<std::uint8_t>& bytes) {",
+            "    if (bytes.size() != kByteCount) {",
+            '      throw std::invalid_argument("byte width mismatch");',
+            "    }",
+            "    std::size_t offset = 0;",
+        ]
+    )
+    for field_ir in type_ir.fields:
+        lines.extend(_render_cpp_struct_unpack_step(field_ir=field_ir, type_index=type_index))
+    lines.extend(
+        [
+            "  }",
+            "",
+            f"  {class_name} clone() const {{",
+            f"    {class_name} cloned;",
+        ]
+    )
+    for field_ir in type_ir.fields:
+        if _is_struct_ref(field_type=field_ir.type_ir, type_index=type_index) or _is_scalar_ref(
+            field_type=field_ir.type_ir, type_index=type_index
+        ):
+            lines.append(f"    cloned.{field_ir.name} = {field_ir.name}.clone();")
+        elif _is_wide_inline_scalar(field_type=field_ir.type_ir):
+            lines.append(f"    cloned.{field_ir.name} = {field_ir.name};")
+        else:
+            lines.append(f"    cloned.{field_ir.name} = {field_ir.name};")
+    lines.extend(
+        [
+            "    return cloned;",
+            "  }",
+            "",
+            f"  bool operator==(const {class_name}& other) const = default;",
+        ]
+    )
+    # Per-field encode/decode helpers
+    all_helpers: list[str] = []
+    for field_ir in type_ir.fields:
+        helper_lines = _render_cpp_inline_scalar_helpers(owner_name=class_name, field_ir=field_ir)
+        if helper_lines:
+            if all_helpers:
+                all_helpers.append("")
+            all_helpers.extend(helper_lines)
+    if all_helpers:
+        lines.append("")
+        lines.append(" private:")
+        lines.extend(all_helpers)
+    lines.append("};")
+    return lines
+
+
+# ---------------------------------------------------------------------------
+# Field declarations
+# ---------------------------------------------------------------------------
+
+
+def _render_cpp_field_decl(*, field_ir: StructFieldIR, type_index: dict[str, TypeDefIR]) -> str:
+    """Render one public C++ field declaration."""
+    type_name = _render_cpp_field_type(field_ir=field_ir, type_index=type_index)
+    default = _render_cpp_field_default(field_ir=field_ir, type_index=type_index)
+    return f"{type_name} {field_ir.name}{default};"
+
+
+def _render_cpp_field_type(*, field_ir: StructFieldIR, type_index: dict[str, TypeDefIR]) -> str:
+    """Render one C++ field type."""
+    match field_ir.type_ir:
+        case TypeRefIR(name=name):
+            return _type_class_name(type_index[name].name)
+        case ScalarTypeSpecIR(signed=signed, resolved_width=resolved_width):
+            if resolved_width <= 64:
+                return _cpp_scalar_value_type(width=resolved_width, signed=signed)
+            return "std::vector<std::uint8_t>"
+        case _:
+            raise ValidationError(f"unsupported C++ struct field type {type(field_ir.type_ir).__name__}")
+
+
+def _render_cpp_field_default(*, field_ir: StructFieldIR, type_index: dict[str, TypeDefIR]) -> str:
+    """Render one C++ field default initializer."""
+    match field_ir.type_ir:
+        case TypeRefIR():
+            return "{}"
+        case ScalarTypeSpecIR(resolved_width=resolved_width):
+            if resolved_width <= 64:
+                return " = 0"
+            bc = byte_count(resolved_width)
+            return f"{{std::vector<std::uint8_t>({bc}, 0U)}}"
+        case _:
+            raise ValidationError(f"unsupported C++ struct field type {type(field_ir.type_ir).__name__}")
+
+
+# ---------------------------------------------------------------------------
+# Struct to_bytes — per-field big-endian serialization
+# ---------------------------------------------------------------------------
+
+
+def _render_cpp_struct_pack_step(*, field_ir: StructFieldIR, type_index: dict[str, TypeDefIR]) -> list[str]:
+    """Render one C++ struct packing step (big-endian, per-field byte-aligned)."""
+    lines: list[str] = []
+    if isinstance(field_ir.type_ir, ScalarTypeSpecIR) and field_ir.type_ir.resolved_width <= 64:
+        # Inline scalar ≤64 — use encode helper
+        lines.extend(
+            [
+                "    {",
+                f"      auto field_bytes = encode_{field_ir.name}({field_ir.name});",
+                "      bytes.insert(bytes.end(), field_bytes.begin(), field_bytes.end());",
+                "    }",
+            ]
+        )
+    elif isinstance(field_ir.type_ir, ScalarTypeSpecIR):
+        # Wide inline scalar >64 — vector IS big-endian bytes, but need to normalize MSB padding
+        bc = byte_count(field_ir.type_ir.resolved_width)
+        pad = bc * 8 - field_ir.type_ir.resolved_width
+        lines.extend(
+            [
+                "    {",
+                f"      auto field_bytes = encode_{field_ir.name}({field_ir.name});",
+                "      bytes.insert(bytes.end(), field_bytes.begin(), field_bytes.end());",
+                "    }",
+            ]
+        )
+    elif isinstance(field_ir.type_ir, TypeRefIR):
+        target = type_index[field_ir.type_ir.name]
+        if isinstance(target, StructIR):
+            lines.extend(
+                [
+                    "    {",
+                    f"      auto field_bytes = {field_ir.name}.to_bytes();",
+                    "      bytes.insert(bytes.end(), field_bytes.begin(), field_bytes.end());",
+                    "    }",
+                ]
+            )
+        elif isinstance(target, ScalarAliasIR):
+            lines.extend(
+                [
+                    "    {",
+                    f"      auto field_bytes = {field_ir.name}.to_bytes();",
+                    "      bytes.insert(bytes.end(), field_bytes.begin(), field_bytes.end());",
+                    "    }",
+                ]
+            )
+        else:
+            raise ValidationError(f"unsupported type ref target {type(target).__name__}")
+    else:
+        raise ValidationError(f"unsupported C++ struct field type {type(field_ir.type_ir).__name__}")
+    return lines
+
+
+# ---------------------------------------------------------------------------
+# Struct from_bytes — per-field big-endian deserialization
+# ---------------------------------------------------------------------------
+
+
+def _render_cpp_struct_unpack_step(
+    *, field_ir: StructFieldIR, type_index: dict[str, TypeDefIR]
+) -> list[str]:
+    """Render one C++ struct unpacking step (big-endian, per-field byte-aligned)."""
+    fbc = _field_byte_count(field=field_ir, type_index=type_index)
+    lines: list[str] = []
+    if isinstance(field_ir.type_ir, ScalarTypeSpecIR) and field_ir.type_ir.resolved_width <= 64:
+        lines.extend(
+            [
+                f"    {field_ir.name} = decode_{field_ir.name}(bytes, offset);",
+                f"    offset += {fbc};",
+            ]
+        )
+    elif isinstance(field_ir.type_ir, ScalarTypeSpecIR):
+        # Wide inline scalar
+        lines.extend(
+            [
+                f"    {field_ir.name} = decode_{field_ir.name}(bytes, offset);",
+                f"    offset += {fbc};",
+            ]
+        )
+    elif isinstance(field_ir.type_ir, TypeRefIR):
+        target = type_index[field_ir.type_ir.name]
+        if isinstance(target, (StructIR, ScalarAliasIR)):
+            lines.extend(
+                [
+                    "    {",
+                    f"      std::vector<std::uint8_t> field_bytes(bytes.begin() + static_cast<std::ptrdiff_t>(offset),"
+                    f" bytes.begin() + static_cast<std::ptrdiff_t>(offset + {fbc}));",
+                    f"      {field_ir.name}.from_bytes(field_bytes);",
+                    f"      offset += {fbc};",
+                    "    }",
+                ]
+            )
+        else:
+            raise ValidationError(f"unsupported type ref target {type(target).__name__}")
+    else:
+        raise ValidationError(f"unsupported C++ struct field type {type(field_ir.type_ir).__name__}")
+    return lines
+
+
+# ---------------------------------------------------------------------------
+# Inline scalar encode/decode helpers (private section of struct class)
+# ---------------------------------------------------------------------------
+
+
+def _render_cpp_inline_scalar_helpers(*, owner_name: str, field_ir: StructFieldIR) -> list[str]:
+    """Render private helper functions for one inline scalar field (big-endian)."""
+    if not isinstance(field_ir.type_ir, ScalarTypeSpecIR):
+        return []
+    width = field_ir.type_ir.resolved_width
+    bc = byte_count(width)
+    pad = bc * 8 - width
+    if width <= 64:
+        return _render_narrow_inline_helpers(field_ir=field_ir, width=width, bc=bc, pad=pad)
+    return _render_wide_inline_helpers(field_ir=field_ir, width=width, bc=bc, pad=pad)
+
+
+def _render_narrow_inline_helpers(
+    *, field_ir: StructFieldIR, width: int, bc: int, pad: int
+) -> list[str]:
+    """Encode/decode helpers for inline scalar ≤64 bits."""
+    assert isinstance(field_ir.type_ir, ScalarTypeSpecIR)
+    signed = field_ir.type_ir.signed
+    value_type = _cpp_scalar_value_type(width=width, signed=signed)
+    mask = (1 << width) - 1 if width < 64 else 2**64 - 1
+    mask_lit = _cpp_unsigned_literal(mask)
+    lines: list[str] = []
+
+    if signed:
+        # --- encode (signed) ---
+        lines.extend(
+            [
+                f"  static std::vector<std::uint8_t> encode_{field_ir.name}({value_type} v) {{",
+                f"    validate_{field_ir.name}(v);",
+                f"    constexpr std::uint64_t mask = {mask_lit};",
+                "    std::uint64_t bits = static_cast<std::uint64_t>(v) & mask;",
+            ]
+        )
+        if pad > 0:
+            lines.extend(
+                [
+                    "    if (v < 0) {",
+                    "      bits |= ~mask;",
+                    "    }",
+                ]
+            )
+        lines.extend(
+            [
+                f"    std::vector<std::uint8_t> b({bc}, 0U);",
+                f"    for (std::size_t i = 0; i < {bc}; ++i) {{",
+                f"      b[{bc} - 1 - i] = static_cast<std::uint8_t>((bits >> (8U * i)) & 0xFFU);",
+                "    }",
+                "    return b;",
+                "  }",
+                "",
+            ]
+        )
+        # --- decode (signed) ---
+        lines.extend(
+            [
+                f"  static {value_type} decode_{field_ir.name}(const std::vector<std::uint8_t>& bytes, std::size_t offset) {{",
+                "    std::uint64_t bits = 0;",
+                f"    for (std::size_t i = 0; i < {bc}; ++i) {{",
+                "      bits = (bits << 8U) | bytes[offset + i];",
+                "    }",
+            ]
+        )
+        if pad > 0:
+            byte_total_mask = (1 << (bc * 8)) - 1 if bc * 8 < 64 else 2**64 - 1
+            byte_total_mask_lit = _cpp_unsigned_literal(byte_total_mask)
+            lines.extend(
+                [
+                    f"    constexpr std::uint64_t mask = {mask_lit};",
+                    "    std::uint64_t data_bits = bits & mask;",
+                    f"    bool sign_bit = ((data_bits >> ({width - 1}U)) & 1U) != 0U;",
+                    f"    std::uint64_t expected_pad = sign_bit ? (~mask & {byte_total_mask_lit}) : 0ULL;",
+                    f"    if ((bits & ~mask & {byte_total_mask_lit}) != expected_pad) {{",
+                    '      throw std::invalid_argument("signed padding mismatch");',
+                    "    }",
+                    "    bits = data_bits;",
+                ]
+            )
+        else:
+            lines.append(f"    constexpr std::uint64_t mask = {mask_lit};")
+            lines.append("    bits &= mask;")
+        lines.append("    std::int64_t signed_value = static_cast<std::int64_t>(bits);")
+        if width < 64:
+            sign_bit_lit = _cpp_unsigned_literal(1 << (width - 1))
+            full_range_lit = _cpp_unsigned_literal(1 << width)
+            lines.extend(
+                [
+                    f"    if ((bits & {sign_bit_lit}) != 0U) {{",
+                    f"      signed_value -= static_cast<std::int64_t>({full_range_lit});",
+                    "    }",
+                ]
+            )
+        lines.extend(
+            [
+                f"    return validate_{field_ir.name}(static_cast<{value_type}>(signed_value));",
+                "  }",
+                "",
+            ]
+        )
+    else:
+        # --- encode (unsigned) ---
+        lines.extend(
+            [
+                f"  static std::vector<std::uint8_t> encode_{field_ir.name}({value_type} v) {{",
+                f"    validate_{field_ir.name}(v);",
+                f"    std::vector<std::uint8_t> b({bc}, 0U);",
+                "    std::uint64_t bits = static_cast<std::uint64_t>(v);",
+                f"    for (std::size_t i = 0; i < {bc}; ++i) {{",
+                f"      b[{bc} - 1 - i] = static_cast<std::uint8_t>((bits >> (8U * i)) & 0xFFU);",
+                "    }",
+                "    return b;",
+                "  }",
+                "",
+            ]
+        )
+        # --- decode (unsigned) ---
+        lines.extend(
+            [
+                f"  static {value_type} decode_{field_ir.name}(const std::vector<std::uint8_t>& bytes, std::size_t offset) {{",
+                "    std::uint64_t bits = 0;",
+                f"    for (std::size_t i = 0; i < {bc}; ++i) {{",
+                "      bits = (bits << 8U) | bytes[offset + i];",
+                "    }",
+            ]
+        )
+        if pad > 0:
+            lines.append(f"    bits &= {mask_lit};")
+        lines.extend(
+            [
+                f"    return validate_{field_ir.name}(static_cast<{value_type}>(bits));",
+                "  }",
+                "",
+            ]
+        )
+
+    # --- validate ---
+    minimum = -(2 ** (width - 1)) if signed else 0
+    maximum = 2 ** (width - 1) - 1 if signed else (2**width - 1 if width < 64 else 2**64 - 1)
+    lines.append(f"  static {value_type} validate_{field_ir.name}({value_type} value_in) {{")
+    if signed:
+        lines.extend(
+            [
+                f"    constexpr {value_type} kMinValue = static_cast<{value_type}>({minimum});",
+                f"    constexpr {value_type} kMaxValue = static_cast<{value_type}>({maximum});",
+                "    if (value_in < kMinValue || value_in > kMaxValue) {",
+                '      throw std::out_of_range("value out of range");',
+                "    }",
+            ]
+        )
+    else:
+        lines.extend(
+            [
+                f"    constexpr {value_type} kMaxValue = static_cast<{value_type}>({_cpp_unsigned_literal(maximum)});",
+                "    if (value_in > kMaxValue) {",
+                '      throw std::out_of_range("value out of range");',
+                "    }",
+            ]
+        )
+    lines.extend(
+        [
+            "    return value_in;",
+            "  }",
+        ]
+    )
+    return lines
+
+
+def _render_wide_inline_helpers(
+    *, field_ir: StructFieldIR, width: int, bc: int, pad: int
+) -> list[str]:
+    """Encode/decode helpers for inline scalar > 64 bits (unsigned, vector<uint8_t>, big-endian)."""
+    msb_mask = _cpp_unsigned_literal((1 << (8 - pad)) - 1) if pad > 0 else "0xFFU"
+    lines = [
+        f"  static std::vector<std::uint8_t> encode_{field_ir.name}(const std::vector<std::uint8_t>& value_in) {{",
+        f"    if (value_in.size() != {bc}U) {{",
+        '      throw std::invalid_argument("byte width mismatch");',
+        "    }",
+        "    std::vector<std::uint8_t> normalized = value_in;",
+        f"    normalized[0] &= {msb_mask};",
+        "    return normalized;",
+        "  }",
+        "",
+        f"  static std::vector<std::uint8_t> decode_{field_ir.name}(const std::vector<std::uint8_t>& bytes, std::size_t offset) {{",
+        f"    std::vector<std::uint8_t> result(bytes.begin() + static_cast<std::ptrdiff_t>(offset),"
+        f" bytes.begin() + static_cast<std::ptrdiff_t>(offset + {bc}));",
+    ]
+    if pad > 0:
+        lines.append(f"    result[0] &= {msb_mask};")
+    lines.extend(
+        [
+            "    return result;",
+            "  }",
+        ]
+    )
+    return lines
+
+
+# ---------------------------------------------------------------------------
+# Width / byte-count resolution helpers
+# ---------------------------------------------------------------------------
+
+
+def _resolved_type_width(*, type_ir: TypeDefIR, type_index: dict[str, TypeDefIR]) -> int:
+    """Resolve the data width (sum of field data widths) of one type."""
+    if isinstance(type_ir, ScalarAliasIR):
+        return type_ir.resolved_width
+    return sum(_resolved_field_width(field_type=field.type_ir, type_index=type_index) for field in type_ir.fields)
+
+
+def _resolved_field_width(*, field_type: FieldTypeIR, type_index: dict[str, TypeDefIR]) -> int:
+    """Resolve the data width of one field type."""
+    if isinstance(field_type, ScalarTypeSpecIR):
+        return field_type.resolved_width
+    return _resolved_type_width(type_ir=type_index[field_type.name], type_index=type_index)
+
+
+def _type_byte_count(*, type_ir: TypeDefIR, type_index: dict[str, TypeDefIR]) -> int:
+    """Compute the byte-aligned byte count for a type (sum of per-field byte counts)."""
+    if isinstance(type_ir, ScalarAliasIR):
+        return byte_count(type_ir.resolved_width)
+    return sum(_field_byte_count(field=field, type_index=type_index) for field in type_ir.fields)
+
+
+def _field_byte_count(*, field: StructFieldIR, type_index: dict[str, TypeDefIR]) -> int:
+    """Compute the byte-aligned byte count for one field."""
+    match field.type_ir:
+        case ScalarTypeSpecIR(resolved_width=resolved_width):
+            return byte_count(resolved_width)
+        case TypeRefIR(name=name):
+            target = type_index[name]
+            if isinstance(target, ScalarAliasIR):
+                return byte_count(target.resolved_width)
+            return _type_byte_count(type_ir=target, type_index=type_index)
+        case _:
+            raise ValidationError(f"unsupported field type {type(field.type_ir).__name__}")
+
+
+# ---------------------------------------------------------------------------
+# Shared utilities
+# ---------------------------------------------------------------------------
+
+
+def _cpp_scalar_value_type(*, width: int, signed: bool) -> str:
+    """Choose the public C++ storage type for a scalar width."""
+    if width <= 8:
+        return "std::int8_t" if signed else "std::uint8_t"
+    if width <= 16:
+        return "std::int16_t" if signed else "std::uint16_t"
+    if width <= 32:
+        return "std::int32_t" if signed else "std::uint32_t"
+    return "std::int64_t" if signed else "std::uint64_t"
 
 
 def _cpp_unsigned_literal(value: int) -> str:
@@ -271,8 +819,23 @@ def _cpp_unsigned_literal(value: int) -> str:
     return f"{value}ULL"
 
 
-def _scalar_class_name(type_name: str) -> str:
-    """Convert a scalar alias name to its software wrapper class name."""
+def _is_struct_ref(*, field_type: FieldTypeIR, type_index: dict[str, TypeDefIR]) -> bool:
+    """Return whether one field references a named struct."""
+    return isinstance(field_type, TypeRefIR) and isinstance(type_index[field_type.name], StructIR)
+
+
+def _is_scalar_ref(*, field_type: FieldTypeIR, type_index: dict[str, TypeDefIR]) -> bool:
+    """Return whether one field references a named scalar alias."""
+    return isinstance(field_type, TypeRefIR) and isinstance(type_index[field_type.name], ScalarAliasIR)
+
+
+def _is_wide_inline_scalar(*, field_type: FieldTypeIR) -> bool:
+    """Return whether one field is an inline scalar wider than 64 bits."""
+    return isinstance(field_type, ScalarTypeSpecIR) and field_type.resolved_width > 64
+
+
+def _type_class_name(type_name: str) -> str:
+    """Convert a generated type name to its software wrapper class name."""
     if type_name.endswith("_t"):
         return f"{type_name[:-2]}_ct"
     return f"{type_name}_ct"

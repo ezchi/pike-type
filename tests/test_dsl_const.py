@@ -43,3 +43,8 @@ class ConstDslTest(unittest.TestCase):
         self.assertEqual(len(packet_t.members), 2)
         self.assertEqual(packet_t.members[0].name, "addr")
         self.assertEqual(packet_t.members[1].type.state_kind, "logic")
+
+    def test_builds_nested_struct_members(self) -> None:
+        header_t = Struct().add_member("addr", Bit(13))
+        packet_t = Struct().add_member("header", header_t).add_member("valid", Bit(1))
+        self.assertEqual(packet_t.members[0].type, header_t)

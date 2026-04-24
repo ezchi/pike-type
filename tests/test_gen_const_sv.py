@@ -147,6 +147,19 @@ class GenConstSvIntegrationTest(unittest.TestCase):
             self.assertEqual(result.returncode, 0, msg=result.stderr)
             assert_trees_equal(self, expected_root, repo_dir / "gen")
 
+    def test_generates_nested_structs_in_sv(self) -> None:
+        fixture_root = FIXTURES_DIR / "nested_struct_sv_basic" / "project"
+        expected_root = GOLDENS_DIR / "nested_struct_sv_basic"
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo_dir = Path(tmp_dir) / "project"
+            copy_tree(fixture_root, repo_dir)
+            cli_file = repo_dir / "alpha" / "typist" / "types.py"
+
+            result = self.run_typist(repo_dir, str(cli_file))
+
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            assert_trees_equal(self, expected_root, repo_dir / "gen")
+
     def test_rejects_typist_file_with_no_dsl_objects(self) -> None:
         fixture_root = FIXTURES_DIR / "no_dsl" / "project"
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -158,6 +171,84 @@ class GenConstSvIntegrationTest(unittest.TestCase):
 
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("defines no DSL objects", result.stderr)
+
+    # -- New positive golden tests for byte-aligned padding --
+
+    def test_generates_struct_padded(self) -> None:
+        fixture_root = FIXTURES_DIR / "struct_padded" / "project"
+        expected_root = GOLDENS_DIR / "struct_padded"
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo_dir = Path(tmp_dir) / "project"
+            copy_tree(fixture_root, repo_dir)
+            cli_file = repo_dir / "alpha" / "typist" / "types.py"
+            result = self.run_typist(repo_dir, str(cli_file))
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            assert_trees_equal(self, expected_root, repo_dir / "gen")
+
+    def test_generates_struct_signed(self) -> None:
+        fixture_root = FIXTURES_DIR / "struct_signed" / "project"
+        expected_root = GOLDENS_DIR / "struct_signed"
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo_dir = Path(tmp_dir) / "project"
+            copy_tree(fixture_root, repo_dir)
+            cli_file = repo_dir / "alpha" / "typist" / "types.py"
+            result = self.run_typist(repo_dir, str(cli_file))
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            assert_trees_equal(self, expected_root, repo_dir / "gen")
+
+    def test_generates_scalar_wide(self) -> None:
+        fixture_root = FIXTURES_DIR / "scalar_wide" / "project"
+        expected_root = GOLDENS_DIR / "scalar_wide"
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo_dir = Path(tmp_dir) / "project"
+            copy_tree(fixture_root, repo_dir)
+            cli_file = repo_dir / "alpha" / "typist" / "types.py"
+            result = self.run_typist(repo_dir, str(cli_file))
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            assert_trees_equal(self, expected_root, repo_dir / "gen")
+
+    def test_generates_struct_wide(self) -> None:
+        fixture_root = FIXTURES_DIR / "struct_wide" / "project"
+        expected_root = GOLDENS_DIR / "struct_wide"
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo_dir = Path(tmp_dir) / "project"
+            copy_tree(fixture_root, repo_dir)
+            cli_file = repo_dir / "alpha" / "typist" / "types.py"
+            result = self.run_typist(repo_dir, str(cli_file))
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            assert_trees_equal(self, expected_root, repo_dir / "gen")
+
+    # -- Negative validation tests --
+
+    def test_rejects_pad_suffix_field(self) -> None:
+        fixture_root = FIXTURES_DIR / "struct_pad_collision" / "project"
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo_dir = Path(tmp_dir) / "project"
+            copy_tree(fixture_root, repo_dir)
+            cli_file = repo_dir / "alpha" / "typist" / "types.py"
+            result = self.run_typist(repo_dir, str(cli_file))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("reserved '_pad' suffix", result.stderr)
+
+    def test_rejects_signed_scalar_wider_than_64(self) -> None:
+        fixture_root = FIXTURES_DIR / "scalar_signed_wide" / "project"
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo_dir = Path(tmp_dir) / "project"
+            copy_tree(fixture_root, repo_dir)
+            cli_file = repo_dir / "alpha" / "typist" / "types.py"
+            result = self.run_typist(repo_dir, str(cli_file))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("exceeds maximum 64-bit signed width", result.stderr)
+
+    def test_rejects_constant_collision_with_generated_identifier(self) -> None:
+        fixture_root = FIXTURES_DIR / "const_collision" / "project"
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo_dir = Path(tmp_dir) / "project"
+            copy_tree(fixture_root, repo_dir)
+            cli_file = repo_dir / "alpha" / "typist" / "types.py"
+            result = self.run_typist(repo_dir, str(cli_file))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("collides with generated identifier", result.stderr)
 
     def test_rejects_path_outside_typist_directory(self) -> None:
         fixture_root = FIXTURES_DIR / "outside_typist" / "project"

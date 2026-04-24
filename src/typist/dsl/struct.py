@@ -19,7 +19,7 @@ class StructMember:
     """One mutable-DSL struct member."""
 
     name: str
-    type: ScalarType
+    type: ScalarType | StructType
     source: SourceInfo
     rand: bool
 
@@ -38,7 +38,7 @@ class StructType(DslNode):
     def add_member(
         self,
         name: str,
-        type: ScalarType,
+        type: ScalarType | StructType,
         *,
         rand: bool = True,
         sw: object | None = None,
@@ -48,8 +48,8 @@ class StructType(DslNode):
             raise ValidationError("struct member sw= override is not supported in this milestone")
         if not isinstance(name, str) or not _SNAKE_CASE_RE.fullmatch(name):
             raise ValidationError(f"struct member name must be snake_case, got {name!r}")
-        if not isinstance(type, ScalarType):
-            raise ValidationError("struct member type must be a scalar type in this milestone")
+        if not isinstance(type, (ScalarType, StructType)):
+            raise ValidationError("struct member type must be a scalar or struct type in this milestone")
         if not isinstance(rand, bool):
             raise ValidationError(f"struct member rand= must be bool, got {rand.__class__.__name__}")
         self.members.append(
