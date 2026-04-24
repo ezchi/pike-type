@@ -5,6 +5,16 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 
+def byte_count(width: int) -> int:
+    """Number of bytes needed to hold ``width`` data bits."""
+    return (width + 7) // 8
+
+
+def padding_bits(width: int) -> int:
+    """Number of MSB padding bits to reach the next byte boundary."""
+    return (-width) % 8
+
+
 @dataclass(frozen=True, slots=True)
 class SourceSpanIR:
     """Source location in frozen IR."""
@@ -106,6 +116,7 @@ class StructFieldIR:
     source: SourceSpanIR
     type_ir: FieldTypeIR
     rand: bool
+    padding_bits: int = 0
 
 
 @dataclass(frozen=True, slots=True)

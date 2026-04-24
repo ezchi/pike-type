@@ -6,7 +6,7 @@
 2. **Immutable boundaries.** The pipeline has four distinct stages (Discovery -> DSL -> IR -> Backends) with frozen, immutable handoff between them. Backends and validators consume only frozen IR, never mutable DSL objects.
 3. **Deterministic output.** Generated code must be byte-for-byte reproducible given the same inputs. No timestamps, run-specific metadata, or non-deterministic ordering.
 4. **Correctness over convenience.** Strict type checking, explicit validation passes, and golden-file testing guard against silent regressions. If something cannot be validated, it should not be generated.
-5. **Templates are declarative.** Rendering logic must not compute semantics. Backend-specific view models are built from IR first, then handed to the rendering step.
+5. **Template-first generation.** Generated file structure and syntax live in templates wherever practical. Backend code builds typed view models from IR and handles semantic decisions; templates handle presentation only. Inline string building is reserved for trivial fragments or glue.
 6. **Generated runtime, not handwritten.** Shared runtime support packages are generated outputs, not manually maintained infrastructure.
 
 ## Technology Stack
@@ -16,7 +16,7 @@
 | Implementation       | Python                    | >= 3.12                                      |
 | Package build        | setuptools + wheel        | setuptools >= 69                             |
 | Project metadata     | `pyproject.toml`          | PEP 621                                      |
-| Template engine      | Jinja2                    | >= 3.1 (declared; backends currently render via string building) |
+| Template engine      | Jinja2                    | >= 3.1                                      |
 | Static type checking | basedpyright              | >= 1.20.0, strict mode                       |
 | Test runner          | unittest (stdlib)         | Golden-file / fixture-based integration tests |
 | CLI framework        | argparse (stdlib)         | Thin dispatch layer                          |
@@ -47,6 +47,8 @@ No external runtime dependencies beyond Jinja2. Dev tooling is limited to basedp
 ### Generated Code
 
 - All generated files carry a machine-readable header comment identifying the source DSL module(s).
+- New or changed generated outputs should be backed by Jinja2 templates whenever the output has meaningful structure. This keeps generated formats easy to inspect, tweak, and extend.
+- Backend Python must prepare explicit view-model data for templates. It must not hide generated-file layout inside large ad hoc string-building functions.
 - SystemVerilog outputs use `_pkg` suffix for synthesizable packages and `_test_pkg` for verification-only packages.
 - C++ headers use include guards (`#ifndef`/`#define`/`#endif`), not `#pragma once`.
 - Python generated modules include `__init__.py` files for the full package chain.

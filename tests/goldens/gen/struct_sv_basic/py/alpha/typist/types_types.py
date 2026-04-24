@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
+
 W = 13
 
 class addr_ct:
@@ -20,8 +22,15 @@ class addr_ct:
             raise ValueError("addr_ct value out of range")
         self.value = value
 
+    def _to_packed_int(self) -> int:
+        return self.value
+
+    @classmethod
+    def _from_packed_int(cls, packed: int) -> "addr_ct":
+        return cls(packed)
+
     def to_bytes(self) -> bytes:
-        return self.value.to_bytes(self.BYTE_COUNT, "little", signed=False)
+        return self.value.to_bytes(self.BYTE_COUNT, "big", signed=False)
 
     @classmethod
     def from_bytes(cls, data: bytes | bytearray) -> "addr_ct":
@@ -30,7 +39,8 @@ class addr_ct:
         raw = bytes(data)
         if len(raw) != cls.BYTE_COUNT:
             raise ValueError("addr_ct.from_bytes size mismatch")
-        return cls(int.from_bytes(raw, "little", signed=False))
+        value = int.from_bytes(raw, "big", signed=False) & cls.MAX_VALUE
+        return cls(value)
 
     def clone(self) -> "addr_ct":
         return type(self)(self.value)
@@ -65,8 +75,15 @@ class flag_ct:
             raise ValueError("flag_ct value out of range")
         self.value = value
 
+    def _to_packed_int(self) -> int:
+        return self.value
+
+    @classmethod
+    def _from_packed_int(cls, packed: int) -> "flag_ct":
+        return cls(packed)
+
     def to_bytes(self) -> bytes:
-        return self.value.to_bytes(self.BYTE_COUNT, "little", signed=False)
+        return self.value.to_bytes(self.BYTE_COUNT, "big", signed=False)
 
     @classmethod
     def from_bytes(cls, data: bytes | bytearray) -> "flag_ct":
@@ -75,7 +92,8 @@ class flag_ct:
         raw = bytes(data)
         if len(raw) != cls.BYTE_COUNT:
             raise ValueError("flag_ct.from_bytes size mismatch")
-        return cls(int.from_bytes(raw, "little", signed=False))
+        value = int.from_bytes(raw, "big", signed=False) & cls.MAX_VALUE
+        return cls(value)
 
     def clone(self) -> "flag_ct":
         return type(self)(self.value)
@@ -95,3 +113,68 @@ class flag_ct:
 
     def __repr__(self) -> str:
         return f"flag_ct(value={self.value!r})"
+
+@dataclass
+class header_ct:
+    WIDTH = 16
+    BYTE_COUNT = 4
+    addr: addr_ct = field(default_factory=addr_ct)
+    enable: flag_ct = field(default_factory=flag_ct)
+    mode: int = 0
+
+    def __setattr__(self, name: str, value: object) -> None:
+        if name == "addr":
+            value = self._coerce_addr(value)
+        elif name == "enable":
+            value = self._coerce_enable(value)
+        elif name == "mode":
+            value = self._coerce_mode(value)
+        super().__setattr__(name, value)
+
+    @staticmethod
+    def _coerce_addr(value: object) -> addr_ct:
+        if isinstance(value, addr_ct):
+            return value
+        return addr_ct(value)
+
+    @staticmethod
+    def _coerce_enable(value: object) -> flag_ct:
+        if isinstance(value, flag_ct):
+            return value
+        return flag_ct(value)
+
+    @staticmethod
+    def _coerce_mode(value: object) -> int:
+        if not isinstance(value, int):
+            raise TypeError("header_ct.mode must be int")
+        if value < 0 or value > 3:
+            raise ValueError("header_ct.mode value out of range")
+        return value
+
+    def to_bytes(self) -> bytes:
+        result = bytearray()
+        result.extend(self.addr.to_bytes())
+        result.extend(self.enable.to_bytes())
+        _packed_mode = self.mode & 3
+        result.extend(_packed_mode.to_bytes(1, "big", signed=False))
+        return bytes(result)
+
+    @classmethod
+    def from_bytes(cls, data: bytes | bytearray) -> "header_ct":
+        if not isinstance(data, (bytes, bytearray)):
+            raise TypeError("header_ct.from_bytes expects bytes or bytearray")
+        raw = bytes(data)
+        if len(raw) != cls.BYTE_COUNT:
+            raise ValueError("header_ct.from_bytes size mismatch")
+        obj = cls()
+        offset = 0
+        obj.addr = addr_ct.from_bytes(raw[offset:offset + 2])
+        offset += 2
+        obj.enable = flag_ct.from_bytes(raw[offset:offset + 1])
+        offset += 1
+        obj.mode = int.from_bytes(raw[offset:offset + 1], "big", signed=False) & 3
+        offset += 1
+        return obj
+
+    def clone(self) -> "header_ct":
+        return type(self).from_bytes(self.to_bytes())

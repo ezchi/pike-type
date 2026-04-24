@@ -6,9 +6,42 @@ package types_pkg;
 
   localparam int W = 32'sd13;
 
-  typedef bit [W-1:0] addr_t;
+  localparam int LP_ADDR_WIDTH = W;
+  localparam int LP_ADDR_BYTE_COUNT = 2;
 
-  typedef logic signed [7:0] mask_t;
+  typedef bit [LP_ADDR_WIDTH-1:0] addr_t;
+
+  function automatic logic [LP_ADDR_WIDTH-1:0] pack_addr(addr_t a);
+    return a;
+  endfunction
+
+  function automatic addr_t unpack_addr(logic [LP_ADDR_WIDTH-1:0] a);
+    return a;
+  endfunction
+
+  localparam int LP_MASK_WIDTH = 8;
+  localparam int LP_MASK_BYTE_COUNT = 1;
+
+  typedef logic signed [LP_MASK_WIDTH-1:0] mask_t;
+
+  function automatic logic [LP_MASK_WIDTH-1:0] pack_mask(mask_t a);
+    return a;
+  endfunction
+
+  function automatic mask_t unpack_mask(logic [LP_MASK_WIDTH-1:0] a);
+    return a;
+  endfunction
+
+  localparam int LP_FLAG_WIDTH = 1;
+  localparam int LP_FLAG_BYTE_COUNT = 1;
 
   typedef bit flag_t;
+
+  function automatic logic [LP_FLAG_WIDTH-1:0] pack_flag(flag_t a);
+    return a;
+  endfunction
+
+  function automatic flag_t unpack_flag(logic [LP_FLAG_WIDTH-1:0] a);
+    return a;
+  endfunction
 endpackage

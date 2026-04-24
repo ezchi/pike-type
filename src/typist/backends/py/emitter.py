@@ -2,11 +2,26 @@
 
 from __future__ import annotations
 
-from math import ceil
 from pathlib import Path
 
 from typist.backends.common.headers import render_header
-from typist.ir.nodes import BinaryExprIR, ConstRefExprIR, IntLiteralExprIR, ModuleIR, RepoIR, ScalarAliasIR, UnaryExprIR
+from typist.ir.nodes import (
+    BinaryExprIR,
+    ConstRefExprIR,
+    ExprIR,
+    FieldTypeIR,
+    IntLiteralExprIR,
+    ModuleIR,
+    RepoIR,
+    ScalarAliasIR,
+    ScalarTypeSpecIR,
+    StructIR,
+    StructFieldIR,
+    TypeDefIR,
+    TypeRefIR,
+    UnaryExprIR,
+    byte_count,
+)
 from typist.paths import py_module_output_path
 
 
@@ -29,20 +44,28 @@ def emit_py(repo: RepoIR) -> list[Path]:
 
 
 def render_module_py(module: ModuleIR) -> str:
-    """Render a constant-only Python module."""
+    """Render a Python module."""
     header = render_header(source_paths=(module.ref.repo_relative_path,)).replace("//", "#")
-    scalar_types = [type_ir for type_ir in module.types if isinstance(type_ir, ScalarAliasIR)]
+    type_index = {type_ir.name: type_ir for type_ir in module.types}
+    has_types = bool(module.types)
+    has_structs = any(isinstance(type_ir, StructIR) for type_ir in module.types)
     body_lines: list[str] = []
-    if scalar_types:
+    if has_types:
         body_lines.append("from __future__ import annotations")
+        if has_structs:
+            body_lines.append("")
+            body_lines.append("from dataclasses import dataclass, field")
         body_lines.append("")
     body_lines.extend(f"{const.name} = {_render_py_expr(expr=const.expr)}" for const in module.constants)
-    if module.constants and scalar_types:
+    if module.constants and module.types:
         body_lines.append("")
-    for index, type_ir in enumerate(scalar_types):
+    for index, type_ir in enumerate(module.types):
         if index > 0:
             body_lines.append("")
-        body_lines.extend(_render_py_scalar_alias(type_ir=type_ir))
+        if isinstance(type_ir, ScalarAliasIR):
+            body_lines.extend(_render_py_scalar_alias(type_ir=type_ir))
+        else:
+            body_lines.extend(_render_py_struct(type_ir=type_ir, type_index=type_index))
     return f"{header}\n" + "\n".join(body_lines) + "\n"
 
 
@@ -63,7 +86,7 @@ def _ensure_package_chain(target_dir: Path, py_root: Path, written_paths: list[P
         _ensure_package_init(current, written_paths)
 
 
-def _render_py_expr(*, expr: IntLiteralExprIR | ConstRefExprIR | UnaryExprIR | BinaryExprIR) -> str:
+def _render_py_expr(*, expr: ExprIR) -> str:
     """Render an expression into Python syntax."""
     match expr:
         case IntLiteralExprIR(value=value):
@@ -80,13 +103,13 @@ def _render_py_expr(*, expr: IntLiteralExprIR | ConstRefExprIR | UnaryExprIR | B
 
 def _render_py_scalar_alias(*, type_ir: ScalarAliasIR) -> list[str]:
     """Render a Python scalar wrapper class."""
-    class_name = _scalar_class_name(type_ir.name)
-    byte_count = ceil(type_ir.resolved_width / 8)
+    class_name = _type_class_name(type_ir.name)
+    bc = byte_count(type_ir.resolved_width)
     lines = [
         f"class {class_name}:",
         f"    WIDTH = {type_ir.resolved_width}",
         f"    SIGNED = {type_ir.signed}",
-        f"    BYTE_COUNT = {byte_count}",
+        f"    BYTE_COUNT = {bc}",
     ]
     if type_ir.resolved_width <= 64:
         if type_ir.signed:
@@ -94,6 +117,7 @@ def _render_py_scalar_alias(*, type_ir: ScalarAliasIR) -> list[str]:
             maximum = 2 ** (type_ir.resolved_width - 1) - 1
             mask = (1 << type_ir.resolved_width) - 1
             sign_bit = 1 << (type_ir.resolved_width - 1)
+            pad_bits = bc * 8 - type_ir.resolved_width
             lines.extend(
                 [
                     f"    MIN_VALUE = {minimum}",
@@ -108,8 +132,21 @@ def _render_py_scalar_alias(*, type_ir: ScalarAliasIR) -> list[str]:
                     f'            raise ValueError("{class_name} value out of range")',
                     "        self.value = value",
                     "",
+                    "    def _to_packed_int(self) -> int:",
+                    "        return self.value & self.MASK",
+                    "",
+                    "    @classmethod",
+                    f'    def _from_packed_int(cls, packed: int) -> "{class_name}":',
+                    "        value = packed & cls.MASK",
+                    "        signed_value = value - (1 << cls.WIDTH) if (value & cls.SIGN_BIT) else value",
+                    "        return cls(signed_value)",
+                    "",
                     "    def to_bytes(self) -> bytes:",
-                    '        return (self.value & self.MASK).to_bytes(self.BYTE_COUNT, "little", signed=False)',
+                    "        mask = self.MASK",
+                    "        packed = self.value & mask",
+                    "        if self.value < 0:",
+                    f"            packed |= ((1 << (self.BYTE_COUNT * 8)) - 1) ^ mask",
+                    '        return packed.to_bytes(self.BYTE_COUNT, "big", signed=False)',
                     "",
                     "    @classmethod",
                     f'    def from_bytes(cls, data: bytes | bytearray) -> "{class_name}":',
@@ -118,11 +155,14 @@ def _render_py_scalar_alias(*, type_ir: ScalarAliasIR) -> list[str]:
                     "        raw = bytes(data)",
                     "        if len(raw) != cls.BYTE_COUNT:",
                     f'            raise ValueError("{class_name}.from_bytes size mismatch")',
-                    '        value = int.from_bytes(raw, "little", signed=False)',
-                    "        if value > cls.MASK:",
-                    f'            raise ValueError("{class_name}.from_bytes value out of range")',
-                    "        signed_value = value - (1 << cls.WIDTH) if (value & cls.SIGN_BIT) else value",
-                    "        return cls(signed_value)",
+                    '        raw_int = int.from_bytes(raw, "big", signed=False)',
+                    "        data_bits = raw_int & cls.MASK",
+                    f"        padding = raw_int >> cls.WIDTH",
+                    "        sign_bit = (data_bits >> (cls.WIDTH - 1)) & 1",
+                    f"        expected_padding = ((1 << {pad_bits}) - 1) if sign_bit else 0",
+                    "        if padding != expected_padding:",
+                    f'            raise ValueError("{class_name}.from_bytes signed padding mismatch")',
+                    "        return cls._from_packed_int(data_bits)",
                     "",
                     f'    def clone(self) -> "{class_name}":',
                     "        return type(self)(self.value)",
@@ -158,8 +198,15 @@ def _render_py_scalar_alias(*, type_ir: ScalarAliasIR) -> list[str]:
                     f'            raise ValueError("{class_name} value out of range")',
                     "        self.value = value",
                     "",
+                    "    def _to_packed_int(self) -> int:",
+                    "        return self.value",
+                    "",
+                    "    @classmethod",
+                    f'    def _from_packed_int(cls, packed: int) -> "{class_name}":',
+                    "        return cls(packed)",
+                    "",
                     "    def to_bytes(self) -> bytes:",
-                    '        return self.value.to_bytes(self.BYTE_COUNT, "little", signed=False)',
+                    '        return self.value.to_bytes(self.BYTE_COUNT, "big", signed=False)',
                     "",
                     "    @classmethod",
                     f'    def from_bytes(cls, data: bytes | bytearray) -> "{class_name}":',
@@ -168,7 +215,8 @@ def _render_py_scalar_alias(*, type_ir: ScalarAliasIR) -> list[str]:
                     "        raw = bytes(data)",
                     "        if len(raw) != cls.BYTE_COUNT:",
                     f'            raise ValueError("{class_name}.from_bytes size mismatch")',
-                    '        return cls(int.from_bytes(raw, "little", signed=False))',
+                    "        value = int.from_bytes(raw, \"big\", signed=False) & cls.MAX_VALUE",
+                    "        return cls(value)",
                     "",
                     f'    def clone(self) -> "{class_name}":',
                     "        return type(self)(self.value)",
@@ -192,6 +240,7 @@ def _render_py_scalar_alias(*, type_ir: ScalarAliasIR) -> list[str]:
             )
     else:
         maximum = 2 ** type_ir.resolved_width - 1
+        mask_msb_byte = (1 << (type_ir.resolved_width % 8)) - 1 if type_ir.resolved_width % 8 else 0xFF
         lines.extend(
             [
                 f"    MAX_VALUE = {maximum}",
@@ -200,7 +249,7 @@ def _render_py_scalar_alias(*, type_ir: ScalarAliasIR) -> list[str]:
                 "        if isinstance(value, int):",
                 "            if value < 0 or value > self.MAX_VALUE:",
                 f'                raise ValueError("{class_name} value out of range")',
-                '            self.value = value.to_bytes(self.BYTE_COUNT, "little", signed=False)',
+                '            self.value = value.to_bytes(self.BYTE_COUNT, "big", signed=False)',
                 "            return",
                 '        if not isinstance(value, (bytes, bytearray)):',
                 f'            raise TypeError("{class_name} value must be bytes, bytearray, or int")',
@@ -211,6 +260,13 @@ def _render_py_scalar_alias(*, type_ir: ScalarAliasIR) -> list[str]:
                 f'            raise ValueError("{class_name} value size mismatch")',
                 "        self.value = raw",
                 "",
+                "    def _to_packed_int(self) -> int:",
+                '        return int.from_bytes(self.value, "big", signed=False)',
+                "",
+                "    @classmethod",
+                f'    def _from_packed_int(cls, packed: int) -> "{class_name}":',
+                '        return cls(packed.to_bytes(cls.BYTE_COUNT, "big", signed=False))',
+                "",
                 "    def to_bytes(self) -> bytes:",
                 "        return self.value",
                 "",
@@ -218,7 +274,12 @@ def _render_py_scalar_alias(*, type_ir: ScalarAliasIR) -> list[str]:
                 f'    def from_bytes(cls, data: bytes | bytearray) -> "{class_name}":',
                 '        if not isinstance(data, (bytes, bytearray)):',
                 f'            raise TypeError("{class_name}.from_bytes expects bytes or bytearray")',
-                "        return cls(bytes(data))",
+                "        raw = bytes(data)",
+                "        if len(raw) != cls.BYTE_COUNT:",
+                f'            raise ValueError("{class_name}.from_bytes size mismatch")',
+                "        # Mask padding bits in MSB byte",
+                f"        masked = bytes([raw[0] & {mask_msb_byte}]) + raw[1:]",
+                "        return cls(masked)",
                 "",
                 f'    def clone(self) -> "{class_name}":',
                 "        return type(self)(self.value)",
@@ -237,8 +298,291 @@ def _render_py_scalar_alias(*, type_ir: ScalarAliasIR) -> list[str]:
     return lines
 
 
-def _scalar_class_name(type_name: str) -> str:
-    """Convert a scalar alias name to its software wrapper class name."""
+def _render_py_struct(*, type_ir: StructIR, type_index: dict[str, TypeDefIR]) -> list[str]:
+    """Render a Python struct wrapper class."""
+    class_name = _type_class_name(type_ir.name)
+    width = _resolved_type_width(type_ir=type_ir, type_index=type_index)
+    struct_byte_count = sum(
+        _field_byte_count(field_ir=f, type_index=type_index) for f in type_ir.fields
+    )
+    lines = [
+        "@dataclass",
+        f"class {class_name}:",
+        f"    WIDTH = {width}",
+        f"    BYTE_COUNT = {struct_byte_count}",
+    ]
+    for field_ir in type_ir.fields:
+        lines.append(f"    {field_ir.name}: {_render_py_field_annotation(field_ir=field_ir, type_index=type_index)} = {_render_py_field_default(field_ir=field_ir, type_index=type_index)}")
+    lines.append("")
+    lines.extend(
+        [
+            "    def __setattr__(self, name: str, value: object) -> None:",
+        ]
+    )
+    for index, field_ir in enumerate(type_ir.fields):
+        prefix = "if" if index == 0 else "elif"
+        lines.append(f'        {prefix} name == "{field_ir.name}":')
+        lines.append(f"            value = self._coerce_{field_ir.name}(value)")
+    lines.extend(
+        [
+            "        super().__setattr__(name, value)",
+            "",
+        ]
+    )
+    for field_ir in type_ir.fields:
+        lines.extend(_render_py_struct_field_coercer(owner_name=class_name, field_ir=field_ir, type_index=type_index))
+        lines.append("")
+    # to_bytes: per-field big-endian serialization
+    lines.extend(_render_py_struct_to_bytes(type_ir=type_ir, type_index=type_index))
+    lines.append("")
+    # from_bytes: per-field big-endian deserialization
+    lines.extend(_render_py_struct_from_bytes(type_ir=type_ir, class_name=class_name, type_index=type_index))
+    lines.append("")
+    lines.extend(
+        [
+            f'    def clone(self) -> "{class_name}":',
+            '        return type(self).from_bytes(self.to_bytes())',
+        ]
+    )
+    return lines
+
+
+def _render_py_struct_to_bytes(*, type_ir: StructIR, type_index: dict[str, TypeDefIR]) -> list[str]:
+    """Render the struct to_bytes method with per-field big-endian serialization."""
+    lines = [
+        "    def to_bytes(self) -> bytes:",
+        "        result = bytearray()",
+    ]
+    for field_ir in type_ir.fields:
+        fbc = _field_byte_count(field_ir=field_ir, type_index=type_index)
+        match field_ir.type_ir:
+            case TypeRefIR(name=name):
+                target = type_index[name]
+                if isinstance(target, StructIR):
+                    lines.extend(
+                        [
+                            f"        if self.{field_ir.name} is None:",
+                            f'            raise ValueError("{field_ir.name} cannot be None during packing")',
+                        ]
+                    )
+                lines.append(f"        result.extend(self.{field_ir.name}.to_bytes())")
+            case ScalarTypeSpecIR(signed=signed, resolved_width=resolved_width):
+                if resolved_width <= 64:
+                    fw = resolved_width
+                    mask = (1 << fw) - 1
+                    if signed:
+                        lines.extend(
+                            [
+                                f"        _mask_{field_ir.name} = {mask}",
+                                f"        _packed_{field_ir.name} = self.{field_ir.name} & _mask_{field_ir.name}",
+                                f"        if self.{field_ir.name} < 0:",
+                                f"            _packed_{field_ir.name} |= ((1 << {fbc * 8}) - 1) ^ _mask_{field_ir.name}",
+                                f'        result.extend(_packed_{field_ir.name}.to_bytes({fbc}, "big", signed=False))',
+                            ]
+                        )
+                    else:
+                        lines.extend(
+                            [
+                                f"        _packed_{field_ir.name} = self.{field_ir.name} & {mask}",
+                                f'        result.extend(_packed_{field_ir.name}.to_bytes({fbc}, "big", signed=False))',
+                            ]
+                        )
+                else:
+                    # Wide unsigned scalar stored as bytes, already big-endian
+                    lines.append(f"        result.extend(self.{field_ir.name})")
+            case _:
+                raise ValueError(f"unsupported Python struct field type {type(field_ir.type_ir).__name__}")
+    lines.append("        return bytes(result)")
+    return lines
+
+
+def _render_py_struct_from_bytes(*, type_ir: StructIR, class_name: str, type_index: dict[str, TypeDefIR]) -> list[str]:
+    """Render the struct from_bytes method with per-field big-endian deserialization."""
+    lines = [
+        "    @classmethod",
+        f'    def from_bytes(cls, data: bytes | bytearray) -> "{class_name}":',
+        '        if not isinstance(data, (bytes, bytearray)):',
+        f'            raise TypeError("{class_name}.from_bytes expects bytes or bytearray")',
+        "        raw = bytes(data)",
+        "        if len(raw) != cls.BYTE_COUNT:",
+        f'            raise ValueError("{class_name}.from_bytes size mismatch")',
+        "        obj = cls()",
+        "        offset = 0",
+    ]
+    for field_ir in type_ir.fields:
+        fbc = _field_byte_count(field_ir=field_ir, type_index=type_index)
+        match field_ir.type_ir:
+            case TypeRefIR(name=name):
+                target = type_index[name]
+                target_class = _type_class_name(target.name)
+                lines.extend(
+                    [
+                        f"        obj.{field_ir.name} = {target_class}.from_bytes(raw[offset:offset + {fbc}])",
+                        f"        offset += {fbc}",
+                    ]
+                )
+            case ScalarTypeSpecIR(signed=signed, resolved_width=resolved_width):
+                if resolved_width <= 64:
+                    fw = resolved_width
+                    mask = (1 << fw) - 1
+                    if signed:
+                        pad_bits = fbc * 8 - fw
+                        sign_bit_val = 1 << (fw - 1)
+                        lines.extend(
+                            [
+                                f"        _raw_int_{field_ir.name} = int.from_bytes(raw[offset:offset + {fbc}], \"big\", signed=False)",
+                                f"        _data_{field_ir.name} = _raw_int_{field_ir.name} & {mask}",
+                                f"        _padding_{field_ir.name} = _raw_int_{field_ir.name} >> {fw}",
+                                f"        _sign_bit_{field_ir.name} = (_data_{field_ir.name} >> {fw - 1}) & 1",
+                                f"        _expected_padding_{field_ir.name} = ((1 << {pad_bits}) - 1) if _sign_bit_{field_ir.name} else 0",
+                                f"        if _padding_{field_ir.name} != _expected_padding_{field_ir.name}:",
+                                f'            raise ValueError("{class_name}.from_bytes signed padding mismatch for {field_ir.name}")',
+                                f"        obj.{field_ir.name} = _data_{field_ir.name} - {1 << fw} if (_data_{field_ir.name} & {sign_bit_val}) else _data_{field_ir.name}",
+                                f"        offset += {fbc}",
+                            ]
+                        )
+                    else:
+                        lines.extend(
+                            [
+                                f"        obj.{field_ir.name} = int.from_bytes(raw[offset:offset + {fbc}], \"big\", signed=False) & {mask}",
+                                f"        offset += {fbc}",
+                            ]
+                        )
+                else:
+                    # Wide unsigned scalar stored as bytes
+                    mask_msb_byte = (1 << (resolved_width % 8)) - 1 if resolved_width % 8 else 0xFF
+                    lines.extend(
+                        [
+                            f"        _wide_raw_{field_ir.name} = raw[offset:offset + {fbc}]",
+                            f"        obj.{field_ir.name} = bytes([_wide_raw_{field_ir.name}[0] & {mask_msb_byte}]) + _wide_raw_{field_ir.name}[1:]",
+                            f"        offset += {fbc}",
+                        ]
+                    )
+            case _:
+                raise ValueError(f"unsupported Python struct field type {type(field_ir.type_ir).__name__}")
+    lines.append("        return obj")
+    return lines
+
+
+def _render_py_field_annotation(*, field_ir: StructFieldIR, type_index: dict[str, TypeDefIR]) -> str:
+    """Render one Python field annotation."""
+    match field_ir.type_ir:
+        case TypeRefIR(name=name):
+            target = type_index[name]
+            class_name = _type_class_name(target.name)
+            if isinstance(target, StructIR):
+                return f"{class_name} | None"
+            return class_name
+        case ScalarTypeSpecIR(resolved_width=resolved_width):
+            return "int" if resolved_width <= 64 else "bytes"
+        case _:
+            raise ValueError(f"unsupported Python struct field type {type(field_ir.type_ir).__name__}")
+
+
+def _render_py_field_default(*, field_ir: StructFieldIR, type_index: dict[str, TypeDefIR]) -> str:
+    """Render one Python field default."""
+    match field_ir.type_ir:
+        case TypeRefIR(name=name):
+            return f"field(default_factory={_type_class_name(type_index[name].name)})"
+        case ScalarTypeSpecIR(resolved_width=resolved_width):
+            if resolved_width <= 64:
+                return "0"
+            return f'b"\\x00" * {byte_count(resolved_width)}'
+        case _:
+            raise ValueError(f"unsupported Python struct field type {type(field_ir.type_ir).__name__}")
+
+
+def _render_py_struct_field_coercer(*, owner_name: str, field_ir: StructFieldIR, type_index: dict[str, TypeDefIR]) -> list[str]:
+    """Render one Python field coercion helper."""
+    lines = ["    @staticmethod", f"    def _coerce_{field_ir.name}(value: object) -> {_render_py_field_annotation(field_ir=field_ir, type_index=type_index)}:"]
+    match field_ir.type_ir:
+        case TypeRefIR(name=name):
+            target = type_index[name]
+            class_name = _type_class_name(target.name)
+            if isinstance(target, StructIR):
+                lines.extend(
+                    [
+                        "        if value is None:",
+                        "            return None",
+                        f"        if isinstance(value, {class_name}):",
+                        "            return value",
+                        f'        raise TypeError("{owner_name}.{field_ir.name} must be {class_name} or None")',
+                    ]
+                )
+            else:
+                lines.extend(
+                    [
+                        f"        if isinstance(value, {class_name}):",
+                        "            return value",
+                        f"        return {class_name}(value)",
+                    ]
+                )
+        case ScalarTypeSpecIR(signed=signed, resolved_width=resolved_width):
+            if resolved_width <= 64:
+                minimum = -(2 ** (resolved_width - 1)) if signed else 0
+                maximum = 2 ** (resolved_width - 1) - 1 if signed else 2 ** resolved_width - 1
+                lines.extend(
+                    [
+                        "        if not isinstance(value, int):",
+                        f'            raise TypeError("{owner_name}.{field_ir.name} must be int")',
+                        f"        if value < {minimum} or value > {maximum}:",
+                        f'            raise ValueError("{owner_name}.{field_ir.name} value out of range")',
+                        "        return value",
+                    ]
+                )
+            else:
+                fbc = byte_count(resolved_width)
+                lines.extend(
+                    [
+                        "        if isinstance(value, bytearray):",
+                        "            value = bytes(value)",
+                        "        if not isinstance(value, bytes):",
+                        f'            raise TypeError("{owner_name}.{field_ir.name} must be bytes")',
+                        f"        if len(value) != {fbc}:",
+                        f'            raise ValueError("{owner_name}.{field_ir.name} size mismatch")',
+                        "        return value",
+                    ]
+                )
+        case _:
+            raise ValueError(f"unsupported Python struct field type {type(field_ir.type_ir).__name__}")
+    return lines
+
+
+def _resolved_type_width(*, type_ir: TypeDefIR, type_index: dict[str, TypeDefIR]) -> int:
+    """Resolve the data width (in bits) of one type."""
+    if isinstance(type_ir, ScalarAliasIR):
+        return type_ir.resolved_width
+    return sum(_resolved_field_width(field_type=field.type_ir, type_index=type_index) for field in type_ir.fields)
+
+
+def _resolved_field_width(*, field_type: FieldTypeIR, type_index: dict[str, TypeDefIR]) -> int:
+    """Resolve the data width (in bits) of one field type."""
+    if isinstance(field_type, ScalarTypeSpecIR):
+        return field_type.resolved_width
+    return _resolved_type_width(type_ir=type_index[field_type.name], type_index=type_index)
+
+
+def _type_byte_count(*, type_ir: TypeDefIR, type_index: dict[str, TypeDefIR]) -> int:
+    """Resolve the byte-aligned byte count of one type."""
+    if isinstance(type_ir, ScalarAliasIR):
+        return byte_count(type_ir.resolved_width)
+    return sum(_field_byte_count(field_ir=f, type_index=type_index) for f in type_ir.fields)
+
+
+def _field_byte_count(*, field_ir: StructFieldIR, type_index: dict[str, TypeDefIR]) -> int:
+    """Resolve the byte-aligned byte count of one struct field."""
+    match field_ir.type_ir:
+        case ScalarTypeSpecIR(resolved_width=resolved_width):
+            return byte_count(resolved_width)
+        case TypeRefIR(name=name):
+            return _type_byte_count(type_ir=type_index[name], type_index=type_index)
+        case _:
+            raise ValueError(f"unsupported field type {type(field_ir.type_ir).__name__}")
+
+
+
+def _type_class_name(type_name: str) -> str:
+    """Convert a generated type name to its software wrapper class name."""
     if type_name.endswith("_t"):
         return f"{type_name[:-2]}_ct"
     return f"{type_name}_ct"

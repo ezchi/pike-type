@@ -6,6 +6,7 @@
 #define ALPHA_TYPIST_TYPES_TYPES_HPP
 
 #include <cstdint>
+#include <cstddef>
 #include <stdexcept>
 #include <vector>
 
@@ -20,15 +21,16 @@ class addr_ct {
   static constexpr std::size_t kByteCount = 2;
   using value_type = std::uint16_t;
   value_type value;
+  static constexpr std::uint64_t kMask = 8191U;
   static constexpr value_type kMaxValue = static_cast<value_type>(8191U);
   addr_ct() : value(0) {}
-  explicit addr_ct(value_type value_in) : value(validate_value(value_in)) {}
+  addr_ct(value_type value_in) : value(validate_value(value_in)) {}
 
   std::vector<std::uint8_t> to_bytes() const {
     std::vector<std::uint8_t> bytes(kByteCount, 0);
     std::uint64_t bits = static_cast<std::uint64_t>(value);
     for (std::size_t idx = 0; idx < kByteCount; ++idx) {
-      bytes[idx] = static_cast<std::uint8_t>((bits >> (8U * idx)) & 0xFFU);
+      bytes[kByteCount - 1 - idx] = static_cast<std::uint8_t>((bits >> (8U * idx)) & 0xFFU);
     }
     return bytes;
   }
@@ -39,9 +41,9 @@ class addr_ct {
     }
     std::uint64_t bits = 0;
     for (std::size_t idx = 0; idx < kByteCount; ++idx) {
-      bits |= static_cast<std::uint64_t>(bytes[idx]) << (8U * idx);
+      bits = (bits << 8U) | bytes[idx];
     }
-    value = validate_value(static_cast<value_type>(bits));
+    value = validate_value(static_cast<value_type>(bits & kMask));
   }
 
   addr_ct clone() const {
@@ -74,13 +76,13 @@ class mask_ct {
   static constexpr value_type kMaxValue = static_cast<value_type>(127);
   static constexpr std::uint64_t kMask = 255U;
   mask_ct() : value(0) {}
-  explicit mask_ct(value_type value_in) : value(validate_value(value_in)) {}
+  mask_ct(value_type value_in) : value(validate_value(value_in)) {}
 
   std::vector<std::uint8_t> to_bytes() const {
     std::vector<std::uint8_t> bytes(kByteCount, 0);
     std::uint64_t bits = static_cast<std::uint64_t>(value) & kMask;
     for (std::size_t idx = 0; idx < kByteCount; ++idx) {
-      bytes[idx] = static_cast<std::uint8_t>((bits >> (8U * idx)) & 0xFFU);
+      bytes[kByteCount - 1 - idx] = static_cast<std::uint8_t>((bits >> (8U * idx)) & 0xFFU);
     }
     return bytes;
   }
@@ -91,7 +93,7 @@ class mask_ct {
     }
     std::uint64_t bits = 0;
     for (std::size_t idx = 0; idx < kByteCount; ++idx) {
-      bits |= static_cast<std::uint64_t>(bytes[idx]) << (8U * idx);
+      bits = (bits << 8U) | bytes[idx];
     }
     bits &= kMask;
     std::int64_t signed_value = static_cast<std::int64_t>(bits);
@@ -127,15 +129,16 @@ class flag_ct {
   static constexpr std::size_t kByteCount = 1;
   using value_type = std::uint8_t;
   value_type value;
+  static constexpr std::uint64_t kMask = 1U;
   static constexpr value_type kMaxValue = static_cast<value_type>(1U);
   flag_ct() : value(0) {}
-  explicit flag_ct(value_type value_in) : value(validate_value(value_in)) {}
+  flag_ct(value_type value_in) : value(validate_value(value_in)) {}
 
   std::vector<std::uint8_t> to_bytes() const {
     std::vector<std::uint8_t> bytes(kByteCount, 0);
     std::uint64_t bits = static_cast<std::uint64_t>(value);
     for (std::size_t idx = 0; idx < kByteCount; ++idx) {
-      bytes[idx] = static_cast<std::uint8_t>((bits >> (8U * idx)) & 0xFFU);
+      bytes[kByteCount - 1 - idx] = static_cast<std::uint8_t>((bits >> (8U * idx)) & 0xFFU);
     }
     return bytes;
   }
@@ -146,9 +149,9 @@ class flag_ct {
     }
     std::uint64_t bits = 0;
     for (std::size_t idx = 0; idx < kByteCount; ++idx) {
-      bits |= static_cast<std::uint64_t>(bytes[idx]) << (8U * idx);
+      bits = (bits << 8U) | bytes[idx];
     }
-    value = validate_value(static_cast<value_type>(bits));
+    value = validate_value(static_cast<value_type>(bits & kMask));
   }
 
   flag_ct clone() const {

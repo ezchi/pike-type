@@ -6,8 +6,8 @@ package types_test_pkg;
   import types_pkg::*;
 
   class addr_ct;
-    localparam int WIDTH = W;
-    localparam int BYTE_COUNT = 2;
+    localparam int WIDTH = LP_ADDR_WIDTH;
+    localparam int BYTE_COUNT = LP_ADDR_BYTE_COUNT;
     rand addr_t value;
   
     function new(addr_t value_in = '0);
@@ -23,25 +23,25 @@ package types_test_pkg;
     endfunction
   
     task automatic to_bytes(output byte unsigned bytes[]);
-      bit [BYTE_COUNT*8-1:0] packed_bits;
+      logic [15:0] padded;
       bytes = new[BYTE_COUNT];
-      packed_bits = '0;
-      packed_bits[WIDTH-1:0] = value;
+      padded = '0;
+      padded[WIDTH-1:0] = value;
       for (int idx = 0; idx < BYTE_COUNT; idx++) begin
-        bytes[idx] = packed_bits[idx*8 +: 8];
+        bytes[idx] = padded[(BYTE_COUNT - 1 - idx)*8 +: 8];
       end
     endtask
   
     function void from_bytes(input byte unsigned bytes[]);
-      bit [BYTE_COUNT*8-1:0] packed_bits;
+      logic [15:0] padded;
       if (bytes.size() != BYTE_COUNT) begin
         $fatal(1, "addr_ct.from_bytes size mismatch: expected %0d got %0d", BYTE_COUNT, bytes.size());
       end
-      packed_bits = '0;
+      padded = '0;
       for (int idx = 0; idx < BYTE_COUNT; idx++) begin
-        packed_bits[idx*8 +: 8] = bytes[idx];
+        padded[(BYTE_COUNT - 1 - idx)*8 +: 8] = bytes[idx];
       end
-      value = addr_t'(packed_bits[WIDTH-1:0]);
+      value = addr_t'(padded[WIDTH-1:0]);
     endfunction
   
     function void copy(input addr_ct rhs);
@@ -64,8 +64,8 @@ package types_test_pkg;
   endclass : addr_ct
 
   class flag_ct;
-    localparam int WIDTH = 1;
-    localparam int BYTE_COUNT = 1;
+    localparam int WIDTH = LP_FLAG_WIDTH;
+    localparam int BYTE_COUNT = LP_FLAG_BYTE_COUNT;
     rand flag_t value;
   
     function new(flag_t value_in = '0);
@@ -81,25 +81,25 @@ package types_test_pkg;
     endfunction
   
     task automatic to_bytes(output byte unsigned bytes[]);
-      bit [BYTE_COUNT*8-1:0] packed_bits;
+      logic [7:0] padded;
       bytes = new[BYTE_COUNT];
-      packed_bits = '0;
-      packed_bits[WIDTH-1:0] = value;
+      padded = '0;
+      padded[WIDTH-1:0] = value;
       for (int idx = 0; idx < BYTE_COUNT; idx++) begin
-        bytes[idx] = packed_bits[idx*8 +: 8];
+        bytes[idx] = padded[(BYTE_COUNT - 1 - idx)*8 +: 8];
       end
     endtask
   
     function void from_bytes(input byte unsigned bytes[]);
-      bit [BYTE_COUNT*8-1:0] packed_bits;
+      logic [7:0] padded;
       if (bytes.size() != BYTE_COUNT) begin
         $fatal(1, "flag_ct.from_bytes size mismatch: expected %0d got %0d", BYTE_COUNT, bytes.size());
       end
-      packed_bits = '0;
+      padded = '0;
       for (int idx = 0; idx < BYTE_COUNT; idx++) begin
-        packed_bits[idx*8 +: 8] = bytes[idx];
+        padded[(BYTE_COUNT - 1 - idx)*8 +: 8] = bytes[idx];
       end
-      value = flag_t'(packed_bits[WIDTH-1:0]);
+      value = flag_t'(padded[WIDTH-1:0]);
     endfunction
   
     function void copy(input flag_ct rhs);
@@ -120,4 +120,116 @@ package types_test_pkg;
       return $sformatf("flag_ct(value=0x%0h)", value);
     endfunction
   endclass : flag_ct
+
+  class header_ct;
+    localparam int WIDTH = LP_HEADER_WIDTH;
+    localparam int BYTE_COUNT = LP_HEADER_BYTE_COUNT;
+    rand addr_t addr;
+    rand flag_t enable;
+    rand logic [1:0] mode;
+  
+    function new();
+      addr = '0;
+      enable = '0;
+      mode = '0;
+    endfunction
+  
+    function automatic header_t to_slv();
+      header_t packed_value;
+      packed_value.addr = addr;
+      packed_value.addr_pad = '0;
+      packed_value.enable = enable;
+      packed_value.enable_pad = '0;
+      packed_value.mode = mode;
+      packed_value.mode_pad = '0;
+      return packed_value;
+    endfunction
+  
+    function void from_slv(header_t value_in);
+      addr = value_in.addr;
+      enable = value_in.enable;
+      mode = value_in.mode;
+    endfunction
+  
+    task automatic to_bytes(output byte unsigned bytes[]);
+      int byte_idx;
+      bytes = new[BYTE_COUNT];
+      byte_idx = 0;
+      begin
+        logic [15:0] fb;
+        fb = '0;
+        fb[12:0] = addr;
+        for (int i = 0; i < 2; i++) bytes[byte_idx + i] = fb[(2 - 1 - i)*8 +: 8];
+        byte_idx += 2;
+      end
+      begin
+        logic [7:0] fb;
+        fb = '0;
+        fb[0:0] = enable;
+        for (int i = 0; i < 1; i++) bytes[byte_idx + i] = fb[(1 - 1 - i)*8 +: 8];
+        byte_idx += 1;
+      end
+      begin
+        logic [7:0] fb;
+        fb = '0;
+        fb[1:0] = mode;
+        for (int i = 0; i < 1; i++) bytes[byte_idx + i] = fb[(1 - 1 - i)*8 +: 8];
+        byte_idx += 1;
+      end
+    endtask
+  
+    function void from_bytes(input byte unsigned bytes[]);
+      int byte_idx;
+      if (bytes.size() != BYTE_COUNT) begin
+        $fatal(1, "header_ct.from_bytes size mismatch: expected %0d got %0d", BYTE_COUNT, bytes.size());
+      end
+      byte_idx = 0;
+      begin
+        logic [15:0] fb;
+        fb = '0;
+        for (int i = 0; i < 2; i++) fb[(2 - 1 - i)*8 +: 8] = bytes[byte_idx + i];
+        addr = fb[12:0];
+        byte_idx += 2;
+      end
+      begin
+        logic [7:0] fb;
+        fb = '0;
+        for (int i = 0; i < 1; i++) fb[(1 - 1 - i)*8 +: 8] = bytes[byte_idx + i];
+        enable = fb[0:0];
+        byte_idx += 1;
+      end
+      begin
+        logic [7:0] fb;
+        fb = '0;
+        for (int i = 0; i < 1; i++) fb[(1 - 1 - i)*8 +: 8] = bytes[byte_idx + i];
+        mode = fb[1:0];
+        byte_idx += 1;
+      end
+    endfunction
+  
+    function void copy(input header_ct rhs);
+      addr = rhs.addr;
+      enable = rhs.enable;
+      mode = rhs.mode;
+    endfunction
+  
+    function automatic header_ct clone();
+      header_ct cloned = new();
+      cloned.copy(this);
+      return cloned;
+    endfunction
+  
+    function automatic bit compare(input header_ct rhs);
+      bit match;
+      match = 1'b1;
+      match &= (addr === rhs.addr);
+      match &= (enable === rhs.enable);
+      match &= (mode === rhs.mode);
+      return match;
+    endfunction
+  
+    function automatic string sprint();
+      return $sformatf("header_ct(addr=0x%0h, enable=0x%0h, mode=0x%0h)", addr, enable, mode);
+    endfunction
+  endclass : header_ct
 endpackage
