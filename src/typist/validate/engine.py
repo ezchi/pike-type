@@ -5,6 +5,7 @@ from __future__ import annotations
 from typist.errors import ValidationError
 from typist.ir.nodes import RepoIR, ScalarAliasIR, ScalarTypeSpecIR, StructIR, TypeRefIR
 
+
 def validate_repo(repo: RepoIR) -> None:
     """Validate the frozen repository IR."""
     type_index = {
@@ -68,14 +69,15 @@ def validate_repo(repo: RepoIR) -> None:
                                 f"{module.ref.repo_relative_path}: struct {type_ir.name} field {field.name} "
                                 f"references unknown type {field.type_ir.name}"
                             )
-                        if not isinstance(target, ScalarAliasIR):
+                        if not isinstance(target, (ScalarAliasIR, StructIR)):
                             raise ValidationError(
                                 f"{module.ref.repo_relative_path}: struct {type_ir.name} field {field.name} "
-                                "must reference a scalar alias in this milestone"
+                                "must reference a scalar alias or struct in this milestone"
                             )
                         continue
                 continue
             raise ValidationError(f"{module.ref.repo_relative_path}: unsupported type node {type(type_ir).__name__}")
+        _validate_struct_cycles(module=module, type_index=type_index)
 
 
 def _validate_const_storage(*, value: int, signed: bool, width: int, module_path: str, const_name: str) -> None:
@@ -93,3 +95,36 @@ def _validate_const_storage(*, value: int, signed: bool, width: int, module_path
             f"{module_path}: constant {const_name} out of supported range for "
             f"{'signed' if signed else 'unsigned'} {width}-bit storage [{minimum}, {maximum}]"
         )
+
+
+def _validate_struct_cycles(*, module, type_index: dict[tuple[str, str], object]) -> None:
+    """Reject direct or indirect same-module struct cycles."""
+    struct_graph: dict[str, set[str]] = {}
+    for type_ir in module.types:
+        if not isinstance(type_ir, StructIR):
+            continue
+        deps: set[str] = set()
+        for field in type_ir.fields:
+            if not isinstance(field.type_ir, TypeRefIR):
+                continue
+            target = type_index.get((field.type_ir.module.python_module_name, field.type_ir.name))
+            if isinstance(target, StructIR):
+                deps.add(target.name)
+        struct_graph[type_ir.name] = deps
+
+    visiting: set[str] = set()
+    visited: set[str] = set()
+
+    def visit(name: str) -> None:
+        if name in visited:
+            return
+        if name in visiting:
+            raise ValidationError(f"{module.ref.repo_relative_path}: recursive struct dependency detected at {name}")
+        visiting.add(name)
+        for dep in struct_graph.get(name, set()):
+            visit(dep)
+        visiting.remove(name)
+        visited.add(name)
+
+    for name in struct_graph:
+        visit(name)

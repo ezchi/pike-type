@@ -147,6 +147,19 @@ class GenConstSvIntegrationTest(unittest.TestCase):
             self.assertEqual(result.returncode, 0, msg=result.stderr)
             assert_trees_equal(self, expected_root, repo_dir / "gen")
 
+    def test_generates_nested_structs_in_sv(self) -> None:
+        fixture_root = FIXTURES_DIR / "nested_struct_sv_basic" / "project"
+        expected_root = GOLDENS_DIR / "nested_struct_sv_basic"
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo_dir = Path(tmp_dir) / "project"
+            copy_tree(fixture_root, repo_dir)
+            cli_file = repo_dir / "alpha" / "typist" / "types.py"
+
+            result = self.run_typist(repo_dir, str(cli_file))
+
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            assert_trees_equal(self, expected_root, repo_dir / "gen")
+
     def test_rejects_typist_file_with_no_dsl_objects(self) -> None:
         fixture_root = FIXTURES_DIR / "no_dsl" / "project"
         with tempfile.TemporaryDirectory() as tmp_dir:

@@ -225,7 +225,7 @@ def _freeze_struct_field(
 
 def _freeze_field_type(
     *,
-    type_obj: ScalarType,
+    type_obj: ScalarType | StructType,
     definition_map: dict[int, tuple[ModuleRefIR, str]],
     type_definition_map: dict[int, tuple[ModuleRefIR, str]],
 ):
@@ -235,6 +235,8 @@ def _freeze_field_type(
     if resolved is not None:
         module_ref, type_name = resolved
         return TypeRefIR(module=module_ref, name=type_name, source=source)
+    if isinstance(type_obj, StructType):
+        raise ValidationError("inline anonymous struct member types are not supported in this milestone")
     return ScalarTypeSpecIR(
         source=source,
         state_kind=type_obj.state_kind,
