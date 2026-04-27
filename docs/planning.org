@@ -1,0 +1,126 @@
+  1. Python code, the tool should provide basic types, For example Bit(), Enum(), Struct(), Array() etc. user can use `my_t = Struct(); my_t.addMember(name="foo", type=Bit(5)).addMember(name="bar", type=my_another_t)`.
+
+  2. 
+  - Ease of authoring
+  - Static validation / fewer user mistakes
+  - Ability to import/reuse definitions
+  - Ability to run arbitrary computations when defining types
+  - Long-term maintainability
+
+  3. No
+
+  4. 
+  - Bit / logic with width
+  - Signed / unsigned integers
+  - Packed arrays
+  - Enum
+  - Packed struct
+  - Packed union
+  - Constant values / parameters
+  - Strings
+
+  5. I need both synthesizable and verification-only packages.
+     
+  6. 
+  - A packed typedef struct 
+  - Plus a separate verification helper class that wraps/owns that packed value
+  - Plus conversion class methods 
+that is the intended pattern for every non-scalar composite type?
+
+  7. 
+  - Pretty-print / sprint
+  - Compare / diff
+  - Randomization
+  - Pack / unpack
+  - Field getters/setters
+  - Constraints
+  - Copy / clone
+  - Bitstream conversion
+
+  8. 
+  - int for packed values, with helper methods
+  - dataclass per struct/union
+  - Pydantic-style models
+  - Both packed scalar and ergonomic object views
+
+  9. 
+
+  - Rich classes with methods
+
+  10. 
+
+  - SV is canonical, software views may differ if converters exist
+
+  11. 
+
+  - User-configurable per field
+
+  12. Yes
+     user definition -> IR -> language-specific generators
+  13. 
+  - Add new IR node kinds
+  - Add generator plugins per language
+  - Add custom field annotations/attributes
+
+  14. 
+  - Naming conventions
+  - File layout
+  - typedef placement
+  - package generation
+  - One user defined type per package
+  - logic for synthesis and bit can be used for verification if required
+
+  15. 
+
+  - One input package -> one SV package, one Python module, one C++ header/source
+
+  16. 
+
+  - tool gen my_types.py
+  - tool build spec_pkg
+  - tool test
+  - tool lint
+
+  17. 
+  - Full regeneration always
+
+  18. 
+
+  - Fail fast on unsupported constructs
+  - Cross-language compatibility checks
+
+  19. 
+
+  - Unit tests for parser/DSL
+  - IR validation tests
+  - Golden-file tests for generated code
+  - Verilator compile tests
+  - SV runtime tests
+  - Python runtime tests
+  - C++ runtime tests
+  - Cross-language roundtrip tests
+
+  20. 
+
+  - All three
+
+  21. 
+     Yes. it is a hard dependency of the project.
+     
+  22. 
+
+  - Python 3.12+
+  - C++17 
+
+  23. Yes
+     
+  24. 
+  - UVM
+  - commercial simulators
+  - schema evolution / backward compatibility
+
+  25. 
+  - what they can do immediately after generation
+
+
+

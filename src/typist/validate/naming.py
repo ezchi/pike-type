@@ -1,0 +1,1 @@
+"""Naming validation placeholders."""

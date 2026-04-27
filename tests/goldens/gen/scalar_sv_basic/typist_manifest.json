@@ -1,0 +1,85 @@
+{
+  "modules": [
+    {
+      "basename": "types",
+      "constants": [
+        {
+          "name": "W",
+          "resolved_signed": true,
+          "resolved_value": 13,
+          "resolved_width": 32,
+          "source": {
+            "column": null,
+            "line": 3,
+            "path": "alpha/typist/types.py"
+          }
+        }
+      ],
+      "dependencies": [],
+      "generated_outputs": {
+        "cpp": "gen/cpp/alpha/typist/types_types.hpp",
+        "py": "gen/py/alpha/typist/types_types.py",
+        "sv": "gen/sv/alpha/typist/types_pkg.sv",
+        "sv_test": "gen/sv/alpha/typist/types_test_pkg.sv"
+      },
+      "namespace_parts": [
+        "alpha",
+        "typist",
+        "types"
+      ],
+      "python_module_name": "alpha.typist.types",
+      "repo_relative_path": "alpha/typist/types.py",
+      "source": {
+        "column": null,
+        "line": 1,
+        "path": "alpha/typist/types.py"
+      },
+      "types": [
+        {
+          "kind": "scalar_alias",
+          "name": "addr_t",
+          "resolved_width": 13,
+          "signed": false,
+          "source": {
+            "column": null,
+            "line": 4,
+            "path": "alpha/typist/types.py"
+          },
+          "state_kind": "bit"
+        },
+        {
+          "kind": "scalar_alias",
+          "name": "mask_t",
+          "resolved_width": 8,
+          "signed": true,
+          "source": {
+            "column": null,
+            "line": 5,
+            "path": "alpha/typist/types.py"
+          },
+          "state_kind": "logic"
+        },
+        {
+          "kind": "scalar_alias",
+          "name": "flag_t",
+          "resolved_width": 1,
+          "signed": false,
+          "source": {
+            "column": null,
+            "line": 6,
+            "path": "alpha/typist/types.py"
+          },
+          "state_kind": "bit"
+        }
+      ]
+    }
+  ],
+  "repo_root": ".",
+  "runtime_outputs": {
+    "cpp_header": "gen/cpp/runtime/typist_runtime.hpp",
+    "cpp_source": "gen/cpp/runtime/typist_runtime.cpp",
+    "py": "gen/py/runtime/typist_runtime.py",
+    "sv": "gen/sv/runtime/typist_runtime_pkg.sv"
+  },
+  "tool_version": "0.1.0"
+}

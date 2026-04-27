@@ -1,0 +1,1 @@
+"""Width validation placeholders."""
