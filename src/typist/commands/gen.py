@@ -15,14 +15,21 @@ from typist.loader.python_loader import load_module_from_path
 from typist.manifest.write_json import write_manifest
 from typist.repo import find_repo_root
 from typist.validate.engine import validate_repo
+from typist.validate.namespace import check_duplicate_basenames, validate_cpp_namespace
 
 
-def run_gen(path: str) -> None:
+def run_gen(path: str, *, namespace: str | None = None) -> None:
     """Run generation orchestration."""
+    if namespace is not None:
+        validate_cpp_namespace(namespace)
+
     cli_path = Path(path).resolve()
     ensure_cli_path_is_valid(cli_path)
     repo_root = find_repo_root(cli_path)
     module_paths = find_typist_modules(repo_root)
+
+    if namespace is not None:
+        check_duplicate_basenames(module_paths=module_paths)
 
     loaded_modules = [
         build_loaded_module(
@@ -56,6 +63,6 @@ def run_gen(path: str) -> None:
 
     emit_sv(repo)
     emit_py(repo)
-    emit_cpp(repo)
+    emit_cpp(repo, namespace=namespace)
     emit_runtime(repo)
     write_manifest(repo)

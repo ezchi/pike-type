@@ -17,7 +17,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="typist")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    for name in ("gen", "build", "test", "lint"):
+    gen_parser = subparsers.add_parser("gen")
+    gen_parser.add_argument("--namespace", default=None)
+    gen_parser.add_argument("path")
+
+    for name in ("build", "test", "lint"):
         command_parser = subparsers.add_parser(name)
         command_parser.add_argument("path")
 
@@ -32,7 +36,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         match args.command:
             case "gen":
-                run_gen(args.path)
+                run_gen(args.path, namespace=args.namespace)
             case "build":
                 run_build(args.path)
             case "test":

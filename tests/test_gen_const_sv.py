@@ -42,11 +42,11 @@ def assert_trees_equal(test_case: unittest.TestCase, expected: Path, actual: Pat
 class GenConstSvIntegrationTest(unittest.TestCase):
     """Fixture-style CLI coverage for milestone 01."""
 
-    def run_typist(self, repo_dir: Path, cli_arg: str) -> subprocess.CompletedProcess[str]:
+    def run_typist(self, repo_dir: Path, cli_arg: str, *extra_args: str) -> subprocess.CompletedProcess[str]:
         env = os.environ.copy()
         env["PYTHONPATH"] = str(PROJECT_ROOT / "src")
         return subprocess.run(
-            [sys.executable, "-m", "typist.cli", "gen", cli_arg],
+            [sys.executable, "-m", "typist.cli", "gen", *extra_args, cli_arg],
             cwd=repo_dir,
             env=env,
             text=True,
@@ -261,3 +261,116 @@ class GenConstSvIntegrationTest(unittest.TestCase):
 
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("is not under a typist/ directory", result.stderr)
+
+    # -- Namespace override tests --
+
+    def test_namespace_override_multi_module(self) -> None:
+        fixture_root = FIXTURES_DIR / "namespace_override" / "project"
+        expected_root = GOLDENS_DIR / "namespace_override"
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo_dir = Path(tmp_dir) / "project"
+            copy_tree(fixture_root, repo_dir)
+            cli_file = repo_dir / "alpha" / "typist" / "constants.py"
+            result = self.run_typist(repo_dir, str(cli_file), "--namespace", "foo::bar")
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            assert_trees_equal(self, expected_root, repo_dir / "gen")
+
+    def test_namespace_rejects_empty_segment(self) -> None:
+        fixture_root = FIXTURES_DIR / "const_sv_basic" / "project"
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo_dir = Path(tmp_dir) / "project"
+            copy_tree(fixture_root, repo_dir)
+            cli_file = repo_dir / "alpha" / "typist" / "constants.py"
+            result = self.run_typist(repo_dir, str(cli_file), "--namespace", "foo::::bar")
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("empty segment", result.stderr)
+
+    def test_namespace_rejects_non_identifier(self) -> None:
+        fixture_root = FIXTURES_DIR / "const_sv_basic" / "project"
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo_dir = Path(tmp_dir) / "project"
+            copy_tree(fixture_root, repo_dir)
+            cli_file = repo_dir / "alpha" / "typist" / "constants.py"
+            result = self.run_typist(repo_dir, str(cli_file), "--namespace", "123bad")
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("not a valid C++ identifier", result.stderr)
+
+    def test_namespace_rejects_cpp_keyword(self) -> None:
+        fixture_root = FIXTURES_DIR / "const_sv_basic" / "project"
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo_dir = Path(tmp_dir) / "project"
+            copy_tree(fixture_root, repo_dir)
+            cli_file = repo_dir / "alpha" / "typist" / "constants.py"
+            result = self.run_typist(repo_dir, str(cli_file), "--namespace", "class")
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("C++ keyword", result.stderr)
+
+    def test_namespace_rejects_double_underscore(self) -> None:
+        fixture_root = FIXTURES_DIR / "const_sv_basic" / "project"
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo_dir = Path(tmp_dir) / "project"
+            copy_tree(fixture_root, repo_dir)
+            cli_file = repo_dir / "alpha" / "typist" / "constants.py"
+            result = self.run_typist(repo_dir, str(cli_file), "--namespace", "foo__bar")
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("'__'", result.stderr)
+
+    def test_namespace_rejects_leading_underscore(self) -> None:
+        fixture_root = FIXTURES_DIR / "const_sv_basic" / "project"
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo_dir = Path(tmp_dir) / "project"
+            copy_tree(fixture_root, repo_dir)
+            cli_file = repo_dir / "alpha" / "typist" / "constants.py"
+            result = self.run_typist(repo_dir, str(cli_file), "--namespace", "_foo")
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("underscore", result.stderr)
+
+    def test_namespace_rejects_std_first_segment(self) -> None:
+        fixture_root = FIXTURES_DIR / "const_sv_basic" / "project"
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo_dir = Path(tmp_dir) / "project"
+            copy_tree(fixture_root, repo_dir)
+            cli_file = repo_dir / "alpha" / "typist" / "constants.py"
+            result = self.run_typist(repo_dir, str(cli_file), "--namespace", "std::types")
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("'std'", result.stderr)
+
+    def test_namespace_rejects_trailing_underscore(self) -> None:
+        fixture_root = FIXTURES_DIR / "const_sv_basic" / "project"
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo_dir = Path(tmp_dir) / "project"
+            copy_tree(fixture_root, repo_dir)
+            cli_file = repo_dir / "alpha" / "typist" / "constants.py"
+            result = self.run_typist(repo_dir, str(cli_file), "--namespace", "foo_")
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("underscore", result.stderr)
+
+    def test_namespace_rejects_leading_underscore_non_first(self) -> None:
+        fixture_root = FIXTURES_DIR / "const_sv_basic" / "project"
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo_dir = Path(tmp_dir) / "project"
+            copy_tree(fixture_root, repo_dir)
+            cli_file = repo_dir / "alpha" / "typist" / "constants.py"
+            result = self.run_typist(repo_dir, str(cli_file), "--namespace", "foo::_bar")
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("underscore", result.stderr)
+
+    def test_namespace_rejects_duplicate_basenames(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo_dir = Path(tmp_dir) / "project"
+            repo_dir.mkdir()
+            (repo_dir / ".git").mkdir()
+            (repo_dir / ".git" / "HEAD").write_text("ref: refs/heads/main\n")
+            (repo_dir / "alpha" / "typist").mkdir(parents=True)
+            (repo_dir / "beta" / "typist").mkdir(parents=True)
+            (repo_dir / "alpha" / "typist" / "types.py").write_text(
+                "from typist.dsl import Const\nX = Const(1)\n"
+            )
+            (repo_dir / "beta" / "typist" / "types.py").write_text(
+                "from typist.dsl import Const\nY = Const(2)\n"
+            )
+            cli_file = repo_dir / "alpha" / "typist" / "types.py"
+            result = self.run_typist(repo_dir, str(cli_file), "--namespace", "foo::bar")
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("types", result.stderr)
+            self.assertIn("duplicate", result.stderr.lower())

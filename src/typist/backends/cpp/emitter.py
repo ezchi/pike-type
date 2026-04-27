@@ -26,7 +26,7 @@ from typist.ir.nodes import (
 from typist.paths import cpp_header_output_path
 
 
-def emit_cpp(repo: RepoIR) -> list[Path]:
+def emit_cpp(repo: RepoIR, *, namespace: str | None = None) -> list[Path]:
     """Emit C++ outputs."""
     written_paths: list[Path] = []
     repo_root = Path(repo.repo_root)
@@ -36,24 +36,28 @@ def emit_cpp(repo: RepoIR) -> list[Path]:
             module_path=repo_root / module.ref.repo_relative_path,
         )
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.write_text(render_module_hpp(module), encoding="utf-8")
+        output_path.write_text(render_module_hpp(module, namespace=namespace), encoding="utf-8")
         written_paths.append(output_path)
     return written_paths
 
 
-def render_module_hpp(module: ModuleIR) -> str:
+def render_module_hpp(module: ModuleIR, *, namespace: str | None = None) -> str:
     """Render a C++ header."""
     header = render_header(source_paths=(module.ref.repo_relative_path,))
-    guard = "_".join((*module.ref.namespace_parts, "types_hpp")).upper().replace(".", "_")
-    namespace = "::".join(part for part in module.ref.namespace_parts if part != "typist")
+    if namespace is not None:
+        guard = f"{namespace.replace('::', '_')}_{module.ref.basename}_types_hpp".upper()
+        ns = f"{namespace}::{module.ref.basename}"
+    else:
+        guard = "_".join((*module.ref.namespace_parts, "types_hpp")).upper().replace(".", "_")
+        ns = "::".join(part for part in module.ref.namespace_parts if part != "typist")
     type_index = {type_ir.name: type_ir for type_ir in module.types}
     has_types = bool(module.types)
     body_lines = [f"#ifndef {guard}", f"#define {guard}", "", "#include <cstdint>"]
     if has_types:
         body_lines.extend(["#include <cstddef>", "#include <stdexcept>", "#include <vector>"])
     body_lines.append("")
-    if namespace:
-        body_lines.append(f"namespace {namespace} {{")
+    if ns:
+        body_lines.append(f"namespace {ns} {{")
         body_lines.append("")
     for const in module.constants:
         cpp_type, cpp_literal = _render_cpp_const(
@@ -75,9 +79,9 @@ def render_module_hpp(module: ModuleIR) -> str:
             body_lines.extend(_render_cpp_scalar_alias(type_ir=type_ir))
         else:
             body_lines.extend(_render_cpp_struct(type_ir=type_ir, type_index=type_index))
-    if namespace:
+    if ns:
         body_lines.append("")
-        body_lines.append(f"}}  // namespace {namespace}")
+        body_lines.append(f"}}  // namespace {ns}")
     body_lines.extend(["", f"#endif  // {guard}"])
     return f"{header}\n" + "\n".join(body_lines) + "\n"
 
