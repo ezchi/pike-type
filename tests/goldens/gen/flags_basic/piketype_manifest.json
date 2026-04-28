@@ -5,22 +5,22 @@
       "constants": [],
       "dependencies": [],
       "generated_outputs": {
-        "cpp": "gen/cpp/alpha/typist/types_types.hpp",
-        "py": "gen/py/alpha/typist/types_types.py",
-        "sv": "gen/sv/alpha/typist/types_pkg.sv",
-        "sv_test": "gen/sv/alpha/typist/types_test_pkg.sv"
+        "cpp": "gen/cpp/alpha/piketype/types_types.hpp",
+        "py": "gen/py/alpha/piketype/types_types.py",
+        "sv": "gen/sv/alpha/piketype/types_pkg.sv",
+        "sv_test": "gen/sv/alpha/piketype/types_test_pkg.sv"
       },
       "namespace_parts": [
         "alpha",
-        "typist",
+        "piketype",
         "types"
       ],
-      "python_module_name": "alpha.typist.types",
-      "repo_relative_path": "alpha/typist/types.py",
+      "python_module_name": "alpha.piketype.types",
+      "repo_relative_path": "alpha/piketype/types.py",
       "source": {
         "column": null,
         "line": 1,
-        "path": "alpha/typist/types.py"
+        "path": "alpha/piketype/types.py"
       },
       "types": [
         {
@@ -33,7 +33,7 @@
           "source": {
             "column": null,
             "line": 4,
-            "path": "alpha/typist/types.py"
+            "path": "alpha/piketype/types.py"
           }
         },
         {
@@ -48,7 +48,7 @@
           "source": {
             "column": null,
             "line": 7,
-            "path": "alpha/typist/types.py"
+            "path": "alpha/piketype/types.py"
           }
         },
         {
@@ -68,7 +68,7 @@
           "source": {
             "column": null,
             "line": 11,
-            "path": "alpha/typist/types.py"
+            "path": "alpha/piketype/types.py"
           }
         },
         {
@@ -89,7 +89,7 @@
           "source": {
             "column": null,
             "line": 24,
-            "path": "alpha/typist/types.py"
+            "path": "alpha/piketype/types.py"
           }
         },
         {
@@ -134,7 +134,7 @@
           "source": {
             "column": null,
             "line": 38,
-            "path": "alpha/typist/types.py"
+            "path": "alpha/piketype/types.py"
           }
         }
       ]
@@ -142,10 +142,10 @@
   ],
   "repo_root": ".",
   "runtime_outputs": {
-    "cpp_header": "gen/cpp/runtime/typist_runtime.hpp",
-    "cpp_source": "gen/cpp/runtime/typist_runtime.cpp",
-    "py": "gen/py/runtime/typist_runtime.py",
-    "sv": "gen/sv/runtime/typist_runtime_pkg.sv"
+    "cpp_header": "gen/cpp/runtime/piketype_runtime.hpp",
+    "cpp_source": "gen/cpp/runtime/piketype_runtime.cpp",
+    "py": "gen/py/runtime/piketype_runtime.py",
+    "sv": "gen/sv/runtime/piketype_runtime_pkg.sv"
   },
   "tool_version": "0.1.0"
 }
