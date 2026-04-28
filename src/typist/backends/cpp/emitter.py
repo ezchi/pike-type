@@ -11,6 +11,8 @@ from typist.ir.nodes import (
     ConstRefExprIR,
     ExprIR,
     FieldTypeIR,
+    FlagFieldIR,
+    FlagsIR,
     IntLiteralExprIR,
     ModuleIR,
     RepoIR,
@@ -77,8 +79,10 @@ def render_module_hpp(module: ModuleIR, *, namespace: str | None = None) -> str:
             body_lines.append("")
         if isinstance(type_ir, ScalarAliasIR):
             body_lines.extend(_render_cpp_scalar_alias(type_ir=type_ir))
-        else:
+        elif isinstance(type_ir, StructIR):
             body_lines.extend(_render_cpp_struct(type_ir=type_ir, type_index=type_index))
+        elif isinstance(type_ir, FlagsIR):
+            body_lines.extend(_render_cpp_flags(type_ir=type_ir))
     if ns:
         body_lines.append("")
         body_lines.append(f"}}  // namespace {ns}")
@@ -329,6 +333,125 @@ def _render_cpp_scalar_alias(*, type_ir: ScalarAliasIR) -> list[str]:
                 "};",
             ]
         )
+    return lines
+
+
+# ---------------------------------------------------------------------------
+# Flags wrapper class
+# ---------------------------------------------------------------------------
+
+
+def _render_cpp_flags(*, type_ir: FlagsIR) -> list[str]:
+    """Render a C++ flags wrapper class (big-endian, MSB-first bit packing)."""
+    class_name = _type_class_name(type_ir.name)
+    num_flags = len(type_ir.fields)
+    total_width = num_flags + type_ir.alignment_bits
+    bc = byte_count(total_width)
+    storage_bits = bc * 8
+
+    # Choose smallest unsigned storage type
+    value_type = _cpp_scalar_value_type(width=storage_bits, signed=False)
+    is_64 = storage_bits > 32
+
+    # Data mask: top num_flags bits set, bottom alignment_bits clear
+    data_mask_val = ((1 << num_flags) - 1) << (storage_bits - num_flags)
+    if is_64:
+        data_mask_lit = f"0x{data_mask_val:02X}ULL"
+    else:
+        data_mask_lit = f"0x{data_mask_val:02X}U"
+
+    lines = [
+        f"class {class_name} {{",
+        " public:",
+        f"  static constexpr std::size_t WIDTH = {num_flags};",
+        f"  static constexpr std::size_t BYTE_COUNT = {bc};",
+        f"  using value_type = {value_type};",
+    ]
+
+    # Per-flag mask constants
+    for i, field in enumerate(type_ir.fields):
+        mask_val = 1 << (storage_bits - 1 - i)
+        if is_64:
+            mask_lit = f"0x{mask_val:02X}ULL"
+        else:
+            mask_lit = f"0x{mask_val:02X}U"
+        lines.append(f"  static constexpr value_type {field.name.upper()}_MASK = {mask_lit};")
+
+    lines.extend(
+        [
+            "  value_type value = 0;",
+            "",
+            f"  {class_name}() = default;",
+        ]
+    )
+
+    # Per-flag get/set accessors
+    for field in type_ir.fields:
+        mask_name = f"{field.name.upper()}_MASK"
+        lines.extend(
+            [
+                "",
+                f"  bool get_{field.name}() const {{ return (value & {mask_name}) != 0; }}",
+                f"  void set_{field.name}(bool v) {{ if (v) value |= {mask_name};"
+                f" else value &= static_cast<value_type>(~{mask_name}); }}",
+            ]
+        )
+
+    # to_bytes
+    lines.extend(
+        [
+            "",
+            "  std::vector<std::uint8_t> to_bytes() const {",
+            "    std::vector<std::uint8_t> bytes(BYTE_COUNT, 0);",
+            f"    value_type masked = value & {data_mask_lit};",
+            "    for (std::size_t idx = 0; idx < BYTE_COUNT; ++idx) {",
+            f"      bytes[BYTE_COUNT - 1 - idx] = static_cast<std::uint8_t>((static_cast<std::uint64_t>(masked) >> (8U * idx)) & 0xFFU);",
+            "    }",
+            "    return bytes;",
+            "  }",
+        ]
+    )
+
+    # from_bytes
+    lines.extend(
+        [
+            "",
+            "  void from_bytes(const std::vector<std::uint8_t>& bytes) {",
+            "    if (bytes.size() != BYTE_COUNT) {",
+            '      throw std::invalid_argument("byte width mismatch");',
+            "    }",
+            "    std::uint64_t bits = 0;",
+            "    for (std::size_t idx = 0; idx < BYTE_COUNT; ++idx) {",
+            "      bits = (bits << 8U) | bytes[idx];",
+            "    }",
+            f"    value = static_cast<value_type>(bits) & {data_mask_lit};",
+            "  }",
+        ]
+    )
+
+    # clone
+    lines.extend(
+        [
+            "",
+            f"  {class_name} clone() const {{",
+            f"    {class_name} cloned;",
+            "    cloned.value = value;",
+            "    return cloned;",
+            "  }",
+        ]
+    )
+
+    # operator==
+    lines.extend(
+        [
+            "",
+            f"  bool operator==(const {class_name}& other) const {{",
+            f"    return (value & {data_mask_lit}) == (other.value & {data_mask_lit});",
+            "  }",
+            "};",
+        ]
+    )
+
     return lines
 
 

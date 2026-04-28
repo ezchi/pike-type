@@ -10,6 +10,7 @@ from typist.ir.nodes import (
     ConstRefExprIR,
     ExprIR,
     FieldTypeIR,
+    FlagsIR,
     IntLiteralExprIR,
     ModuleIR,
     RepoIR,
@@ -64,8 +65,10 @@ def render_module_py(module: ModuleIR) -> str:
             body_lines.append("")
         if isinstance(type_ir, ScalarAliasIR):
             body_lines.extend(_render_py_scalar_alias(type_ir=type_ir))
-        else:
+        elif isinstance(type_ir, StructIR):
             body_lines.extend(_render_py_struct(type_ir=type_ir, type_index=type_index))
+        elif isinstance(type_ir, FlagsIR):
+            body_lines.extend(_render_py_flags(type_ir=type_ir))
     return f"{header}\n" + "\n".join(body_lines) + "\n"
 
 
@@ -590,3 +593,96 @@ def _type_class_name(type_name: str) -> str:
     if type_name.endswith("_t"):
         return f"{type_name[:-2]}_ct"
     return f"{type_name}_ct"
+
+
+# ---------------------------------------------------------------------------
+# Flags wrapper class
+# ---------------------------------------------------------------------------
+
+
+def _render_py_flags(*, type_ir: FlagsIR) -> list[str]:
+    """Render a Python flags wrapper class."""
+    class_name = _type_class_name(type_ir.name)
+    num_flags = len(type_ir.fields)
+    bc = byte_count(num_flags)
+    total_bits = bc * 8
+    # Data mask: top num_flags bits set, bottom alignment_bits clear
+    data_mask = ((1 << num_flags) - 1) << type_ir.alignment_bits
+
+    lines = [
+        f"class {class_name}:",
+        f"    WIDTH: int = {num_flags}",
+        f"    BYTE_COUNT: int = {bc}",
+        "",
+        "    def __init__(self) -> None:",
+        "        self._value: int = 0",
+        "",
+    ]
+
+    # Per-flag properties
+    for i, flag in enumerate(type_ir.fields):
+        mask = 1 << (total_bits - 1 - i)
+        lines.extend(
+            [
+                "    @property",
+                f"    def {flag.name}(self) -> bool:",
+                f"        return (self._value & {mask}) != 0",
+                "",
+                f"    @{flag.name}.setter",
+                f"    def {flag.name}(self, v: bool) -> None:",
+                f"        if v:",
+                f"            self._value |= {mask}",
+                f"        else:",
+                f"            self._value &= ~{mask}",
+                "",
+            ]
+        )
+
+    # to_bytes
+    lines.extend(
+        [
+            "    def to_bytes(self) -> bytes:",
+            f'        return (self._value & {data_mask}).to_bytes({bc}, "big")',
+            "",
+        ]
+    )
+
+    # from_bytes
+    lines.extend(
+        [
+            "    @classmethod",
+            f'    def from_bytes(cls, data: bytes | bytearray) -> "{class_name}":',
+            "        if not isinstance(data, (bytes, bytearray)):",
+            f'            raise TypeError("{class_name}.from_bytes expects bytes or bytearray")',
+            "        raw = bytes(data)",
+            f"        if len(raw) != {bc}:",
+            f'            raise ValueError("{class_name}.from_bytes size mismatch")',
+            "        obj = cls()",
+            f'        obj._value = int.from_bytes(raw, "big") & {data_mask}',
+            "        return obj",
+            "",
+        ]
+    )
+
+    # clone
+    lines.extend(
+        [
+            f'    def clone(self) -> "{class_name}":',
+            "        obj = self.__class__()",
+            f"        obj._value = self._value & {data_mask}",
+            "        return obj",
+            "",
+        ]
+    )
+
+    # __eq__
+    lines.extend(
+        [
+            "    def __eq__(self, other: object) -> bool:",
+            f"        if not isinstance(other, {class_name}):",
+            "            return NotImplemented",
+            f"        return (self._value & {data_mask}) == (other._value & {data_mask})",
+        ]
+    )
+
+    return lines

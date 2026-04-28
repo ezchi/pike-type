@@ -8,6 +8,7 @@ from types import ModuleType
 
 from typist.discovery.module_name import module_basename, module_name_from_path
 from typist.dsl.const import Const, ConstExpr
+from typist.dsl.flags import FlagsType
 from typist.dsl.scalar import ScalarType
 from typist.dsl.struct import StructType
 from typist.errors import ValidationError
@@ -15,6 +16,8 @@ from typist.ir.nodes import (
     BinaryExprIR,
     ConstIR,
     ConstRefExprIR,
+    FlagFieldIR,
+    FlagsIR,
     IntLiteralExprIR,
     ModuleIR,
     ModuleRefIR,
@@ -91,7 +94,7 @@ def build_type_definition_map(*, loaded_modules: list[LoadedModule]) -> dict[int
         for name, value in loaded.module.__dict__.items():
             if name.startswith("__"):
                 continue
-            if not isinstance(value, (ScalarType, StructType)):
+            if not isinstance(value, (ScalarType, StructType, FlagsType)):
                 continue
             if id(value) in seen_object_ids:
                 raise ValidationError(f"{loaded.module_path}: DSL object bound to multiple top-level names")
@@ -117,7 +120,7 @@ def freeze_module(
     for name, value in loaded_module.module.__dict__.items():
         if name.startswith("__"):
             continue
-        if isinstance(value, (Const, ScalarType, StructType)):
+        if isinstance(value, (Const, ScalarType, StructType, FlagsType)):
             if id(value) in seen_local_object_ids:
                 raise ValidationError(f"{loaded_module.module_path}: DSL object bound to multiple top-level names")
             seen_local_object_ids.add(id(value))
@@ -161,6 +164,32 @@ def freeze_module(
                             for member in value.members
                         ),
                         alignment_bits=_compute_alignment_bits(value),
+                    )
+                )
+            elif isinstance(value, FlagsType):
+                if Path(value.source.path).resolve() != loaded_module.module_path.resolve():
+                    continue
+                flags_source = SourceSpanIR(
+                    path=value.source.path,
+                    line=value.source.line,
+                    column=value.source.column,
+                )
+                local_types.append(
+                    FlagsIR(
+                        name=name,
+                        source=flags_source,
+                        fields=tuple(
+                            FlagFieldIR(
+                                name=flag.name,
+                                source=SourceSpanIR(
+                                    path=flag.source.path,
+                                    line=flag.source.line,
+                                    column=flag.source.column,
+                                ),
+                            )
+                            for flag in value.flags
+                        ),
+                        alignment_bits=(-len(value.flags)) % 8,
                     )
                 )
             continue

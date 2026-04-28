@@ -10,6 +10,8 @@ from typist.ir.nodes import (
     ConstRefExprIR,
     ExprIR,
     FieldTypeIR,
+    FlagFieldIR,
+    FlagsIR,
     IntLiteralExprIR,
     ModuleIR,
     RepoIR,
@@ -107,6 +109,8 @@ def _render_sv_type_block(*, type_ir: TypeDefIR, type_index: dict[str, TypeDefIR
         lines.append(f"  {_render_sv_scalar_alias(type_ir=type_ir)}")
     elif isinstance(type_ir, StructIR):
         lines.extend(f"  {line}" for line in _render_sv_struct(type_ir=type_ir))
+    elif isinstance(type_ir, FlagsIR):
+        lines.extend(f"  {line}" for line in _render_sv_flags(type_ir=type_ir))
 
     lines.append("")
     lines.extend(f"  {line}" for line in _render_sv_pack_fn(type_ir=type_ir, type_index=type_index))
@@ -165,6 +169,20 @@ def _render_sv_struct_field_type(*, field_type: FieldTypeIR) -> str:
     return f"{base_type}{signed_kw} [{field_type.resolved_width - 1}:0]"
 
 
+def _render_sv_flags(*, type_ir: FlagsIR) -> list[str]:
+    """Render one packed flags typedef."""
+    lines = ["typedef struct packed {"]
+    for flag in type_ir.fields:
+        lines.append(f"  logic {flag.name};")
+    if type_ir.alignment_bits > 0:
+        if type_ir.alignment_bits == 1:
+            lines.append("  logic _align_pad;")
+        else:
+            lines.append(f"  logic [{type_ir.alignment_bits - 1}:0] _align_pad;")
+    lines.append(f"}} {type_ir.name};")
+    return lines
+
+
 def _render_sv_pack_fn(*, type_ir: TypeDefIR, type_index: dict[str, TypeDefIR]) -> list[str]:
     """Render a pack_<base> function."""
     base = _type_base_name(type_ir.name)
@@ -174,6 +192,15 @@ def _render_sv_pack_fn(*, type_ir: TypeDefIR, type_index: dict[str, TypeDefIR]) 
         return [
             f"function automatic logic [LP_{upper_base}_WIDTH-1:0] pack_{base}({type_ir.name} a);",
             "  return a;",
+            "endfunction",
+        ]
+
+    if isinstance(type_ir, FlagsIR):
+        parts = [f"a.{flag.name}" for flag in type_ir.fields]
+        concat = ", ".join(parts)
+        return [
+            f"function automatic logic [LP_{upper_base}_WIDTH-1:0] pack_{base}({type_ir.name} a);",
+            f"  return {{{concat}}};",
             "endfunction",
         ]
 
@@ -204,6 +231,18 @@ def _render_sv_unpack_fn(*, type_ir: TypeDefIR, type_index: dict[str, TypeDefIR]
             "  return a;",
             "endfunction",
         ]
+
+    if isinstance(type_ir, FlagsIR):
+        lines = [
+            f"function automatic {type_ir.name} unpack_{base}(logic [LP_{upper_base}_WIDTH-1:0] a);",
+            f"  {type_ir.name} result;",
+            "  result = '0;",
+        ]
+        for bit_idx, flag in enumerate(reversed(type_ir.fields)):
+            lines.append(f"  result.{flag.name} = a[{bit_idx}];")
+        lines.append("  return result;")
+        lines.append("endfunction")
+        return lines
 
     lines = [
         f"function automatic {type_ir.name} unpack_{base}(logic [LP_{upper_base}_WIDTH-1:0] a);",
@@ -254,6 +293,8 @@ def render_module_test_sv(module: ModuleIR) -> str:
             body_lines.extend(f"  {line}" for line in _render_sv_scalar_helper_class(type_ir=type_ir))
         elif isinstance(type_ir, StructIR):
             body_lines.extend(f"  {line}" for line in _render_sv_struct_helper_class(type_ir=type_ir, type_index=type_index))
+        elif isinstance(type_ir, FlagsIR):
+            body_lines.extend(f"  {line}" for line in _render_sv_flags_helper_class(type_ir=type_ir))
     body_lines.append("endpackage")
     return f"{header}\n" + "\n".join(body_lines) + "\n"
 
@@ -488,6 +529,117 @@ def _render_sv_struct_helper_class(*, type_ir: StructIR, type_index: dict[str, T
     return lines
 
 
+def _render_sv_flags_helper_class(*, type_ir: FlagsIR) -> list[str]:
+    """Render a verification helper class for a flags type."""
+    class_name = _helper_class_name(type_ir.name)
+    base = _type_base_name(type_ir.name)
+    upper_base = base.upper()
+    num_flags = len(type_ir.fields)
+    bc = byte_count(num_flags)
+    total_bits = bc * 8
+
+    lines = [
+        f"class {class_name};",
+        f"  localparam int WIDTH = {num_flags};",
+        f"  localparam int BYTE_COUNT = {bc};",
+    ]
+    for flag in type_ir.fields:
+        lines.append(f"  rand logic {flag.name};")
+
+    # Constructor
+    lines.extend(["", "  function new();"])
+    for flag in type_ir.fields:
+        lines.append(f"    {flag.name} = '0;")
+    lines.append("  endfunction")
+
+    # to_slv
+    lines.extend(["", f"  function automatic {type_ir.name} to_slv();", f"    {type_ir.name} packed_value;"])
+    for flag in type_ir.fields:
+        lines.append(f"    packed_value.{flag.name} = {flag.name};")
+    if type_ir.alignment_bits > 0:
+        lines.append("    packed_value._align_pad = '0;")
+    lines.extend(["    return packed_value;", "  endfunction"])
+
+    # from_slv
+    lines.extend(["", f"  function void from_slv({type_ir.name} value_in);"])
+    for flag in type_ir.fields:
+        lines.append(f"    {flag.name} = value_in.{flag.name};")
+    lines.append("  endfunction")
+
+    # to_bytes
+    lines.extend([
+        "",
+        "  task automatic to_bytes(output byte unsigned bytes[]);",
+        f"    logic [{total_bits - 1}:0] bv;",
+        "    bytes = new[BYTE_COUNT];",
+        "    bv = '0;",
+    ])
+    # Pack flag bits into a bit vector (MSB = first flag)
+    for idx, flag in enumerate(type_ir.fields):
+        bit_pos = num_flags - 1 - idx
+        lines.append(f"    bv[{bit_pos}] = {flag.name};")
+    lines.extend([
+        "    for (int idx = 0; idx < BYTE_COUNT; idx++) begin",
+        "      bytes[idx] = bv[(BYTE_COUNT - 1 - idx)*8 +: 8];",
+        "    end",
+        "  endtask",
+    ])
+
+    # from_bytes
+    lines.extend([
+        "",
+        "  function void from_bytes(input byte unsigned bytes[]);",
+        f"    logic [{total_bits - 1}:0] bv;",
+        "    if (bytes.size() != BYTE_COUNT) begin",
+        f'      $fatal(1, "{class_name}.from_bytes size mismatch: expected %0d got %0d", BYTE_COUNT, bytes.size());',
+        "    end",
+        "    bv = '0;",
+        "    for (int idx = 0; idx < BYTE_COUNT; idx++) begin",
+        "      bv[(BYTE_COUNT - 1 - idx)*8 +: 8] = bytes[idx];",
+        "    end",
+    ])
+    for idx, flag in enumerate(type_ir.fields):
+        bit_pos = num_flags - 1 - idx
+        lines.append(f"    {flag.name} = bv[{bit_pos}];")
+    lines.append("  endfunction")
+
+    # copy
+    lines.extend(["", f"  function void copy(input {class_name} rhs);"])
+    for flag in type_ir.fields:
+        lines.append(f"    {flag.name} = rhs.{flag.name};")
+    lines.append("  endfunction")
+
+    # clone
+    lines.extend([
+        "",
+        f"  function automatic {class_name} clone();",
+        f"    {class_name} cloned = new();",
+        "    cloned.copy(this);",
+        "    return cloned;",
+        "  endfunction",
+    ])
+
+    # compare
+    lines.extend(["", f"  function automatic bit compare(input {class_name} rhs);", "    bit match;", "    match = 1'b1;"])
+    for flag in type_ir.fields:
+        lines.append(f"    match &= ({flag.name} === rhs.{flag.name});")
+    lines.extend(["    return match;", "  endfunction"])
+
+    # sprint
+    fmt_parts = [f"{flag.name}=%0b" for flag in type_ir.fields]
+    arg_parts = [flag.name for flag in type_ir.fields]
+    fmt = ", ".join(fmt_parts)
+    args = ", ".join(arg_parts)
+    lines.extend([
+        "",
+        "  function automatic string sprint();",
+        f'    return $sformatf("{class_name}({fmt})", {args});',
+        "  endfunction",
+        f"endclass : {class_name}",
+    ])
+    return lines
+
+
 def _render_sv_helper_field_decl(*, field: StructFieldIR, type_index: dict[str, TypeDefIR]) -> str:
     """Render one struct helper field declaration."""
     if isinstance(field.type_ir, TypeRefIR):
@@ -627,6 +779,8 @@ def _data_width(*, type_ir: TypeDefIR, type_index: dict[str, TypeDefIR]) -> int:
     """Total data width (excluding padding) of a type."""
     if isinstance(type_ir, ScalarAliasIR):
         return type_ir.resolved_width
+    if isinstance(type_ir, FlagsIR):
+        return len(type_ir.fields)
     return sum(_field_data_width(field=f, type_index=type_index) for f in type_ir.fields)
 
 
@@ -642,6 +796,8 @@ def _type_byte_count(*, type_ir: TypeDefIR, type_index: dict[str, TypeDefIR]) ->
     """Total byte count (including padding and alignment) of a type."""
     if isinstance(type_ir, ScalarAliasIR):
         return byte_count(type_ir.resolved_width)
+    if isinstance(type_ir, FlagsIR):
+        return byte_count(len(type_ir.fields))
     field_bytes = sum(_field_byte_count(field=f, type_index=type_index) for f in type_ir.fields)
     return field_bytes + type_ir.alignment_bits // 8
 

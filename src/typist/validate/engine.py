@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 from typist.errors import ValidationError
-from typist.ir.nodes import ModuleIR, RepoIR, ScalarAliasIR, ScalarTypeSpecIR, StructIR, TypeRefIR
+from typist.ir.nodes import FlagsIR, ModuleIR, RepoIR, ScalarAliasIR, ScalarTypeSpecIR, StructIR, TypeRefIR
+
+
+_FLAGS_RESERVED_API_NAMES = frozenset({"value", "to_bytes", "from_bytes", "clone", "width", "byte_count"})
 
 
 def validate_repo(repo: RepoIR) -> None:
@@ -75,6 +78,34 @@ def validate_repo(repo: RepoIR) -> None:
                                 "must reference a scalar alias or struct in this milestone"
                             )
                         continue
+                continue
+            if isinstance(type_ir, FlagsIR):
+                if not type_ir.fields:
+                    raise ValidationError(
+                        f"{module.ref.repo_relative_path}: flags {type_ir.name} must have at least one flag"
+                    )
+                if len(type_ir.fields) > 64:
+                    raise ValidationError(
+                        f"{module.ref.repo_relative_path}: flags {type_ir.name} has {len(type_ir.fields)} flags, "
+                        "maximum is 64"
+                    )
+                seen_flag_names: set[str] = set()
+                for flag in type_ir.fields:
+                    if flag.name in seen_flag_names:
+                        raise ValidationError(
+                            f"{module.ref.repo_relative_path}: flags {type_ir.name} has duplicate flag {flag.name}"
+                        )
+                    seen_flag_names.add(flag.name)
+                    if flag.name.endswith("_pad"):
+                        raise ValidationError(
+                            f"{module.ref.repo_relative_path}: flags {type_ir.name} "
+                            f"flag '{flag.name}' uses reserved '_pad' suffix"
+                        )
+                    if flag.name in _FLAGS_RESERVED_API_NAMES:
+                        raise ValidationError(
+                            f"{module.ref.repo_relative_path}: flags {type_ir.name} "
+                            f"flag '{flag.name}' collides with generated class API name"
+                        )
                 continue
             raise ValidationError(f"{module.ref.repo_relative_path}: unsupported type node {type(type_ir).__name__}")
         _validate_struct_cycles(module=module, type_index=type_index)
