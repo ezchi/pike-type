@@ -574,9 +574,9 @@ def _render_sv_flags_helper_class(*, type_ir: FlagsIR) -> list[str]:
         "    bytes = new[BYTE_COUNT];",
         "    bv = '0;",
     ])
-    # Pack flag bits into a bit vector (MSB = first flag)
+    # Pack flag bits into a bit vector (MSB = first flag, matching typedef layout)
     for idx, flag in enumerate(type_ir.fields):
-        bit_pos = num_flags - 1 - idx
+        bit_pos = total_bits - 1 - idx
         lines.append(f"    bv[{bit_pos}] = {flag.name};")
     lines.extend([
         "    for (int idx = 0; idx < BYTE_COUNT; idx++) begin",
@@ -599,7 +599,7 @@ def _render_sv_flags_helper_class(*, type_ir: FlagsIR) -> list[str]:
         "    end",
     ])
     for idx, flag in enumerate(type_ir.fields):
-        bit_pos = num_flags - 1 - idx
+        bit_pos = total_bits - 1 - idx
         lines.append(f"    {flag.name} = bv[{bit_pos}];")
     lines.append("  endfunction")
 
