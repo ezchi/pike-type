@@ -17,15 +17,15 @@ FIXTURES_DIR = TESTS_DIR / "fixtures"
 
 
 def gen_fixture(fixture_name: str, tmp_dir: Path) -> Path:
-    """Run typist gen on a fixture and return the gen/py root."""
+    """Run piketype gen on a fixture and return the gen/py root."""
     fixture_root = FIXTURES_DIR / fixture_name / "project"
     repo_dir = tmp_dir / fixture_name
     shutil.copytree(fixture_root, repo_dir)
-    cli_file = repo_dir / "alpha" / "typist" / "types.py"
+    cli_file = repo_dir / "alpha" / "piketype" / "types.py"
     env = os.environ.copy()
     env["PYTHONPATH"] = str(PROJECT_ROOT / "src")
     result = subprocess.run(
-        [sys.executable, "-m", "typist.cli", "gen", str(cli_file)],
+        [sys.executable, "-m", "piketype.cli", "gen", str(cli_file)],
         cwd=repo_dir,
         env=env,
         text=True,
@@ -65,7 +65,7 @@ class RuntimeBytesTest(unittest.TestCase):
         # Remove old gen/py paths from sys.path
         sys.path[:] = [p for p in sys.path if "gen/py" not in str(p)]
         sys.path.insert(0, str(gen_py))
-        return importlib.import_module("alpha.typist.types_types")
+        return importlib.import_module("alpha.piketype.types_types")
 
     # -- AC-6: bar_t to_bytes produces {0x01, 0x1F, 0xFF, 0x0A, 0x00} --
 

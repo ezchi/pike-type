@@ -5,8 +5,8 @@ from __future__ import annotations
 import unittest
 from pathlib import Path
 
-from typist.errors import ValidationError
-from typist.validate.namespace import (
+from piketype.errors import ValidationError
+from piketype.validate.namespace import (
     CPP17_KEYWORDS,
     check_duplicate_basenames,
     validate_cpp_namespace,
@@ -170,19 +170,19 @@ class CheckDuplicateBasenamesTest(unittest.TestCase):
     """Tests for check_duplicate_basenames()."""
 
     def test_no_duplicates_passes(self) -> None:
-        paths = [Path("alpha/typist/constants.py"), Path("beta/typist/more.py")]
+        paths = [Path("alpha/piketype/constants.py"), Path("beta/piketype/more.py")]
         check_duplicate_basenames(module_paths=paths)  # should not raise
 
     def test_duplicates_raises(self) -> None:
-        paths = [Path("alpha/typist/types.py"), Path("beta/typist/types.py")]
+        paths = [Path("alpha/piketype/types.py"), Path("beta/piketype/types.py")]
         with self.assertRaises(ValidationError) as ctx:
             check_duplicate_basenames(module_paths=paths)
         self.assertIn("types", str(ctx.exception))
-        self.assertIn("alpha/typist/types.py", str(ctx.exception))
-        self.assertIn("beta/typist/types.py", str(ctx.exception))
+        self.assertIn("alpha/piketype/types.py", str(ctx.exception))
+        self.assertIn("beta/piketype/types.py", str(ctx.exception))
 
     def test_single_module_passes(self) -> None:
-        paths = [Path("alpha/typist/constants.py")]
+        paths = [Path("alpha/piketype/constants.py")]
         check_duplicate_basenames(module_paths=paths)
 
     def test_empty_list_passes(self) -> None:

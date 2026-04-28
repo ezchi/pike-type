@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import unittest
 
-from typist.backends.cpp.emitter import _render_cpp_const
-from typist.backends.sv.emitter import _render_sv_const
-from typist.dsl.freeze import _resolve_const_storage
-from typist.errors import ValidationError
-from typist.ir.nodes import ConstIR, IntLiteralExprIR, ModuleIR, ModuleRefIR, RepoIR, SourceSpanIR
-from typist.validate.engine import validate_repo
+from piketype.backends.cpp.emitter import _render_cpp_const
+from piketype.backends.sv.emitter import _render_sv_const
+from piketype.dsl.freeze import _resolve_const_storage
+from piketype.errors import ValidationError
+from piketype.ir.nodes import ConstIR, IntLiteralExprIR, ModuleIR, ModuleRefIR, RepoIR, SourceSpanIR
+from piketype.validate.engine import validate_repo
 
 
 class ConstRangeTest(unittest.TestCase):
@@ -61,7 +61,7 @@ class ConstRangeTest(unittest.TestCase):
 
 
 def _repo_with_single_const(*, name: str, value: int) -> RepoIR:
-    source = SourceSpanIR(path="alpha/typist/constants.py", line=1, column=None)
+    source = SourceSpanIR(path="alpha/piketype/constants.py", line=1, column=None)
     const = ConstIR(
         name=name,
         source=source,
@@ -72,9 +72,9 @@ def _repo_with_single_const(*, name: str, value: int) -> RepoIR:
     )
     module = ModuleIR(
         ref=ModuleRefIR(
-            repo_relative_path="alpha/typist/constants.py",
-            python_module_name="alpha.typist.constants",
-            namespace_parts=("alpha", "typist", "constants"),
+            repo_relative_path="alpha/piketype/constants.py",
+            python_module_name="alpha.piketype.constants",
+            namespace_parts=("alpha", "piketype", "constants"),
             basename="constants",
         ),
         source=source,

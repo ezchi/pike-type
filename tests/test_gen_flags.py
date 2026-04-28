@@ -10,12 +10,12 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from typist.dsl import Flags
-from typist.dsl.freeze import build_const_definition_map, build_loaded_module, build_type_definition_map, freeze_module
-from typist.errors import ValidationError
-from typist.ir.nodes import FlagsIR
-from typist.validate.engine import validate_repo
-from typist.dsl.freeze import freeze_repo
+from piketype.dsl import Flags
+from piketype.dsl.freeze import build_const_definition_map, build_loaded_module, build_type_definition_map, freeze_module
+from piketype.errors import ValidationError
+from piketype.ir.nodes import FlagsIR
+from piketype.validate.engine import validate_repo
+from piketype.dsl.freeze import freeze_repo
 
 
 TESTS_DIR = Path(__file__).resolve().parent
@@ -24,15 +24,15 @@ FIXTURES_DIR = TESTS_DIR / "fixtures"
 
 
 def gen_fixture(fixture_name: str, tmp_dir: Path) -> Path:
-    """Run typist gen on a fixture and return the repo dir."""
+    """Run piketype gen on a fixture and return the repo dir."""
     fixture_root = FIXTURES_DIR / fixture_name / "project"
     repo_dir = tmp_dir / fixture_name
     shutil.copytree(fixture_root, repo_dir)
-    cli_file = repo_dir / "alpha" / "typist" / "types.py"
+    cli_file = repo_dir / "alpha" / "piketype" / "types.py"
     env = os.environ.copy()
     env["PYTHONPATH"] = str(PROJECT_ROOT / "src")
     subprocess.run(
-        [sys.executable, "-m", "typist.cli", "gen", str(cli_file)],
+        [sys.executable, "-m", "piketype.cli", "gen", str(cli_file)],
         cwd=repo_dir,
         check=True,
         env=env,
@@ -94,7 +94,7 @@ class FlagsValidationTest(unittest.TestCase):
 
     def _build_repo_with_flags(self, name: str, flag_names: list[str]) -> None:
         """Build a minimal repo IR with one flags type and validate it."""
-        from typist.ir.nodes import (
+        from piketype.ir.nodes import (
             FlagFieldIR,
             FlagsIR,
             ModuleIR,
@@ -105,9 +105,9 @@ class FlagsValidationTest(unittest.TestCase):
 
         source = SourceSpanIR(path="test.py", line=1, column=None)
         ref = ModuleRefIR(
-            repo_relative_path="alpha/typist/types.py",
-            python_module_name="alpha.typist.types",
-            namespace_parts=("alpha", "typist", "types"),
+            repo_relative_path="alpha/piketype/types.py",
+            python_module_name="alpha.piketype.types",
+            namespace_parts=("alpha", "piketype", "types"),
             basename="types",
         )
         flags_ir = FlagsIR(
@@ -210,11 +210,11 @@ class FlagsGoldenTest(unittest.TestCase):
                 continue
             first_run[str(f.relative_to(gen_root))] = f.read_text(encoding="utf-8")
         # Run again
-        cli_file = repo_dir / "alpha" / "typist" / "types.py"
+        cli_file = repo_dir / "alpha" / "piketype" / "types.py"
         env = os.environ.copy()
         env["PYTHONPATH"] = str(PROJECT_ROOT / "src")
         subprocess.run(
-            [sys.executable, "-m", "typist.cli", "gen", str(cli_file)],
+            [sys.executable, "-m", "piketype.cli", "gen", str(cli_file)],
             cwd=repo_dir,
             check=True,
             env=env,
@@ -254,7 +254,7 @@ class FlagsRuntimeTest(unittest.TestCase):
                 del sys.modules[key]
         sys.path[:] = [p for p in sys.path if "gen/py" not in str(p)]
         sys.path.insert(0, str(self._gen_py))
-        return importlib.import_module("alpha.typist.types_types")
+        return importlib.import_module("alpha.piketype.types_types")
 
     # -- single_t (1 flag) --
 

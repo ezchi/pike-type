@@ -10,8 +10,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from typist.dsl import Struct, Logic
-from typist.errors import ValidationError
+from piketype.dsl import Struct, Logic
+from piketype.errors import ValidationError
 
 
 TESTS_DIR = Path(__file__).resolve().parent
@@ -59,15 +59,15 @@ class MultipleOfValidationTest(unittest.TestCase):
 
 
 def gen_fixture(fixture_name: str, tmp_dir: Path) -> Path:
-    """Run typist gen on a fixture and return the gen/py root."""
+    """Run piketype gen on a fixture and return the gen/py root."""
     fixture_root = FIXTURES_DIR / fixture_name / "project"
     repo_dir = tmp_dir / fixture_name
     shutil.copytree(fixture_root, repo_dir)
-    cli_file = repo_dir / "alpha" / "typist" / "types.py"
+    cli_file = repo_dir / "alpha" / "piketype" / "types.py"
     env = os.environ.copy()
     env["PYTHONPATH"] = str(PROJECT_ROOT / "src")
     subprocess.run(
-        [sys.executable, "-m", "typist.cli", "gen", str(cli_file)],
+        [sys.executable, "-m", "piketype.cli", "gen", str(cli_file)],
         cwd=repo_dir,
         env=env,
         text=True,
@@ -101,7 +101,7 @@ class MultipleOfRuntimeTest(unittest.TestCase):
                 del sys.modules[key]
         sys.path[:] = [p for p in sys.path if "gen/py" not in str(p)]
         sys.path.insert(0, str(gen_py))
-        return importlib.import_module("alpha.typist.types_types")
+        return importlib.import_module("alpha.piketype.types_types")
 
     def test_aligned_struct_byte_count(self) -> None:
         mod = self._import_module()

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import unittest
 
-from typist.dsl import Bit, Const, Logic, Struct
+from piketype.dsl import Bit, Const, Logic, Struct
 
 
 class ConstDslTest(unittest.TestCase):

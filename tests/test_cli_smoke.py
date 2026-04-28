@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import unittest
 
-from typist.cli import build_parser
+from piketype.cli import build_parser
 
 
 class CliSmokeTest(unittest.TestCase):
