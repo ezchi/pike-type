@@ -1,8 +1,8 @@
-# Typist IR Schema
+# Pike-type IR Schema
 
 ## Purpose
 
-This document defines the frozen validated IR for `typist` v1. The IR is the semantic boundary between:
+This document defines the frozen validated IR for `piketype` v1. The IR is the semantic boundary between:
 
 - mutable DSL runtime execution
 - validation
