@@ -81,6 +81,7 @@ def validate_repo(repo: RepoIR) -> None:
         _validate_pad_suffix_reservation(module=module)
         _validate_signed_width_constraint(module=module, type_index=type_index)
         _validate_generated_identifier_collision(module=module)
+        _validate_alignment_bits(module=module)
 
 
 def _validate_const_storage(*, value: int, signed: bool, width: int, module_path: str, const_name: str) -> None:
@@ -189,4 +190,16 @@ def _validate_generated_identifier_collision(*, module: ModuleIR) -> None:
             raise ValidationError(
                 f"{module.ref.repo_relative_path}: constant '{const_name}' "
                 f"collides with generated identifier for type '{reserved[const_name]}'"
+            )
+
+
+def _validate_alignment_bits(*, module: ModuleIR) -> None:
+    """Validate that struct alignment_bits is a multiple of 8."""
+    for type_ir in module.types:
+        if not isinstance(type_ir, StructIR):
+            continue
+        if type_ir.alignment_bits > 0 and type_ir.alignment_bits % 8 != 0:
+            raise ValidationError(
+                f"{module.ref.repo_relative_path}: struct {type_ir.name} "
+                f"alignment_bits {type_ir.alignment_bits} is not a multiple of 8"
             )
