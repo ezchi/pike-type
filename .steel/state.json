@@ -1,5 +1,5 @@
 {
-  "currentStage": "clarification",
+  "currentStage": "planning",
   "specId": "009-struct-enum-member",
   "branch": "feature/009-struct-enum-member",
   "description": "Update Struct() to accept Enum() member",
@@ -9,7 +9,7 @@
       "status": "complete"
     },
     "clarification": {
-      "status": "pending"
+      "status": "complete"
     },
     "planning": {
       "status": "pending"
@@ -28,6 +28,7 @@
     }
   },
   "skillsUsed": {
-    "specification": []
+    "specification": [],
+    "clarification": []
   }
 }
