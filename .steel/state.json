@@ -1,38 +1,31 @@
 {
-  "currentStage": "retrospect",
-  "specId": "008-enum-dsl-type",
-  "branch": "feature/008-enum-dsl-type",
-  "description": "Implement Enum() DSL type with SV, Python, and C++ backend support",
+  "currentStage": "specification",
+  "specId": "009-struct-enum-member",
+  "branch": "feature/009-struct-enum-member",
+  "description": "Update Struct() to accept Enum() member",
   "iteration": 1,
   "stages": {
     "specification": {
-      "status": "complete"
+      "status": "in_progress"
     },
     "clarification": {
-      "status": "complete"
+      "status": "pending"
     },
     "planning": {
-      "status": "complete"
+      "status": "pending"
     },
     "task_breakdown": {
-      "status": "complete"
+      "status": "pending"
     },
     "implementation": {
-      "status": "complete"
+      "status": "pending"
     },
     "validation": {
-      "status": "complete"
+      "status": "pending"
     },
     "retrospect": {
-      "status": "complete"
+      "status": "pending"
     }
   },
-  "skillsUsed": {
-    "specification": [],
-    "clarification": [],
-    "planning": [],
-    "task_breakdown": [],
-    "implementation": [],
-    "validation": []
-  }
+  "skillsUsed": {}
 }
