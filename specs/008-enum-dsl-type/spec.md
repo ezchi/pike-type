@@ -174,7 +174,7 @@ Note: `to_slv()`/`from_slv()` are not included in this milestone, consistent wit
 
 **FR-28**: A fixture `tests/fixtures/enum_basic/project/` contains a minimal repo with one `piketype/` module defining at least two enums:
 - One with all explicit values (including non-contiguous values).
-- One with mixed explicit and auto-fill values demonstrating gap-filling behavior.
+- One with mixed explicit and auto-fill values demonstrating sequential auto-fill behavior.
 
 **FR-29**: Golden files in `tests/goldens/gen/enum_basic/` cover all generated outputs: SV package, SV test package, Python module, C++ header, runtime packages, and manifest.
 
@@ -248,3 +248,4 @@ None — all design decisions are resolved by the v1 product spec, existing code
 - [Clarification iter1] FR-6: Changed auto-fill from "smallest unused non-negative integer" to "previous value + 1" (sequential increment) to match v1 product spec and C/SV convention.
 - [Clarification iter1] AC-3: Updated wording to match corrected FR-6 auto-fill semantics.
 - [Clarification iter1] FR-32: Updated test example from `0, 2, 1, 3` to `0, 2, 3, 4` to match corrected FR-6.
+- [Clarification iter2] FR-28: Changed "gap-filling behavior" to "sequential auto-fill behavior" to match corrected FR-6.
