@@ -30,7 +30,7 @@ This corresponds to v1 delivery order steps 10–11 (Enum in SV, then Enum in Py
 
 **FR-5**: Explicit enumerator values must be non-negative integers. `add_value()` raises `ValidationError` immediately if `value < 0`.
 
-**FR-6**: Auto-fill numbering: when `value` is `None`, the enumerator receives the smallest non-negative integer not yet used by any prior enumerator (explicit or auto-filled) in declaration order. The first auto-filled value with no prior explicit values is `0`. Example: `add_value("A", 0).add_value("B", 2).add_value("C").add_value("D")` yields `A=0, B=2, C=1, D=3`.
+**FR-6**: Auto-fill numbering: when `value` is `None`, the enumerator receives the previous enumerator's resolved value plus one. If there is no preceding enumerator, the value is `0`. This matches the standard C/C++/SystemVerilog convention. Example: `add_value("A", 0).add_value("B", 2).add_value("C").add_value("D")` yields `A=0, B=2, C=3, D=4`.
 
 **FR-7**: `EnumType` exposes a `width` property returning the minimum number of bits needed to represent the largest enumerator value: `max(1, ceil(log2(max_value + 1)))`. For a single-value enum with value `0`, width is `1`. For an empty enum (no values added yet), width returns `0` — validation will reject this, but the property itself does not raise.
 
@@ -193,7 +193,7 @@ Note: `to_slv()`/`from_slv()` are not included in this milestone, consistent wit
 - Enum value requiring width > 64 (e.g., `value=2**64`).
 
 **FR-32**: Additional positive test coverage (can be in the `enum_basic` fixture or a second fixture):
-- Auto-fill gap behavior: explicit `0, 2` then two auto-fills → `0, 2, 1, 3`.
+- Auto-fill sequential behavior: explicit `0, 2` then two auto-fills → `0, 2, 3, 4`.
 - Single-value enum (width = 1).
 - Large enum value near 64-bit boundary (e.g., `2**63`).
 
@@ -213,7 +213,7 @@ Note: `to_slv()`/`from_slv()` are not included in this milestone, consistent wit
 
 - **AC-1**: `Enum()` is importable from `piketype.dsl` and supports chained `add_value()` calls.
 - **AC-2**: `add_value()` rejects non-UPPER_CASE names, duplicate names, and negative values at DSL construction time.
-- **AC-3**: Auto-fill numbering assigns the smallest unused non-negative integer, correctly handling gaps from explicit values.
+- **AC-3**: Auto-fill numbering assigns the previous enumerator's value plus one (or `0` for the first enumerator), matching C/SV convention.
 - **AC-4**: `EnumIR` and `EnumValueIR` are frozen dataclasses in `ir/nodes.py`; `TypeDefIR` includes `EnumIR`.
 - **AC-5**: `freeze_module()` correctly freezes `EnumType` into `EnumIR` with resolved auto-fill values and computed width.
 - **AC-6**: `validate_repo()` rejects empty enums, non-UPPER_CASE value names, duplicate value names, duplicate resolved values, negative values, width > 64, values exceeding width, and enums not ending with `_t`.
@@ -242,3 +242,9 @@ Note: `to_slv()`/`from_slv()` are not included in this milestone, consistent wit
 ## Open Questions
 
 None — all design decisions are resolved by the v1 product spec, existing codebase patterns, and this spec's explicit choices.
+
+## Changelog
+
+- [Clarification iter1] FR-6: Changed auto-fill from "smallest unused non-negative integer" to "previous value + 1" (sequential increment) to match v1 product spec and C/SV convention.
+- [Clarification iter1] AC-3: Updated wording to match corrected FR-6 auto-fill semantics.
+- [Clarification iter1] FR-32: Updated test example from `0, 2, 1, 3` to `0, 2, 3, 4` to match corrected FR-6.
