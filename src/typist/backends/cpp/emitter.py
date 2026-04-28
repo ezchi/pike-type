@@ -127,9 +127,9 @@ def _render_cpp_scalar_alias(*, type_ir: ScalarAliasIR) -> list[str]:
     lines = [
         f"class {class_name} {{",
         " public:",
-        f"  static constexpr std::size_t kWidth = {width};",
-        f"  static constexpr bool kSigned = {'true' if type_ir.signed else 'false'};",
-        f"  static constexpr std::size_t kByteCount = {bc};",
+        f"  static constexpr std::size_t WIDTH = {width};",
+        f"  static constexpr bool SIGNED = {'true' if type_ir.signed else 'false'};",
+        f"  static constexpr std::size_t BYTE_COUNT = {bc};",
     ]
     if width <= 64:
         value_type = _cpp_scalar_value_type(width=width, signed=type_ir.signed)
@@ -148,23 +148,23 @@ def _render_cpp_scalar_alias(*, type_ir: ScalarAliasIR) -> list[str]:
             pad_bits = bc * 8 - width
             lines.extend(
                 [
-                    f"  static constexpr value_type kMinValue = static_cast<value_type>({minimum});",
-                    f"  static constexpr value_type kMaxValue = static_cast<value_type>({maximum});",
-                    f"  static constexpr std::uint64_t kMask = {mask_literal};",
+                    f"  static constexpr value_type MIN_VALUE = static_cast<value_type>({minimum});",
+                    f"  static constexpr value_type MAX_VALUE = static_cast<value_type>({maximum});",
+                    f"  static constexpr std::uint64_t MASK = {mask_literal};",
                     f"  {class_name}() : value(0) {{}}",
                     f"  {class_name}(value_type value_in) : value(validate_value(value_in)) {{}}",
                     "",
                     "  std::vector<std::uint8_t> to_bytes() const {",
-                    "    std::vector<std::uint8_t> bytes(kByteCount, 0);",
-                    "    std::uint64_t bits = static_cast<std::uint64_t>(value) & kMask;",
+                    "    std::vector<std::uint8_t> bytes(BYTE_COUNT, 0);",
+                    "    std::uint64_t bits = static_cast<std::uint64_t>(value) & MASK;",
                 ]
             )
             # Sign-extend into padding bits
             if pad_bits > 0:
                 lines.extend(
                     [
-                        f"    if (value < 0 && kWidth < kByteCount * 8U) {{",
-                        f"      for (std::size_t i = kWidth; i < kByteCount * 8U; ++i) {{",
+                        f"    if (value < 0 && WIDTH < BYTE_COUNT * 8U) {{",
+                        f"      for (std::size_t i = WIDTH; i < BYTE_COUNT * 8U; ++i) {{",
                         "        bits |= (1ULL << i);",
                         "      }",
                         "    }",
@@ -172,18 +172,18 @@ def _render_cpp_scalar_alias(*, type_ir: ScalarAliasIR) -> list[str]:
                 )
             lines.extend(
                 [
-                    "    for (std::size_t idx = 0; idx < kByteCount; ++idx) {",
-                    "      bytes[kByteCount - 1 - idx] = static_cast<std::uint8_t>((bits >> (8U * idx)) & 0xFFU);",
+                    "    for (std::size_t idx = 0; idx < BYTE_COUNT; ++idx) {",
+                    "      bytes[BYTE_COUNT - 1 - idx] = static_cast<std::uint8_t>((bits >> (8U * idx)) & 0xFFU);",
                     "    }",
                     "    return bytes;",
                     "  }",
                     "",
                     "  void from_bytes(const std::vector<std::uint8_t>& bytes) {",
-                    "    if (bytes.size() != kByteCount) {",
+                    "    if (bytes.size() != BYTE_COUNT) {",
                     '      throw std::invalid_argument("byte width mismatch");',
                     "    }",
                     "    std::uint64_t bits = 0;",
-                    "    for (std::size_t idx = 0; idx < kByteCount; ++idx) {",
+                    "    for (std::size_t idx = 0; idx < BYTE_COUNT; ++idx) {",
                     "      bits = (bits << 8U) | bytes[idx];",
                     "    }",
                 ]
@@ -193,17 +193,17 @@ def _render_cpp_scalar_alias(*, type_ir: ScalarAliasIR) -> list[str]:
                 byte_mask = _cpp_unsigned_literal((1 << (bc * 8)) - 1 if bc * 8 < 64 else 2**64 - 1)
                 lines.extend(
                     [
-                        "    std::uint64_t data_bits = bits & kMask;",
+                        "    std::uint64_t data_bits = bits & MASK;",
                         f"    bool sign_bit = ((data_bits >> ({width - 1}U)) & 1U) != 0U;",
-                        f"    std::uint64_t expected_pad = sign_bit ? (~kMask & {byte_mask}) : 0ULL;",
-                        f"    if ((bits & ~kMask & {byte_mask}) != expected_pad) {{",
+                        f"    std::uint64_t expected_pad = sign_bit ? (~MASK & {byte_mask}) : 0ULL;",
+                        f"    if ((bits & ~MASK & {byte_mask}) != expected_pad) {{",
                         '      throw std::invalid_argument("signed padding mismatch");',
                         "    }",
                     ]
                 )
             lines.extend(
                 [
-                    "    bits &= kMask;",
+                    "    bits &= MASK;",
                     "    std::int64_t signed_value = static_cast<std::int64_t>(bits);",
                 ]
             )
@@ -212,7 +212,7 @@ def _render_cpp_scalar_alias(*, type_ir: ScalarAliasIR) -> list[str]:
                 full_range_lit = _cpp_unsigned_literal(1 << width)
                 lines.extend(
                     [
-                        f"    if ((bits & {sign_bit_lit}) != 0U && kWidth < 64) {{",
+                        f"    if ((bits & {sign_bit_lit}) != 0U && WIDTH < 64) {{",
                         f"      signed_value -= static_cast<std::int64_t>({full_range_lit});",
                         "    }",
                     ]
@@ -234,7 +234,7 @@ def _render_cpp_scalar_alias(*, type_ir: ScalarAliasIR) -> list[str]:
                     "",
                     " private:",
                     "  static value_type validate_value(value_type value_in) {",
-                    "    if (value_in < kMinValue || value_in > kMaxValue) {",
+                    "    if (value_in < MIN_VALUE || value_in > MAX_VALUE) {",
                     '      throw std::out_of_range("value out of range");',
                     "    }",
                     "    return value_in;",
@@ -247,29 +247,29 @@ def _render_cpp_scalar_alias(*, type_ir: ScalarAliasIR) -> list[str]:
             maximum = 2**width - 1 if width < 64 else 2**64 - 1
             lines.extend(
                 [
-                    f"  static constexpr std::uint64_t kMask = {mask_literal};",
-                    f"  static constexpr value_type kMaxValue = static_cast<value_type>({_cpp_unsigned_literal(maximum)});",
+                    f"  static constexpr std::uint64_t MASK = {mask_literal};",
+                    f"  static constexpr value_type MAX_VALUE = static_cast<value_type>({_cpp_unsigned_literal(maximum)});",
                     f"  {class_name}() : value(0) {{}}",
                     f"  {class_name}(value_type value_in) : value(validate_value(value_in)) {{}}",
                     "",
                     "  std::vector<std::uint8_t> to_bytes() const {",
-                    "    std::vector<std::uint8_t> bytes(kByteCount, 0);",
+                    "    std::vector<std::uint8_t> bytes(BYTE_COUNT, 0);",
                     "    std::uint64_t bits = static_cast<std::uint64_t>(value);",
-                    "    for (std::size_t idx = 0; idx < kByteCount; ++idx) {",
-                    "      bytes[kByteCount - 1 - idx] = static_cast<std::uint8_t>((bits >> (8U * idx)) & 0xFFU);",
+                    "    for (std::size_t idx = 0; idx < BYTE_COUNT; ++idx) {",
+                    "      bytes[BYTE_COUNT - 1 - idx] = static_cast<std::uint8_t>((bits >> (8U * idx)) & 0xFFU);",
                     "    }",
                     "    return bytes;",
                     "  }",
                     "",
                     "  void from_bytes(const std::vector<std::uint8_t>& bytes) {",
-                    "    if (bytes.size() != kByteCount) {",
+                    "    if (bytes.size() != BYTE_COUNT) {",
                     '      throw std::invalid_argument("byte width mismatch");',
                     "    }",
                     "    std::uint64_t bits = 0;",
-                    "    for (std::size_t idx = 0; idx < kByteCount; ++idx) {",
+                    "    for (std::size_t idx = 0; idx < BYTE_COUNT; ++idx) {",
                     "      bits = (bits << 8U) | bytes[idx];",
                     "    }",
-                    "    value = validate_value(static_cast<value_type>(bits & kMask));",
+                    "    value = validate_value(static_cast<value_type>(bits & MASK));",
                     "  }",
                     "",
                     f"  {class_name} clone() const {{",
@@ -284,7 +284,7 @@ def _render_cpp_scalar_alias(*, type_ir: ScalarAliasIR) -> list[str]:
                     "",
                     " private:",
                     "  static value_type validate_value(value_type value_in) {",
-                    "    if (value_in > kMaxValue) {",
+                    "    if (value_in > MAX_VALUE) {",
                     '      throw std::out_of_range("value out of range");',
                     "    }",
                     "    return value_in;",
@@ -300,7 +300,7 @@ def _render_cpp_scalar_alias(*, type_ir: ScalarAliasIR) -> list[str]:
             [
                 "  using value_type = std::vector<std::uint8_t>;",
                 "  value_type value;",
-                f"  {class_name}() : value(kByteCount, 0U) {{}}",
+                f"  {class_name}() : value(BYTE_COUNT, 0U) {{}}",
                 f"  {class_name}(const value_type& value_in) : value(validate_value(value_in)) {{}}",
                 "",
                 "  std::vector<std::uint8_t> to_bytes() const {",
@@ -319,7 +319,7 @@ def _render_cpp_scalar_alias(*, type_ir: ScalarAliasIR) -> list[str]:
                 "",
                 " private:",
                 "  static value_type validate_value(const value_type& value_in) {",
-                "    if (value_in.size() != kByteCount) {",
+                "    if (value_in.size() != BYTE_COUNT) {",
                 '      throw std::invalid_argument("byte width mismatch");',
                 "    }",
                 "    value_type normalized = value_in;",
@@ -345,8 +345,8 @@ def _render_cpp_struct(*, type_ir: StructIR, type_index: dict[str, TypeDefIR]) -
     lines = [
         f"class {class_name} {{",
         " public:",
-        f"  static constexpr std::size_t kWidth = {data_width};",
-        f"  static constexpr std::size_t kByteCount = {total_bc};",
+        f"  static constexpr std::size_t WIDTH = {data_width};",
+        f"  static constexpr std::size_t BYTE_COUNT = {total_bc};",
     ]
     for field_ir in type_ir.fields:
         lines.append(f"  {_render_cpp_field_decl(field_ir=field_ir, type_index=type_index)}")
@@ -357,7 +357,7 @@ def _render_cpp_struct(*, type_ir: StructIR, type_index: dict[str, TypeDefIR]) -
             "",
             "  std::vector<std::uint8_t> to_bytes() const {",
             "    std::vector<std::uint8_t> bytes;",
-            "    bytes.reserve(kByteCount);",
+            "    bytes.reserve(BYTE_COUNT);",
         ]
     )
     for field_ir in type_ir.fields:
@@ -371,7 +371,7 @@ def _render_cpp_struct(*, type_ir: StructIR, type_index: dict[str, TypeDefIR]) -
             "  }",
             "",
             "  void from_bytes(const std::vector<std::uint8_t>& bytes) {",
-            "    if (bytes.size() != kByteCount) {",
+            "    if (bytes.size() != BYTE_COUNT) {",
             '      throw std::invalid_argument("byte width mismatch");',
             "    }",
             "    std::size_t offset = 0;",
@@ -596,15 +596,15 @@ def _render_narrow_inline_helpers(
             [
                 f"  static std::vector<std::uint8_t> encode_{field_ir.name}({value_type} v) {{",
                 f"    validate_{field_ir.name}(v);",
-                f"    constexpr std::uint64_t mask = {mask_lit};",
-                "    std::uint64_t bits = static_cast<std::uint64_t>(v) & mask;",
+                f"    constexpr std::uint64_t MASK = {mask_lit};",
+                "    std::uint64_t bits = static_cast<std::uint64_t>(v) & MASK;",
             ]
         )
         if pad > 0:
             lines.extend(
                 [
                     "    if (v < 0) {",
-                    "      bits |= ~mask;",
+                    "      bits |= ~MASK;",
                     "    }",
                 ]
             )
@@ -634,19 +634,19 @@ def _render_narrow_inline_helpers(
             byte_total_mask_lit = _cpp_unsigned_literal(byte_total_mask)
             lines.extend(
                 [
-                    f"    constexpr std::uint64_t mask = {mask_lit};",
-                    "    std::uint64_t data_bits = bits & mask;",
+                    f"    constexpr std::uint64_t MASK = {mask_lit};",
+                    "    std::uint64_t data_bits = bits & MASK;",
                     f"    bool sign_bit = ((data_bits >> ({width - 1}U)) & 1U) != 0U;",
-                    f"    std::uint64_t expected_pad = sign_bit ? (~mask & {byte_total_mask_lit}) : 0ULL;",
-                    f"    if ((bits & ~mask & {byte_total_mask_lit}) != expected_pad) {{",
+                    f"    std::uint64_t expected_pad = sign_bit ? (~MASK & {byte_total_mask_lit}) : 0ULL;",
+                    f"    if ((bits & ~MASK & {byte_total_mask_lit}) != expected_pad) {{",
                     '      throw std::invalid_argument("signed padding mismatch");',
                     "    }",
                     "    bits = data_bits;",
                 ]
             )
         else:
-            lines.append(f"    constexpr std::uint64_t mask = {mask_lit};")
-            lines.append("    bits &= mask;")
+            lines.append(f"    constexpr std::uint64_t MASK = {mask_lit};")
+            lines.append("    bits &= MASK;")
         lines.append("    std::int64_t signed_value = static_cast<std::int64_t>(bits);")
         if width < 64:
             sign_bit_lit = _cpp_unsigned_literal(1 << (width - 1))
@@ -708,9 +708,9 @@ def _render_narrow_inline_helpers(
     if signed:
         lines.extend(
             [
-                f"    constexpr {value_type} kMinValue = static_cast<{value_type}>({minimum});",
-                f"    constexpr {value_type} kMaxValue = static_cast<{value_type}>({maximum});",
-                "    if (value_in < kMinValue || value_in > kMaxValue) {",
+                f"    constexpr {value_type} MIN_VALUE = static_cast<{value_type}>({minimum});",
+                f"    constexpr {value_type} MAX_VALUE = static_cast<{value_type}>({maximum});",
+                "    if (value_in < MIN_VALUE || value_in > MAX_VALUE) {",
                 '      throw std::out_of_range("value out of range");',
                 "    }",
             ]
@@ -718,8 +718,8 @@ def _render_narrow_inline_helpers(
     else:
         lines.extend(
             [
-                f"    constexpr {value_type} kMaxValue = static_cast<{value_type}>({_cpp_unsigned_literal(maximum)});",
-                "    if (value_in > kMaxValue) {",
+                f"    constexpr {value_type} MAX_VALUE = static_cast<{value_type}>({_cpp_unsigned_literal(maximum)});",
+                "    if (value_in > MAX_VALUE) {",
                 '      throw std::out_of_range("value out of range");',
                 "    }",
             ]

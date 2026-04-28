@@ -63,7 +63,7 @@ def render_runtime_hpp() -> str:
         "#ifndef TYPIST_RUNTIME_HPP\n"
         "#define TYPIST_RUNTIME_HPP\n\n"
         "namespace typist_runtime {\n\n"
-        "inline constexpr bool kVerboseDefault = false;\n\n"
+        "inline constexpr bool VERBOSE_DEFAULT = false;\n\n"
         "}  // namespace typist_runtime\n\n"
         "#endif  // TYPIST_RUNTIME_HPP\n"
     )
