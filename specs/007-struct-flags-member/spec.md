@@ -142,7 +142,7 @@ This fix requires updating the existing `flags_basic` golden files for the SV te
 - **AC-1:** `Struct().add_member("status", flags_t)` does not raise an error when `flags_t` is a `FlagsType` instance.
 - **AC-2:** Freezing a Struct with a Flags member produces a `StructIR` whose field has a `TypeRefIR` pointing to the `FlagsIR`.
 - **AC-3:** Validation passes for a Struct containing a named Flags member from the same module.
-- **AC-4:** Validation rejects an anonymous (unnamed) Flags instance used as a Struct member.
+- **AC-4:** Freeze rejects an anonymous (unnamed) Flags instance used as a Struct member with `ValidationError`.
 - **AC-5:** The SV backend generates a `typedef struct packed` where the Flags field uses the Flags type name.
 - **AC-6:** The SV `pack_<struct>()` function calls `pack_<flags>()` for the Flags field.
 - **AC-7:** The SV `unpack_<struct>()` function calls `unpack_<flags>()` for the Flags field.
