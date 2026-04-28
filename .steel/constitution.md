@@ -21,7 +21,7 @@
 | Test runner          | unittest (stdlib)         | Golden-file / fixture-based integration tests |
 | CLI framework        | argparse (stdlib)         | Thin dispatch layer                          |
 | License              | GPL-3.0-or-later          |                                              |
-| Target outputs       | SystemVerilog, C++17, Python 3.12+ |                                      |
+| Target outputs       | SystemVerilog, C++20, Python 3.12+ |                                      |
 
 No external runtime dependencies beyond Jinja2. Dev tooling is limited to basedpyright and pytest.
 
