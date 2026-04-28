@@ -34,7 +34,7 @@ class FlagsType(DslNode):
 
     def add_flag(self, name: str) -> FlagsType:
         """Append one flag and return self for chaining."""
-        if not isinstance(name, str) or not _SNAKE_CASE_RE.fullmatch(name):
+        if not _SNAKE_CASE_RE.fullmatch(name):
             raise ValidationError(f"flag name must be snake_case, got {name!r}")
         if any(f.name == name for f in self.flags):
             raise ValidationError(f"duplicate flag name {name!r}")
