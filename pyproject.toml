@@ -3,8 +3,8 @@ requires = ["setuptools>=69", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "typist"
-version = "0.2.0"
+name = "pike-type"
+version = "0.3.0"
 description = "Python-based code generator for FPGA-oriented type definitions"
 readme = "docs/rfc-v1.md"
 requires-python = ">=3.12"
@@ -23,7 +23,7 @@ dev = [
 ]
 
 [project.scripts]
-typist = "typist.cli:main"
+piketype = "piketype.cli:main"
 
 [tool.setuptools]
 package-dir = { "" = "src" }

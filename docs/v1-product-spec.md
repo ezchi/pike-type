@@ -1,10 +1,10 @@
 # V1 Product Spec
 
-`typist` is a Python-based code generation tool for FPGA-oriented type definitions. Users write normal executable Python modules under repo `typist/` directories using a builder-style DSL. `typist` scans the repo, builds a frozen validated IR, and generates SystemVerilog, Python, and C++ artifacts plus supporting runtime/scaffolding files.
+`piketype` is a Python-based code generation tool for FPGA-oriented type definitions. Users write normal executable Python modules under repo `piketype/` directories using a builder-style DSL. `piketype` scans the repo, builds a frozen validated IR, and generates SystemVerilog, Python, and C++ artifacts plus supporting runtime/scaffolding files.
 
 ## Goals
 
-`typist` v1 exists to let users define canonical hardware-oriented types once and generate:
+`piketype` v1 exists to let users define canonical hardware-oriented types once and generate:
 
 - synthesizable SystemVerilog types
 - verification-oriented SystemVerilog helper classes without UVM
@@ -28,27 +28,27 @@ V1 does not target:
 
 ## User Model
 
-Users author normal Python modules inside directories literally named `typist/`.
+Users author normal Python modules inside directories literally named `piketype/`.
 
 Example shape:
 
 ```text
-foo/typist/packet_defs.py
-bar/typist/common_types.py
+foo/piketype/packet_defs.py
+bar/piketype/common_types.py
 ```
 
 The DSL is normal Python, not a separate language. It must support normal imports and normal Python execution so editors/LSP can jump to definitions.
 
 Discovery rules:
 
-- Only non-`__init__.py` files inside `typist/` are treated as DSL modules.
+- Only non-`__init__.py` files inside `piketype/` are treated as DSL modules.
 - Every such file must define at least one DSL object, or it is rejected.
 - Anonymous temporary DSL objects are rejected.
 - Only direct top-level bindings count as discovered definitions.
 - Imported DSL objects are dependencies, not definitions of the importing module.
 - If the same DSL object is bound to multiple top-level names in one module, that is an error.
-- DSL objects may originate only from `typist/` modules.
-- `typist_utils.py` may exist anywhere in the repo as helper code, but must not define DSL objects.
+- DSL objects may originate only from `piketype/` modules.
+- `piketype_utils.py` may exist anywhere in the repo as helper code, but must not define DSL objects.
 
 Repo root discovery:
 
@@ -56,26 +56,26 @@ Repo root discovery:
 
 ## CLI
 
-V1 CLI executable name: `typist`
+V1 CLI executable name: `piketype`
 
 Commands:
 
-- `typist gen <path/to/file.py>`
-- `typist build <path/to/file.py>`
-- `typist test <path/to/file.py>`
-- `typist lint <path/to/file.py>`
+- `piketype gen <path/to/file.py>`
+- `piketype build <path/to/file.py>`
+- `piketype test <path/to/file.py>`
+- `piketype lint <path/to/file.py>`
 
 Input rules:
 
 - file-path form only
 - one root file per invocation
-- provided file must be under a `typist/` directory
+- provided file must be under a `piketype/` directory
 - provided file must itself define DSL objects
 
 Repo-wide behavior:
 
 - the provided file is used to validate the request and locate the repo root
-- after that, all DSL modules in all `typist/` directories in the repo are scanned
+- after that, all DSL modules in all `piketype/` directories in the repo are scanned
 - generation/scaffolding is repo-wide
 
 Failure behavior:
@@ -388,29 +388,29 @@ Separate language roots, preserving source-path structure beneath them.
 Example source:
 
 ```text
-foo/typist/packet_defs.py
+foo/piketype/packet_defs.py
 ```
 
 Outputs:
 
 ```text
-gen/sv/foo/typist/packet_defs_pkg.sv
-gen/sv/foo/typist/packet_defs_test_pkg.sv
-gen/py/foo/typist/packet_defs_types.py
-gen/cpp/foo/typist/packet_defs_types.hpp
-gen/cpp/foo/typist/packet_defs_types.cpp
+gen/sv/foo/piketype/packet_defs_pkg.sv
+gen/sv/foo/piketype/packet_defs_test_pkg.sv
+gen/py/foo/piketype/packet_defs_types.py
+gen/cpp/foo/piketype/packet_defs_types.hpp
+gen/cpp/foo/piketype/packet_defs_types.cpp
 ```
 
 Generated runtime support lives in stable tool-owned paths:
 
 ```text
-gen/sv/runtime/typist_runtime_pkg.sv
-gen/py/runtime/typist_runtime.py
-gen/cpp/runtime/typist_runtime.hpp
-gen/cpp/runtime/typist_runtime.cpp
+gen/sv/runtime/piketype_runtime_pkg.sv
+gen/py/runtime/piketype_runtime.py
+gen/cpp/runtime/piketype_runtime.hpp
+gen/cpp/runtime/piketype_runtime.cpp
 ```
 
-Runtime prefix is fixed and tool-owned: `typist_`
+Runtime prefix is fixed and tool-owned: `piketype_`
 
 Runtime artifacts are regenerated on every `gen` run.
 
@@ -428,26 +428,26 @@ SystemVerilog:
 
 Python:
 
-- actual package/module layout mirrors filesystem path and keeps literal `typist`
+- actual package/module layout mirrors filesystem path and keeps literal `piketype`
 - generated module suffix: `_types.py`
 - `__init__.py` files generated as needed
 
 Example import:
 
 ```python
-from gen.py.foo.typist.packet_defs_types import packet_ct
+from gen.py.foo.piketype.packet_defs_types import packet_ct
 ```
 
 C++:
 
-- namespaces derived from path relative to repo root, but skip literal `typist`
-- example: `foo/typist/packet_defs.py` -> `namespace foo::packet_defs`
-- include paths keep literal `typist`
+- namespaces derived from path relative to repo root, but skip literal `piketype`
+- example: `foo/piketype/packet_defs.py` -> `namespace foo::packet_defs`
+- include paths keep literal `piketype`
 
 Example:
 
 ```cpp
-#include "foo/typist/packet_defs_types.hpp"
+#include "foo/piketype/packet_defs_types.hpp"
 namespace foo::packet_defs { ... }
 ```
 
@@ -457,7 +457,7 @@ Every generated file includes stable header metadata with no run-specific data.
 
 Minimum header content:
 
-- generated by `typist`
+- generated by `piketype`
 - source DSL module path(s)
 - do not edit by hand warning
 
@@ -508,8 +508,8 @@ Validation rules include:
 - reject invalid widths/sizes
 - reject self-referential type graphs
 - reject duplicate generated names within a namespace
-- reject files under `typist/` with no DSL objects
-- reject imported DSL objects originating outside `typist/`
+- reject files under `piketype/` with no DSL objects
+- reject imported DSL objects originating outside `piketype/`
 - reject same DSL object bound to multiple top-level names in one module
 
 ## Manifest
@@ -517,7 +517,7 @@ Validation rules include:
 Generated internal manifest:
 
 ```text
-gen/typist_manifest.json
+gen/piketype_manifest.json
 ```
 
 Purpose:
@@ -543,7 +543,7 @@ Contents include:
 
 These commands are repurposed to generate scaffolding, not execute external tools themselves.
 
-### `typist build`
+### `piketype build`
 
 Generates top-level build-system files for the whole repo.
 
@@ -555,7 +555,7 @@ V1 build system:
 - generated shell convenience runner:
   - `gen/build/run_build.sh`
 
-### `typist test`
+### `piketype test`
 
 Generates:
 
@@ -572,7 +572,7 @@ Generated top-level scripts:
 
 `run_py_test.sh` covers pytest and cocotb through pytest flow.
 
-### `typist lint`
+### `piketype lint`
 
 Generates repo-wide lint config/scaffolding and runner scripts for all files.
 
@@ -592,14 +592,14 @@ No auto-fix in v1.
 
 ## Generated Tests
 
-Generated tests are not emitted by `gen`. They are emitted by `typist test`.
+Generated tests are not emitted by `gen`. They are emitted by `piketype test`.
 
 Frameworks:
 
 - Python: `pytest`
 - cocotb is a hard dependency
 - C++: GoogleTest
-- SystemVerilog tests use a custom typist-designed class-based pattern, not UVM
+- SystemVerilog tests use a custom piketype-designed class-based pattern, not UVM
 
 Top-level testbench structure:
 
@@ -624,13 +624,13 @@ Default generated test coverage for each supported type includes all analogous c
 Cross-language test strategy:
 
 - shared canonical test vectors across SV, Python, and C++
-- automatically generated by `typist`
+- automatically generated by `piketype`
 - one representative fixed sample case per type shape
 - no generated tests for invalid constructs, because invalid constructs must be rejected before codegen
 
 ## Tool Implementation Requirements
 
-The `typist` tool itself is:
+The `piketype` tool itself is:
 
 - pure Python 3.12+
 - installable Python package with CLI entry point

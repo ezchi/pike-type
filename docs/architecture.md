@@ -1,8 +1,8 @@
-# Typist Architecture
+# Pike-type Architecture
 
 ## Purpose
 
-This document turns the v1 product spec into an implementation shape for the `typist` codebase. It defines the internal package boundaries, the end-to-end execution pipeline, and the ownership of major responsibilities.
+This document turns the v1 product spec into an implementation shape for the `piketype` codebase. It defines the internal package boundaries, the end-to-end execution pipeline, and the ownership of major responsibilities.
 
 The design goal is to keep these boundaries stable:
 
@@ -24,8 +24,8 @@ The design goal is to keep these boundaries stable:
 The end-to-end flow for every command is:
 
 1. Resolve the repo root from the provided file path.
-2. Validate that the provided file is a valid DSL module under `typist/`.
-3. Scan the repo for all DSL modules under all `typist/` directories.
+2. Validate that the provided file is a valid DSL module under `piketype/`.
+3. Scan the repo for all DSL modules under all `piketype/` directories.
 4. Load those Python modules with normal Python import semantics.
 5. Capture top-level DSL definitions and dependencies.
 6. Freeze the discovered DSL object graph into IR input state.
@@ -36,17 +36,17 @@ The end-to-end flow for every command is:
 
 The same discovery and IR pipeline is shared by:
 
-- `typist gen`
-- `typist build`
-- `typist test`
-- `typist lint`
+- `piketype gen`
+- `piketype build`
+- `piketype test`
+- `piketype lint`
 
 The only difference is the emitter set and output roots used by the command.
 
 ## Proposed Package Layout
 
 ```text
-src/typist/
+src/piketype/
   __init__.py
   cli.py
   errors.py
@@ -167,9 +167,9 @@ These modules should be the single source of truth for path and naming conventio
 
 Owns:
 
-- repo-wide scanning for `typist/` modules
+- repo-wide scanning for `piketype/` modules
 - filtering out `__init__.py`
-- enforcing the “all non-`__init__.py` files in `typist/` are DSL modules” rule
+- enforcing the “all non-`__init__.py` files in `piketype/` are DSL modules” rule
 - calculating module identity from path
 
 Should not import the DSL runtime directly.
@@ -238,7 +238,7 @@ Owns:
 
 - the JSON manifest model
 - stable serialization
-- writing `gen/typist_manifest.json`
+- writing `gen/piketype_manifest.json`
 
 The manifest should be derived entirely from frozen IR plus output-path resolution.
 
@@ -313,7 +313,7 @@ Each command should follow the same orchestration template:
 6. Emit command-specific outputs.
 7. Write manifest.
 
-### `typist gen`
+### `piketype gen`
 
 Emits:
 
@@ -323,7 +323,7 @@ Emits:
 - shared runtime support
 - manifest
 
-### `typist build`
+### `piketype build`
 
 Emits:
 
@@ -331,7 +331,7 @@ Emits:
 - build runner scripts
 - manifest
 
-### `typist test`
+### `piketype test`
 
 Emits:
 
@@ -339,7 +339,7 @@ Emits:
 - top-level test scripts
 - manifest
 
-### `typist lint`
+### `piketype lint`
 
 Emits:
 

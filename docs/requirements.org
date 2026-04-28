@@ -1,0 +1,5 @@
+* namespace
+
+Allow user to specify th top level name space with --namespace argument.
+
+for example `piketype gen --namespace foo::bar constants.py`, the generated namespace in the generate c++ file should be `namespace foo:bar::constants{}` 

@@ -1,0 +1,91 @@
+{
+  "modules": [
+    {
+      "basename": "constants",
+      "constants": [
+        {
+          "name": "A",
+          "resolved_signed": true,
+          "resolved_value": 3,
+          "resolved_width": 32,
+          "source": {
+            "column": null,
+            "line": 3,
+            "path": "alpha/piketype/constants.py"
+          }
+        },
+        {
+          "name": "B",
+          "resolved_signed": true,
+          "resolved_value": 8,
+          "resolved_width": 32,
+          "source": {
+            "column": null,
+            "line": 4,
+            "path": "alpha/piketype/constants.py"
+          }
+        },
+        {
+          "name": "C",
+          "resolved_signed": true,
+          "resolved_value": 13,
+          "resolved_width": 32,
+          "source": {
+            "column": null,
+            "line": 5,
+            "path": "alpha/piketype/constants.py"
+          }
+        },
+        {
+          "name": "D",
+          "resolved_signed": true,
+          "resolved_value": -3,
+          "resolved_width": 32,
+          "source": {
+            "column": null,
+            "line": 6,
+            "path": "alpha/piketype/constants.py"
+          }
+        },
+        {
+          "name": "E",
+          "resolved_signed": true,
+          "resolved_value": -4,
+          "resolved_width": 32,
+          "source": {
+            "column": null,
+            "line": 7,
+            "path": "alpha/piketype/constants.py"
+          }
+        }
+      ],
+      "dependencies": [],
+      "generated_outputs": {
+        "cpp": "gen/cpp/alpha/piketype/constants_types.hpp",
+        "py": "gen/py/alpha/piketype/constants_types.py",
+        "sv": "gen/sv/alpha/piketype/constants_pkg.sv"
+      },
+      "namespace_parts": [
+        "alpha",
+        "piketype",
+        "constants"
+      ],
+      "python_module_name": "alpha.piketype.constants",
+      "repo_relative_path": "alpha/piketype/constants.py",
+      "source": {
+        "column": null,
+        "line": 1,
+        "path": "alpha/piketype/constants.py"
+      },
+      "types": []
+    }
+  ],
+  "repo_root": ".",
+  "runtime_outputs": {
+    "cpp_header": "gen/cpp/runtime/piketype_runtime.hpp",
+    "cpp_source": "gen/cpp/runtime/piketype_runtime.cpp",
+    "py": "gen/py/runtime/piketype_runtime.py",
+    "sv": "gen/sv/runtime/piketype_runtime_pkg.sv"
+  },
+  "tool_version": "0.1.0"
+}

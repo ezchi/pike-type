@@ -1,6 +1,6 @@
-# typist
+# pike-type
 
-`typist` is a Python-based code generator for FPGA-oriented type definitions.
+`piketype` is a Python-based code generator for FPGA-oriented type definitions.
 
 The long-term goal is to let users define canonical hardware-oriented types once in normal Python modules and generate:
 
@@ -20,7 +20,7 @@ Implemented today:
 - project architecture and RFC/spec documents
 - installable Python package scaffold with CLI entry point
 - milestone 01 end-to-end flow for `Const()` only
-- repo-wide scanning of `typist/` modules
+- repo-wide scanning of `piketype/` modules
 - SystemVerilog package generation for module-level integer constants
 - generated runtime placeholder package
 - generated JSON manifest
@@ -52,7 +52,7 @@ Not implemented yet:
 Today, milestone 01 supports only top-level integer constants:
 
 ```python
-from typist.dsl import Const
+from piketype.dsl import Const
 
 FOO = Const(3)
 BAR = Const(0)
@@ -61,21 +61,21 @@ BAR = Const(0)
 When placed in a file such as:
 
 ```text
-alpha/typist/constants.py
+alpha/piketype/constants.py
 ```
 
 running:
 
 ```bash
-typist gen alpha/typist/constants.py
+piketype gen alpha/piketype/constants.py
 ```
 
 generates:
 
 ```text
-gen/sv/alpha/typist/constants_pkg.sv
-gen/sv/runtime/typist_runtime_pkg.sv
-gen/typist_manifest.json
+gen/sv/alpha/piketype/constants_pkg.sv
+gen/sv/runtime/piketype_runtime_pkg.sv
+gen/piketype_manifest.json
 ```
 
 with SV output shaped like:
@@ -90,7 +90,7 @@ endpackage
 ## Project Layout
 
 ```text
-src/typist/
+src/piketype/
   cli.py
   commands/
   discovery/
@@ -108,25 +108,25 @@ tests/
 High-level flow:
 
 1. Find repo root from the provided file path.
-2. Scan the repo for all Python files under `typist/`.
+2. Scan the repo for all Python files under `piketype/`.
 3. Load those modules with normal Python import semantics.
 4. Freeze discovered DSL objects into IR.
 5. Validate the IR.
 6. Emit generated outputs.
-7. Write `gen/typist_manifest.json`.
+7. Write `gen/piketype_manifest.json`.
 
 ## CLI
 
 Planned commands:
 
 ```bash
-typist gen <path/to/file.py>
-typist build <path/to/file.py>
-typist test <path/to/file.py>
-typist lint <path/to/file.py>
+piketype gen <path/to/file.py>
+piketype build <path/to/file.py>
+piketype test <path/to/file.py>
+piketype lint <path/to/file.py>
 ```
 
-Only `typist gen` has milestone-01 behavior implemented.
+Only `piketype gen` has milestone-01 behavior implemented.
 
 ## Development
 
@@ -154,7 +154,7 @@ pip install -e .
 Then:
 
 ```bash
-typist gen path/to/repo/module/typist/file.py
+piketype gen path/to/repo/module/piketype/file.py
 ```
 
 ## Roadmap

@@ -42,11 +42,11 @@ def assert_trees_equal(test_case: unittest.TestCase, expected: Path, actual: Pat
 class GenConstSvIntegrationTest(unittest.TestCase):
     """Fixture-style CLI coverage for milestone 01."""
 
-    def run_typist(self, repo_dir: Path, cli_arg: str, *extra_args: str) -> subprocess.CompletedProcess[str]:
+    def run_piketype(self, repo_dir: Path, cli_arg: str, *extra_args: str) -> subprocess.CompletedProcess[str]:
         env = os.environ.copy()
         env["PYTHONPATH"] = str(PROJECT_ROOT / "src")
         return subprocess.run(
-            [sys.executable, "-m", "typist.cli", "gen", *extra_args, cli_arg],
+            [sys.executable, "-m", "piketype.cli", "gen", *extra_args, cli_arg],
             cwd=repo_dir,
             env=env,
             text=True,
@@ -54,15 +54,15 @@ class GenConstSvIntegrationTest(unittest.TestCase):
             check=False,
         )
 
-    def test_generates_all_repo_typist_modules(self) -> None:
+    def test_generates_all_repo_piketype_modules(self) -> None:
         fixture_root = FIXTURES_DIR / "const_sv_basic" / "project"
         expected_root = GOLDENS_DIR / "const_sv_basic"
         with tempfile.TemporaryDirectory() as tmp_dir:
             repo_dir = Path(tmp_dir) / "project"
             copy_tree(fixture_root, repo_dir)
-            cli_file = repo_dir / "alpha" / "typist" / "constants.py"
+            cli_file = repo_dir / "alpha" / "piketype" / "constants.py"
 
-            result = self.run_typist(repo_dir, str(cli_file))
+            result = self.run_piketype(repo_dir, str(cli_file))
 
             self.assertEqual(result.returncode, 0, msg=result.stderr)
             assert_trees_equal(self, expected_root, repo_dir / "gen")
@@ -73,12 +73,12 @@ class GenConstSvIntegrationTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp_dir:
             repo_dir = Path(tmp_dir) / "project"
             copy_tree(fixture_root, repo_dir)
-            cli_file = repo_dir / "alpha" / "typist" / "constants.py"
+            cli_file = repo_dir / "alpha" / "piketype" / "constants.py"
 
-            first_result = self.run_typist(repo_dir, str(cli_file))
+            first_result = self.run_piketype(repo_dir, str(cli_file))
             self.assertEqual(first_result.returncode, 0, msg=first_result.stderr)
 
-            second_result = self.run_typist(repo_dir, str(cli_file))
+            second_result = self.run_piketype(repo_dir, str(cli_file))
             self.assertEqual(second_result.returncode, 0, msg=second_result.stderr)
             assert_trees_equal(self, expected_root, repo_dir / "gen")
 
@@ -88,9 +88,9 @@ class GenConstSvIntegrationTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp_dir:
             repo_dir = Path(tmp_dir) / "project"
             copy_tree(fixture_root, repo_dir)
-            cli_file = repo_dir / "alpha" / "typist" / "constants.py"
+            cli_file = repo_dir / "alpha" / "piketype" / "constants.py"
 
-            result = self.run_typist(repo_dir, str(cli_file))
+            result = self.run_piketype(repo_dir, str(cli_file))
 
             self.assertEqual(result.returncode, 0, msg=result.stderr)
             assert_trees_equal(self, expected_root, repo_dir / "gen")
@@ -101,9 +101,9 @@ class GenConstSvIntegrationTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp_dir:
             repo_dir = Path(tmp_dir) / "project"
             copy_tree(fixture_root, repo_dir)
-            cli_file = repo_dir / "alpha" / "typist" / "constants.py"
+            cli_file = repo_dir / "alpha" / "piketype" / "constants.py"
 
-            result = self.run_typist(repo_dir, str(cli_file))
+            result = self.run_piketype(repo_dir, str(cli_file))
 
             self.assertEqual(result.returncode, 0, msg=result.stderr)
             assert_trees_equal(self, expected_root, repo_dir / "gen")
@@ -114,9 +114,9 @@ class GenConstSvIntegrationTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp_dir:
             repo_dir = Path(tmp_dir) / "project"
             copy_tree(fixture_root, repo_dir)
-            cli_file = repo_dir / "alpha" / "typist" / "constants.py"
+            cli_file = repo_dir / "alpha" / "piketype" / "constants.py"
 
-            result = self.run_typist(repo_dir, str(cli_file))
+            result = self.run_piketype(repo_dir, str(cli_file))
 
             self.assertEqual(result.returncode, 0, msg=result.stderr)
             assert_trees_equal(self, expected_root, repo_dir / "gen")
@@ -127,9 +127,9 @@ class GenConstSvIntegrationTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp_dir:
             repo_dir = Path(tmp_dir) / "project"
             copy_tree(fixture_root, repo_dir)
-            cli_file = repo_dir / "alpha" / "typist" / "types.py"
+            cli_file = repo_dir / "alpha" / "piketype" / "types.py"
 
-            result = self.run_typist(repo_dir, str(cli_file))
+            result = self.run_piketype(repo_dir, str(cli_file))
 
             self.assertEqual(result.returncode, 0, msg=result.stderr)
             assert_trees_equal(self, expected_root, repo_dir / "gen")
@@ -140,9 +140,9 @@ class GenConstSvIntegrationTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp_dir:
             repo_dir = Path(tmp_dir) / "project"
             copy_tree(fixture_root, repo_dir)
-            cli_file = repo_dir / "alpha" / "typist" / "types.py"
+            cli_file = repo_dir / "alpha" / "piketype" / "types.py"
 
-            result = self.run_typist(repo_dir, str(cli_file))
+            result = self.run_piketype(repo_dir, str(cli_file))
 
             self.assertEqual(result.returncode, 0, msg=result.stderr)
             assert_trees_equal(self, expected_root, repo_dir / "gen")
@@ -153,21 +153,21 @@ class GenConstSvIntegrationTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp_dir:
             repo_dir = Path(tmp_dir) / "project"
             copy_tree(fixture_root, repo_dir)
-            cli_file = repo_dir / "alpha" / "typist" / "types.py"
+            cli_file = repo_dir / "alpha" / "piketype" / "types.py"
 
-            result = self.run_typist(repo_dir, str(cli_file))
+            result = self.run_piketype(repo_dir, str(cli_file))
 
             self.assertEqual(result.returncode, 0, msg=result.stderr)
             assert_trees_equal(self, expected_root, repo_dir / "gen")
 
-    def test_rejects_typist_file_with_no_dsl_objects(self) -> None:
+    def test_rejects_piketype_file_with_no_dsl_objects(self) -> None:
         fixture_root = FIXTURES_DIR / "no_dsl" / "project"
         with tempfile.TemporaryDirectory() as tmp_dir:
             repo_dir = Path(tmp_dir) / "project"
             copy_tree(fixture_root, repo_dir)
-            cli_file = repo_dir / "alpha" / "typist" / "empty.py"
+            cli_file = repo_dir / "alpha" / "piketype" / "empty.py"
 
-            result = self.run_typist(repo_dir, str(cli_file))
+            result = self.run_piketype(repo_dir, str(cli_file))
 
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("defines no DSL objects", result.stderr)
@@ -180,8 +180,8 @@ class GenConstSvIntegrationTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp_dir:
             repo_dir = Path(tmp_dir) / "project"
             copy_tree(fixture_root, repo_dir)
-            cli_file = repo_dir / "alpha" / "typist" / "types.py"
-            result = self.run_typist(repo_dir, str(cli_file))
+            cli_file = repo_dir / "alpha" / "piketype" / "types.py"
+            result = self.run_piketype(repo_dir, str(cli_file))
             self.assertEqual(result.returncode, 0, msg=result.stderr)
             assert_trees_equal(self, expected_root, repo_dir / "gen")
 
@@ -191,8 +191,8 @@ class GenConstSvIntegrationTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp_dir:
             repo_dir = Path(tmp_dir) / "project"
             copy_tree(fixture_root, repo_dir)
-            cli_file = repo_dir / "alpha" / "typist" / "types.py"
-            result = self.run_typist(repo_dir, str(cli_file))
+            cli_file = repo_dir / "alpha" / "piketype" / "types.py"
+            result = self.run_piketype(repo_dir, str(cli_file))
             self.assertEqual(result.returncode, 0, msg=result.stderr)
             assert_trees_equal(self, expected_root, repo_dir / "gen")
 
@@ -202,8 +202,8 @@ class GenConstSvIntegrationTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp_dir:
             repo_dir = Path(tmp_dir) / "project"
             copy_tree(fixture_root, repo_dir)
-            cli_file = repo_dir / "alpha" / "typist" / "types.py"
-            result = self.run_typist(repo_dir, str(cli_file))
+            cli_file = repo_dir / "alpha" / "piketype" / "types.py"
+            result = self.run_piketype(repo_dir, str(cli_file))
             self.assertEqual(result.returncode, 0, msg=result.stderr)
             assert_trees_equal(self, expected_root, repo_dir / "gen")
 
@@ -213,8 +213,8 @@ class GenConstSvIntegrationTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp_dir:
             repo_dir = Path(tmp_dir) / "project"
             copy_tree(fixture_root, repo_dir)
-            cli_file = repo_dir / "alpha" / "typist" / "types.py"
-            result = self.run_typist(repo_dir, str(cli_file))
+            cli_file = repo_dir / "alpha" / "piketype" / "types.py"
+            result = self.run_piketype(repo_dir, str(cli_file))
             self.assertEqual(result.returncode, 0, msg=result.stderr)
             assert_trees_equal(self, expected_root, repo_dir / "gen")
 
@@ -224,8 +224,8 @@ class GenConstSvIntegrationTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp_dir:
             repo_dir = Path(tmp_dir) / "project"
             copy_tree(fixture_root, repo_dir)
-            cli_file = repo_dir / "alpha" / "typist" / "types.py"
-            result = self.run_typist(repo_dir, str(cli_file))
+            cli_file = repo_dir / "alpha" / "piketype" / "types.py"
+            result = self.run_piketype(repo_dir, str(cli_file))
             self.assertEqual(result.returncode, 0, msg=result.stderr)
             assert_trees_equal(self, expected_root, repo_dir / "gen")
 
@@ -236,8 +236,8 @@ class GenConstSvIntegrationTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp_dir:
             repo_dir = Path(tmp_dir) / "project"
             copy_tree(fixture_root, repo_dir)
-            cli_file = repo_dir / "alpha" / "typist" / "types.py"
-            result = self.run_typist(repo_dir, str(cli_file))
+            cli_file = repo_dir / "alpha" / "piketype" / "types.py"
+            result = self.run_piketype(repo_dir, str(cli_file))
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("reserved '_pad' suffix", result.stderr)
 
@@ -246,8 +246,8 @@ class GenConstSvIntegrationTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp_dir:
             repo_dir = Path(tmp_dir) / "project"
             copy_tree(fixture_root, repo_dir)
-            cli_file = repo_dir / "alpha" / "typist" / "types.py"
-            result = self.run_typist(repo_dir, str(cli_file))
+            cli_file = repo_dir / "alpha" / "piketype" / "types.py"
+            result = self.run_piketype(repo_dir, str(cli_file))
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("exceeds maximum 64-bit signed width", result.stderr)
 
@@ -256,22 +256,22 @@ class GenConstSvIntegrationTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp_dir:
             repo_dir = Path(tmp_dir) / "project"
             copy_tree(fixture_root, repo_dir)
-            cli_file = repo_dir / "alpha" / "typist" / "types.py"
-            result = self.run_typist(repo_dir, str(cli_file))
+            cli_file = repo_dir / "alpha" / "piketype" / "types.py"
+            result = self.run_piketype(repo_dir, str(cli_file))
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("collides with generated identifier", result.stderr)
 
-    def test_rejects_path_outside_typist_directory(self) -> None:
-        fixture_root = FIXTURES_DIR / "outside_typist" / "project"
+    def test_rejects_path_outside_piketype_directory(self) -> None:
+        fixture_root = FIXTURES_DIR / "outside_piketype" / "project"
         with tempfile.TemporaryDirectory() as tmp_dir:
             repo_dir = Path(tmp_dir) / "project"
             copy_tree(fixture_root, repo_dir)
-            cli_file = repo_dir / "alpha" / "not_typist" / "plain.py"
+            cli_file = repo_dir / "alpha" / "not_piketype" / "plain.py"
 
-            result = self.run_typist(repo_dir, str(cli_file))
+            result = self.run_piketype(repo_dir, str(cli_file))
 
             self.assertNotEqual(result.returncode, 0)
-            self.assertIn("is not under a typist/ directory", result.stderr)
+            self.assertIn("is not under a piketype/ directory", result.stderr)
 
     # -- Namespace override tests --
 
@@ -281,8 +281,8 @@ class GenConstSvIntegrationTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp_dir:
             repo_dir = Path(tmp_dir) / "project"
             copy_tree(fixture_root, repo_dir)
-            cli_file = repo_dir / "alpha" / "typist" / "constants.py"
-            result = self.run_typist(repo_dir, str(cli_file), "--namespace", "foo::bar")
+            cli_file = repo_dir / "alpha" / "piketype" / "constants.py"
+            result = self.run_piketype(repo_dir, str(cli_file), "--namespace", "foo::bar")
             self.assertEqual(result.returncode, 0, msg=result.stderr)
             assert_trees_equal(self, expected_root, repo_dir / "gen")
 
@@ -291,8 +291,8 @@ class GenConstSvIntegrationTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp_dir:
             repo_dir = Path(tmp_dir) / "project"
             copy_tree(fixture_root, repo_dir)
-            cli_file = repo_dir / "alpha" / "typist" / "constants.py"
-            result = self.run_typist(repo_dir, str(cli_file), "--namespace", "foo::::bar")
+            cli_file = repo_dir / "alpha" / "piketype" / "constants.py"
+            result = self.run_piketype(repo_dir, str(cli_file), "--namespace", "foo::::bar")
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("empty segment", result.stderr)
 
@@ -301,8 +301,8 @@ class GenConstSvIntegrationTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp_dir:
             repo_dir = Path(tmp_dir) / "project"
             copy_tree(fixture_root, repo_dir)
-            cli_file = repo_dir / "alpha" / "typist" / "constants.py"
-            result = self.run_typist(repo_dir, str(cli_file), "--namespace", "123bad")
+            cli_file = repo_dir / "alpha" / "piketype" / "constants.py"
+            result = self.run_piketype(repo_dir, str(cli_file), "--namespace", "123bad")
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("not a valid C++ identifier", result.stderr)
 
@@ -311,8 +311,8 @@ class GenConstSvIntegrationTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp_dir:
             repo_dir = Path(tmp_dir) / "project"
             copy_tree(fixture_root, repo_dir)
-            cli_file = repo_dir / "alpha" / "typist" / "constants.py"
-            result = self.run_typist(repo_dir, str(cli_file), "--namespace", "class")
+            cli_file = repo_dir / "alpha" / "piketype" / "constants.py"
+            result = self.run_piketype(repo_dir, str(cli_file), "--namespace", "class")
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("C++ keyword", result.stderr)
 
@@ -321,8 +321,8 @@ class GenConstSvIntegrationTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp_dir:
             repo_dir = Path(tmp_dir) / "project"
             copy_tree(fixture_root, repo_dir)
-            cli_file = repo_dir / "alpha" / "typist" / "constants.py"
-            result = self.run_typist(repo_dir, str(cli_file), "--namespace", "foo__bar")
+            cli_file = repo_dir / "alpha" / "piketype" / "constants.py"
+            result = self.run_piketype(repo_dir, str(cli_file), "--namespace", "foo__bar")
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("'__'", result.stderr)
 
@@ -331,8 +331,8 @@ class GenConstSvIntegrationTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp_dir:
             repo_dir = Path(tmp_dir) / "project"
             copy_tree(fixture_root, repo_dir)
-            cli_file = repo_dir / "alpha" / "typist" / "constants.py"
-            result = self.run_typist(repo_dir, str(cli_file), "--namespace", "_foo")
+            cli_file = repo_dir / "alpha" / "piketype" / "constants.py"
+            result = self.run_piketype(repo_dir, str(cli_file), "--namespace", "_foo")
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("underscore", result.stderr)
 
@@ -341,8 +341,8 @@ class GenConstSvIntegrationTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp_dir:
             repo_dir = Path(tmp_dir) / "project"
             copy_tree(fixture_root, repo_dir)
-            cli_file = repo_dir / "alpha" / "typist" / "constants.py"
-            result = self.run_typist(repo_dir, str(cli_file), "--namespace", "std::types")
+            cli_file = repo_dir / "alpha" / "piketype" / "constants.py"
+            result = self.run_piketype(repo_dir, str(cli_file), "--namespace", "std::types")
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("'std'", result.stderr)
 
@@ -351,8 +351,8 @@ class GenConstSvIntegrationTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp_dir:
             repo_dir = Path(tmp_dir) / "project"
             copy_tree(fixture_root, repo_dir)
-            cli_file = repo_dir / "alpha" / "typist" / "constants.py"
-            result = self.run_typist(repo_dir, str(cli_file), "--namespace", "foo_")
+            cli_file = repo_dir / "alpha" / "piketype" / "constants.py"
+            result = self.run_piketype(repo_dir, str(cli_file), "--namespace", "foo_")
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("underscore", result.stderr)
 
@@ -361,8 +361,8 @@ class GenConstSvIntegrationTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp_dir:
             repo_dir = Path(tmp_dir) / "project"
             copy_tree(fixture_root, repo_dir)
-            cli_file = repo_dir / "alpha" / "typist" / "constants.py"
-            result = self.run_typist(repo_dir, str(cli_file), "--namespace", "foo::_bar")
+            cli_file = repo_dir / "alpha" / "piketype" / "constants.py"
+            result = self.run_piketype(repo_dir, str(cli_file), "--namespace", "foo::_bar")
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("underscore", result.stderr)
 
@@ -372,16 +372,16 @@ class GenConstSvIntegrationTest(unittest.TestCase):
             repo_dir.mkdir()
             (repo_dir / ".git").mkdir()
             (repo_dir / ".git" / "HEAD").write_text("ref: refs/heads/main\n")
-            (repo_dir / "alpha" / "typist").mkdir(parents=True)
-            (repo_dir / "beta" / "typist").mkdir(parents=True)
-            (repo_dir / "alpha" / "typist" / "types.py").write_text(
-                "from typist.dsl import Const\nX = Const(1)\n"
+            (repo_dir / "alpha" / "piketype").mkdir(parents=True)
+            (repo_dir / "beta" / "piketype").mkdir(parents=True)
+            (repo_dir / "alpha" / "piketype" / "types.py").write_text(
+                "from piketype.dsl import Const\nX = Const(1)\n"
             )
-            (repo_dir / "beta" / "typist" / "types.py").write_text(
-                "from typist.dsl import Const\nY = Const(2)\n"
+            (repo_dir / "beta" / "piketype" / "types.py").write_text(
+                "from piketype.dsl import Const\nY = Const(2)\n"
             )
-            cli_file = repo_dir / "alpha" / "typist" / "types.py"
-            result = self.run_typist(repo_dir, str(cli_file), "--namespace", "foo::bar")
+            cli_file = repo_dir / "alpha" / "piketype" / "types.py"
+            result = self.run_piketype(repo_dir, str(cli_file), "--namespace", "foo::bar")
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("types", result.stderr)
             self.assertIn("duplicate", result.stderr.lower())

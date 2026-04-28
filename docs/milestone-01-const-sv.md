@@ -20,16 +20,16 @@ This milestone intentionally supports only literal integer constants and only Sy
 
 ### In Scope
 
-- `typist gen <file.py>`
+- `piketype gen <file.py>`
 - repo-root detection via `.git` or `pyproject.toml`
-- repo-wide scan of `typist/` directories
-- rejection of invalid `typist/` files
+- repo-wide scan of `piketype/` directories
+- rejection of invalid `piketype/` files
 - minimal DSL runtime with `Const()`
 - module-level direct-top-level constant discovery
 - literal integer constants only
 - package-scoped SV `localparam` generation
 - generated file headers
-- `gen/typist_manifest.json`
+- `gen/piketype_manifest.json`
 
 ### Out of Scope
 
@@ -44,7 +44,7 @@ This milestone intentionally supports only literal integer constants and only Sy
 Example input:
 
 ```python
-# foo/typist/defs.py
+# foo/piketype/defs.py
 FOO = Const(3)
 BAR = Const(0)
 ```
@@ -52,15 +52,15 @@ BAR = Const(0)
 Command:
 
 ```bash
-typist gen foo/typist/defs.py
+piketype gen foo/piketype/defs.py
 ```
 
 Expected outputs:
 
 ```text
-gen/sv/foo/typist/defs_pkg.sv
-gen/sv/runtime/typist_runtime_pkg.sv
-gen/typist_manifest.json
+gen/sv/foo/piketype/defs_pkg.sv
+gen/sv/runtime/piketype_runtime_pkg.sv
+gen/piketype_manifest.json
 ```
 
 ## DSL Rules For This Milestone
@@ -70,7 +70,7 @@ gen/typist_manifest.json
 - The argument must be an integer literal.
 - Imported constants are dependencies, not local definitions.
 - Anonymous temporaries do not count.
-- A `typist/` file with zero discovered DSL objects is an error.
+- A `piketype/` file with zero discovered DSL objects is an error.
 
 ## Minimal Internal Design
 
@@ -104,9 +104,9 @@ Needed nodes:
 
 Needed checks:
 
-- provided CLI file is under `typist/`
+- provided CLI file is under `piketype/`
 - provided CLI file defines DSL objects
-- every scanned `typist/` non-`__init__.py` file defines at least one DSL object
+- every scanned `piketype/` non-`__init__.py` file defines at least one DSL object
 - discovered DSL objects in scanned files are constants only
 - constant names are unique within module
 - constant values are integers
@@ -135,7 +135,7 @@ The exact `int` vs width-specific parameter typing can remain simple in this mil
 
 This milestone should still generate:
 
-- `gen/sv/runtime/typist_runtime_pkg.sv`
+- `gen/sv/runtime/piketype_runtime_pkg.sv`
 
 Even if it is effectively an empty placeholder package at first, generating it validates the stable runtime-path contract early.
 
@@ -164,7 +164,7 @@ Implement:
 Implement:
 
 - recursive repo scan
-- `typist/` filtering
+- `piketype/` filtering
 - `__init__.py` exclusion
 
 ### `loader/python_loader.py`
@@ -231,20 +231,20 @@ tests/fixtures/const_sv_basic/
   project/
     .git/
     foo/
-      typist/
+      piketype/
         defs.py
   expected/
     gen/
       sv/
-      typist_manifest.json
+      piketype_manifest.json
 ```
 
 Tests:
 
 - success case with one module and multiple constants
-- success case with multiple `typist/` modules in one repo
-- failure when CLI path is not under `typist/`
-- failure when a `typist/` file contains no DSL objects
+- success case with multiple `piketype/` modules in one repo
+- failure when CLI path is not under `piketype/`
+- failure when a `piketype/` file contains no DSL objects
 - failure when a non-constant DSL object appears
 
 Comparison mode:
@@ -255,7 +255,7 @@ Comparison mode:
 
 Milestone 01 is complete when:
 
-- `typist gen <valid typist file>` works for constant-only fixture repos
+- `piketype gen <valid piketype file>` works for constant-only fixture repos
 - SV output matches goldens byte-for-byte
 - runtime placeholder package is emitted in stable path
 - manifest is emitted and stable
