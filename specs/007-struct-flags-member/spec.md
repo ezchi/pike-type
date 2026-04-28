@@ -179,3 +179,8 @@ This fix requires updating the existing `flags_basic` golden files for the SV te
 ## Open Questions
 
 None — the design is straightforward extension of existing type reference mechanisms.
+
+## Changelog
+
+- [Clarification CL-2] FR-5 dependency ordering reworded: removed hard "must" requirement, clarified reliance on `(source.line, name)` sort.
+- [Clarification CL-3] AC-27 added: cross-module Flags member rejection test.
