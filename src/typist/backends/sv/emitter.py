@@ -145,6 +145,11 @@ def _render_sv_struct(*, type_ir: StructIR) -> list[str]:
             else:
                 lines.append(f"  logic [{pad - 1}:0] {field.name}_pad;")
         lines.append(f"  {_render_sv_struct_field_type(field_type=field.type_ir)} {field.name};")
+    if type_ir.alignment_bits > 0:
+        if type_ir.alignment_bits == 1:
+            lines.append("  logic _align_pad;")
+        else:
+            lines.append(f"  logic [{type_ir.alignment_bits - 1}:0] _align_pad;")
     lines.append(f"}} {type_ir.name};")
     return lines
 
@@ -385,6 +390,8 @@ def _render_sv_struct_helper_class(*, type_ir: StructIR, type_index: dict[str, T
                 lines.append(f"    packed_value.{field.name}_pad = {{{p}{{packed_value.{field.name}[{w - 1}]}}}};")
             else:
                 lines.append(f"    packed_value.{field.name}_pad = '0;")
+    if type_ir.alignment_bits > 0:
+        lines.append("    packed_value._align_pad = '0;")
     lines.extend(["    return packed_value;", "  endfunction"])
 
     # from_slv: extract field values, ignore padding
@@ -406,6 +413,12 @@ def _render_sv_struct_helper_class(*, type_ir: StructIR, type_index: dict[str, T
     ])
     for field in type_ir.fields:
         lines.extend(_render_sv_helper_to_bytes_step(field=field, type_index=type_index))
+    if type_ir.alignment_bits > 0:
+        align_bytes = type_ir.alignment_bits // 8
+        lines.append("    begin")
+        lines.append(f"      for (int i = 0; i < {align_bytes}; i++) bytes[byte_idx + i] = 8'h00;")
+        lines.append(f"      byte_idx += {align_bytes};")
+        lines.append("    end")
     lines.append("  endtask")
 
     # from_bytes: per-field deserialization with signed validation
@@ -420,6 +433,9 @@ def _render_sv_struct_helper_class(*, type_ir: StructIR, type_index: dict[str, T
     ])
     for field in type_ir.fields:
         lines.extend(_render_sv_helper_from_bytes_step(field=field, type_index=type_index, class_name=class_name))
+    if type_ir.alignment_bits > 0:
+        align_bytes = type_ir.alignment_bits // 8
+        lines.append(f"    byte_idx += {align_bytes};")
     lines.append("  endfunction")
 
     # copy
@@ -623,10 +639,11 @@ def _field_data_width(*, field: StructFieldIR, type_index: dict[str, TypeDefIR])
 
 
 def _type_byte_count(*, type_ir: TypeDefIR, type_index: dict[str, TypeDefIR]) -> int:
-    """Total byte count (including padding) of a type."""
+    """Total byte count (including padding and alignment) of a type."""
     if isinstance(type_ir, ScalarAliasIR):
         return byte_count(type_ir.resolved_width)
-    return sum(_field_byte_count(field=f, type_index=type_index) for f in type_ir.fields)
+    field_bytes = sum(_field_byte_count(field=f, type_index=type_index) for f in type_ir.fields)
+    return field_bytes + type_ir.alignment_bits // 8
 
 
 def _field_byte_count(*, field: StructFieldIR, type_index: dict[str, TypeDefIR]) -> int:
