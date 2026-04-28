@@ -76,7 +76,7 @@ All path constants referencing `typist_runtime*` or `typist_manifest*` must use 
 
 ### FR-8: Update validation error messages
 
-In `validate/engine.py`, change `"typist file defines no DSL objects"` → `"piketype file defines no DSL objects"`.
+All occurrences of `"typist file defines no DSL objects"` must change to `"piketype file defines no DSL objects"`. This message appears in both `validate/engine.py` and `commands/gen.py`.
 
 ### FR-9: Rename public exception classes
 
@@ -126,6 +126,8 @@ All documentation files must be updated to replace "typist" references:
 - `docs/milestone-01-const-sv.md`: Update references.
 - `docs/requirements.org`: Update any references to "typist".
 - Any other file under `docs/` containing "typist" references must also be updated (e.g. `docs/planning.org`, `docs/ir-schema.md`).
+
+All `typist_` prefixed names in documentation (e.g. `typist_manifest.json`, `typist_runtime_pkg.sv`, `typist_utils.py`) become `piketype_` prefixed (`piketype_manifest.json`, `piketype_runtime_pkg.sv`, `piketype_utils.py`). This follows the naming convention table in this spec.
 
 ### FR-14: Update project constitution
 
