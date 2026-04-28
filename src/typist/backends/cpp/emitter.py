@@ -362,6 +362,9 @@ def _render_cpp_struct(*, type_ir: StructIR, type_index: dict[str, TypeDefIR]) -
     )
     for field_ir in type_ir.fields:
         lines.extend(_render_cpp_struct_pack_step(field_ir=field_ir, type_index=type_index))
+    if type_ir.alignment_bits > 0:
+        align_bytes = type_ir.alignment_bits // 8
+        lines.append(f"    for (std::size_t i = 0; i < {align_bytes}; ++i) bytes.push_back(0);")
     lines.extend(
         [
             "    return bytes;",
@@ -780,10 +783,11 @@ def _resolved_field_width(*, field_type: FieldTypeIR, type_index: dict[str, Type
 
 
 def _type_byte_count(*, type_ir: TypeDefIR, type_index: dict[str, TypeDefIR]) -> int:
-    """Compute the byte-aligned byte count for a type (sum of per-field byte counts)."""
+    """Compute the byte-aligned byte count for a type (sum of per-field byte counts + alignment)."""
     if isinstance(type_ir, ScalarAliasIR):
         return byte_count(type_ir.resolved_width)
-    return sum(_field_byte_count(field=field, type_index=type_index) for field in type_ir.fields)
+    field_bytes = sum(_field_byte_count(field=field, type_index=type_index) for field in type_ir.fields)
+    return field_bytes + type_ir.alignment_bits // 8
 
 
 def _field_byte_count(*, field: StructFieldIR, type_index: dict[str, TypeDefIR]) -> int:
