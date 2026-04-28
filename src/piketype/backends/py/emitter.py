@@ -515,6 +515,14 @@ def _render_py_struct_field_coercer(*, owner_name: str, field_ir: StructFieldIR,
                         f'        raise TypeError("{owner_name}.{field_ir.name} must be {class_name} or None")',
                     ]
                 )
+            elif isinstance(target, FlagsIR):
+                lines.extend(
+                    [
+                        f"        if isinstance(value, {class_name}):",
+                        "            return value",
+                        f'        raise TypeError("{owner_name}.{field_ir.name} must be {class_name}")',
+                    ]
+                )
             else:
                 lines.extend(
                     [
@@ -558,6 +566,8 @@ def _resolved_type_width(*, type_ir: TypeDefIR, type_index: dict[str, TypeDefIR]
     """Resolve the data width (in bits) of one type."""
     if isinstance(type_ir, ScalarAliasIR):
         return type_ir.resolved_width
+    if isinstance(type_ir, FlagsIR):
+        return len(type_ir.fields)
     return sum(_resolved_field_width(field_type=field.type_ir, type_index=type_index) for field in type_ir.fields)
 
 
@@ -572,6 +582,8 @@ def _type_byte_count(*, type_ir: TypeDefIR, type_index: dict[str, TypeDefIR]) ->
     """Resolve the byte-aligned byte count of one type (including alignment)."""
     if isinstance(type_ir, ScalarAliasIR):
         return byte_count(type_ir.resolved_width)
+    if isinstance(type_ir, FlagsIR):
+        return (len(type_ir.fields) + type_ir.alignment_bits) // 8
     field_bytes = sum(_field_byte_count(field_ir=f, type_index=type_index) for f in type_ir.fields)
     return field_bytes + type_ir.alignment_bits // 8
 

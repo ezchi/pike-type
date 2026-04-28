@@ -411,7 +411,7 @@ def _render_sv_struct_helper_class(*, type_ir: StructIR, type_index: dict[str, T
     # Constructor
     lines.extend(["", "  function new();"])
     for field in type_ir.fields:
-        if _is_sv_struct_ref(field_type=field.type_ir, type_index=type_index):
+        if _is_sv_composite_ref(field_type=field.type_ir, type_index=type_index):
             lines.append(f"    {field.name} = new();")
         else:
             lines.append(f"    {field.name} = '0;")
@@ -420,7 +420,7 @@ def _render_sv_struct_helper_class(*, type_ir: StructIR, type_index: dict[str, T
     # to_slv: assemble padded typedef with proper padding fill
     lines.extend(["", f"  function automatic {type_ir.name} to_slv();", f"    {type_ir.name} packed_value;"])
     for field in type_ir.fields:
-        if _is_sv_struct_ref(field_type=field.type_ir, type_index=type_index):
+        if _is_sv_composite_ref(field_type=field.type_ir, type_index=type_index):
             lines.append(f"    packed_value.{field.name} = {field.name}.to_slv();")
         else:
             lines.append(f"    packed_value.{field.name} = {field.name};")
@@ -438,7 +438,7 @@ def _render_sv_struct_helper_class(*, type_ir: StructIR, type_index: dict[str, T
     # from_slv: extract field values, ignore padding
     lines.extend(["", f"  function void from_slv({type_ir.name} value_in);"])
     for field in type_ir.fields:
-        if _is_sv_struct_ref(field_type=field.type_ir, type_index=type_index):
+        if _is_sv_composite_ref(field_type=field.type_ir, type_index=type_index):
             lines.append(f"    {field.name}.from_slv(value_in.{field.name});")
         else:
             lines.append(f"    {field.name} = value_in.{field.name};")
@@ -482,7 +482,7 @@ def _render_sv_struct_helper_class(*, type_ir: StructIR, type_index: dict[str, T
     # copy
     lines.extend(["", f"  function void copy(input {class_name} rhs);"])
     for field in type_ir.fields:
-        if _is_sv_struct_ref(field_type=field.type_ir, type_index=type_index):
+        if _is_sv_composite_ref(field_type=field.type_ir, type_index=type_index):
             lines.append(f"    {field.name}.copy(rhs.{field.name});")
         else:
             lines.append(f"    {field.name} = rhs.{field.name};")
@@ -501,7 +501,7 @@ def _render_sv_struct_helper_class(*, type_ir: StructIR, type_index: dict[str, T
     # compare
     lines.extend(["", f"  function automatic bit compare(input {class_name} rhs);", "    bit match;", "    match = 1'b1;"])
     for field in type_ir.fields:
-        if _is_sv_struct_ref(field_type=field.type_ir, type_index=type_index):
+        if _is_sv_composite_ref(field_type=field.type_ir, type_index=type_index):
             lines.append(f"    match &= {field.name}.compare(rhs.{field.name});")
         else:
             lines.append(f"    match &= ({field.name} === rhs.{field.name});")
@@ -511,7 +511,7 @@ def _render_sv_struct_helper_class(*, type_ir: StructIR, type_index: dict[str, T
     fmt_parts: list[str] = []
     arg_parts: list[str] = []
     for field in type_ir.fields:
-        if _is_sv_struct_ref(field_type=field.type_ir, type_index=type_index):
+        if _is_sv_composite_ref(field_type=field.type_ir, type_index=type_index):
             fmt_parts.append(f"{field.name}=%s")
             arg_parts.append(f"{field.name}.sprint()")
         else:
@@ -574,9 +574,9 @@ def _render_sv_flags_helper_class(*, type_ir: FlagsIR) -> list[str]:
         "    bytes = new[BYTE_COUNT];",
         "    bv = '0;",
     ])
-    # Pack flag bits into a bit vector (MSB = first flag)
+    # Pack flag bits into a bit vector (MSB = first flag, matching typedef layout)
     for idx, flag in enumerate(type_ir.fields):
-        bit_pos = num_flags - 1 - idx
+        bit_pos = total_bits - 1 - idx
         lines.append(f"    bv[{bit_pos}] = {flag.name};")
     lines.extend([
         "    for (int idx = 0; idx < BYTE_COUNT; idx++) begin",
@@ -599,7 +599,7 @@ def _render_sv_flags_helper_class(*, type_ir: FlagsIR) -> list[str]:
         "    end",
     ])
     for idx, flag in enumerate(type_ir.fields):
-        bit_pos = num_flags - 1 - idx
+        bit_pos = total_bits - 1 - idx
         lines.append(f"    {flag.name} = bv[{bit_pos}];")
     lines.append("  endfunction")
 
@@ -644,7 +644,7 @@ def _render_sv_helper_field_decl(*, field: StructFieldIR, type_index: dict[str, 
     """Render one struct helper field declaration."""
     if isinstance(field.type_ir, TypeRefIR):
         target = type_index[field.type_ir.name]
-        if isinstance(target, StructIR):
+        if isinstance(target, (StructIR, FlagsIR)):
             return f"{_helper_class_name(target.name)} {field.name};"
         rand_kw = "rand " if field.rand else ""
         return f"{rand_kw}{target.name} {field.name};"
@@ -655,7 +655,7 @@ def _render_sv_helper_field_decl(*, field: StructFieldIR, type_index: dict[str, 
 def _render_sv_helper_to_bytes_step(*, field: StructFieldIR, type_index: dict[str, TypeDefIR]) -> list[str]:
     """Render one to_bytes serialization step for a struct field."""
     lines: list[str] = []
-    if _is_sv_struct_ref(field_type=field.type_ir, type_index=type_index):
+    if _is_sv_composite_ref(field_type=field.type_ir, type_index=type_index):
         fbc = _field_byte_count(field=field, type_index=type_index)
         lines.extend([
             "    begin",
@@ -691,7 +691,7 @@ def _render_sv_helper_from_bytes_step(
 ) -> list[str]:
     """Render one from_bytes deserialization step for a struct field."""
     lines: list[str] = []
-    if _is_sv_struct_ref(field_type=field.type_ir, type_index=type_index):
+    if _is_sv_composite_ref(field_type=field.type_ir, type_index=type_index):
         fbc = _field_byte_count(field=field, type_index=type_index)
         lines.extend([
             "    begin",
@@ -820,9 +820,9 @@ def _is_field_signed(*, field: StructFieldIR, type_index: dict[str, TypeDefIR]) 
     return False
 
 
-def _is_sv_struct_ref(*, field_type: FieldTypeIR, type_index: dict[str, TypeDefIR]) -> bool:
-    """Return whether one SV field references a named struct."""
-    return isinstance(field_type, TypeRefIR) and isinstance(type_index[field_type.name], StructIR)
+def _is_sv_composite_ref(*, field_type: FieldTypeIR, type_index: dict[str, TypeDefIR]) -> bool:
+    """Return whether one SV field references a named struct or flags type."""
+    return isinstance(field_type, TypeRefIR) and isinstance(type_index[field_type.name], (StructIR, FlagsIR))
 
 
 def _helper_class_name(type_name: str) -> str:

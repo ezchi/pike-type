@@ -513,7 +513,7 @@ def _render_cpp_struct(*, type_ir: StructIR, type_index: dict[str, TypeDefIR]) -
     for field_ir in type_ir.fields:
         if _is_struct_ref(field_type=field_ir.type_ir, type_index=type_index) or _is_scalar_ref(
             field_type=field_ir.type_ir, type_index=type_index
-        ):
+        ) or _is_flags_ref(field_type=field_ir.type_ir, type_index=type_index):
             lines.append(f"    cloned.{field_ir.name} = {field_ir.name}.clone();")
         elif _is_wide_inline_scalar(field_type=field_ir.type_ir):
             lines.append(f"    cloned.{field_ir.name} = {field_ir.name};")
@@ -614,16 +614,7 @@ def _render_cpp_struct_pack_step(*, field_ir: StructFieldIR, type_index: dict[st
         )
     elif isinstance(field_ir.type_ir, TypeRefIR):
         target = type_index[field_ir.type_ir.name]
-        if isinstance(target, StructIR):
-            lines.extend(
-                [
-                    "    {",
-                    f"      auto field_bytes = {field_ir.name}.to_bytes();",
-                    "      bytes.insert(bytes.end(), field_bytes.begin(), field_bytes.end());",
-                    "    }",
-                ]
-            )
-        elif isinstance(target, ScalarAliasIR):
+        if isinstance(target, (StructIR, ScalarAliasIR, FlagsIR)):
             lines.extend(
                 [
                     "    {",
@@ -667,7 +658,7 @@ def _render_cpp_struct_unpack_step(
         )
     elif isinstance(field_ir.type_ir, TypeRefIR):
         target = type_index[field_ir.type_ir.name]
-        if isinstance(target, (StructIR, ScalarAliasIR)):
+        if isinstance(target, (StructIR, ScalarAliasIR, FlagsIR)):
             lines.extend(
                 [
                     "    {",
@@ -895,6 +886,8 @@ def _resolved_type_width(*, type_ir: TypeDefIR, type_index: dict[str, TypeDefIR]
     """Resolve the data width (sum of field data widths) of one type."""
     if isinstance(type_ir, ScalarAliasIR):
         return type_ir.resolved_width
+    if isinstance(type_ir, FlagsIR):
+        return len(type_ir.fields)
     return sum(_resolved_field_width(field_type=field.type_ir, type_index=type_index) for field in type_ir.fields)
 
 
@@ -909,6 +902,8 @@ def _type_byte_count(*, type_ir: TypeDefIR, type_index: dict[str, TypeDefIR]) ->
     """Compute the byte-aligned byte count for a type (sum of per-field byte counts + alignment)."""
     if isinstance(type_ir, ScalarAliasIR):
         return byte_count(type_ir.resolved_width)
+    if isinstance(type_ir, FlagsIR):
+        return (len(type_ir.fields) + type_ir.alignment_bits) // 8
     field_bytes = sum(_field_byte_count(field=field, type_index=type_index) for field in type_ir.fields)
     return field_bytes + type_ir.alignment_bits // 8
 
@@ -958,6 +953,11 @@ def _is_struct_ref(*, field_type: FieldTypeIR, type_index: dict[str, TypeDefIR])
 def _is_scalar_ref(*, field_type: FieldTypeIR, type_index: dict[str, TypeDefIR]) -> bool:
     """Return whether one field references a named scalar alias."""
     return isinstance(field_type, TypeRefIR) and isinstance(type_index[field_type.name], ScalarAliasIR)
+
+
+def _is_flags_ref(*, field_type: FieldTypeIR, type_index: dict[str, TypeDefIR]) -> bool:
+    """Return whether one field references a named flags type."""
+    return isinstance(field_type, TypeRefIR) and isinstance(type_index[field_type.name], FlagsIR)
 
 
 def _is_wide_inline_scalar(*, field_type: FieldTypeIR) -> bool:

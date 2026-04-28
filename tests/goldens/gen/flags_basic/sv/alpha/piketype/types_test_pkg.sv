@@ -29,7 +29,7 @@ package types_test_pkg;
       logic [7:0] bv;
       bytes = new[BYTE_COUNT];
       bv = '0;
-      bv[0] = flag;
+      bv[7] = flag;
       for (int idx = 0; idx < BYTE_COUNT; idx++) begin
         bytes[idx] = bv[(BYTE_COUNT - 1 - idx)*8 +: 8];
       end
@@ -44,7 +44,7 @@ package types_test_pkg;
       for (int idx = 0; idx < BYTE_COUNT; idx++) begin
         bv[(BYTE_COUNT - 1 - idx)*8 +: 8] = bytes[idx];
       end
-      flag = bv[0];
+      flag = bv[7];
     endfunction
   
     function void copy(input single_ct rhs);
@@ -101,9 +101,9 @@ package types_test_pkg;
       logic [7:0] bv;
       bytes = new[BYTE_COUNT];
       bv = '0;
-      bv[2] = a;
-      bv[1] = b;
-      bv[0] = c;
+      bv[7] = a;
+      bv[6] = b;
+      bv[5] = c;
       for (int idx = 0; idx < BYTE_COUNT; idx++) begin
         bytes[idx] = bv[(BYTE_COUNT - 1 - idx)*8 +: 8];
       end
@@ -118,9 +118,9 @@ package types_test_pkg;
       for (int idx = 0; idx < BYTE_COUNT; idx++) begin
         bv[(BYTE_COUNT - 1 - idx)*8 +: 8] = bytes[idx];
       end
-      a = bv[2];
-      b = bv[1];
-      c = bv[0];
+      a = bv[7];
+      b = bv[6];
+      c = bv[5];
     endfunction
   
     function void copy(input triple_ct rhs);
@@ -324,15 +324,15 @@ package types_test_pkg;
       logic [15:0] bv;
       bytes = new[BYTE_COUNT];
       bv = '0;
-      bv[8] = f0;
-      bv[7] = f1;
-      bv[6] = f2;
-      bv[5] = f3;
-      bv[4] = f4;
-      bv[3] = f5;
-      bv[2] = f6;
-      bv[1] = f7;
-      bv[0] = f8;
+      bv[15] = f0;
+      bv[14] = f1;
+      bv[13] = f2;
+      bv[12] = f3;
+      bv[11] = f4;
+      bv[10] = f5;
+      bv[9] = f6;
+      bv[8] = f7;
+      bv[7] = f8;
       for (int idx = 0; idx < BYTE_COUNT; idx++) begin
         bytes[idx] = bv[(BYTE_COUNT - 1 - idx)*8 +: 8];
       end
@@ -347,15 +347,15 @@ package types_test_pkg;
       for (int idx = 0; idx < BYTE_COUNT; idx++) begin
         bv[(BYTE_COUNT - 1 - idx)*8 +: 8] = bytes[idx];
       end
-      f0 = bv[8];
-      f1 = bv[7];
-      f2 = bv[6];
-      f3 = bv[5];
-      f4 = bv[4];
-      f5 = bv[3];
-      f6 = bv[2];
-      f7 = bv[1];
-      f8 = bv[0];
+      f0 = bv[15];
+      f1 = bv[14];
+      f2 = bv[13];
+      f3 = bv[12];
+      f4 = bv[11];
+      f5 = bv[10];
+      f6 = bv[9];
+      f7 = bv[8];
+      f8 = bv[7];
     endfunction
   
     function void copy(input wide_ct rhs);
@@ -548,39 +548,39 @@ package types_test_pkg;
       logic [39:0] bv;
       bytes = new[BYTE_COUNT];
       bv = '0;
-      bv[32] = f0;
-      bv[31] = f1;
-      bv[30] = f2;
-      bv[29] = f3;
-      bv[28] = f4;
-      bv[27] = f5;
-      bv[26] = f6;
-      bv[25] = f7;
-      bv[24] = f8;
-      bv[23] = f9;
-      bv[22] = f10;
-      bv[21] = f11;
-      bv[20] = f12;
-      bv[19] = f13;
-      bv[18] = f14;
-      bv[17] = f15;
-      bv[16] = f16;
-      bv[15] = f17;
-      bv[14] = f18;
-      bv[13] = f19;
-      bv[12] = f20;
-      bv[11] = f21;
-      bv[10] = f22;
-      bv[9] = f23;
-      bv[8] = f24;
-      bv[7] = f25;
-      bv[6] = f26;
-      bv[5] = f27;
-      bv[4] = f28;
-      bv[3] = f29;
-      bv[2] = f30;
-      bv[1] = f31;
-      bv[0] = f32;
+      bv[39] = f0;
+      bv[38] = f1;
+      bv[37] = f2;
+      bv[36] = f3;
+      bv[35] = f4;
+      bv[34] = f5;
+      bv[33] = f6;
+      bv[32] = f7;
+      bv[31] = f8;
+      bv[30] = f9;
+      bv[29] = f10;
+      bv[28] = f11;
+      bv[27] = f12;
+      bv[26] = f13;
+      bv[25] = f14;
+      bv[24] = f15;
+      bv[23] = f16;
+      bv[22] = f17;
+      bv[21] = f18;
+      bv[20] = f19;
+      bv[19] = f20;
+      bv[18] = f21;
+      bv[17] = f22;
+      bv[16] = f23;
+      bv[15] = f24;
+      bv[14] = f25;
+      bv[13] = f26;
+      bv[12] = f27;
+      bv[11] = f28;
+      bv[10] = f29;
+      bv[9] = f30;
+      bv[8] = f31;
+      bv[7] = f32;
       for (int idx = 0; idx < BYTE_COUNT; idx++) begin
         bytes[idx] = bv[(BYTE_COUNT - 1 - idx)*8 +: 8];
       end
@@ -595,39 +595,39 @@ package types_test_pkg;
       for (int idx = 0; idx < BYTE_COUNT; idx++) begin
         bv[(BYTE_COUNT - 1 - idx)*8 +: 8] = bytes[idx];
       end
-      f0 = bv[32];
-      f1 = bv[31];
-      f2 = bv[30];
-      f3 = bv[29];
-      f4 = bv[28];
-      f5 = bv[27];
-      f6 = bv[26];
-      f7 = bv[25];
-      f8 = bv[24];
-      f9 = bv[23];
-      f10 = bv[22];
-      f11 = bv[21];
-      f12 = bv[20];
-      f13 = bv[19];
-      f14 = bv[18];
-      f15 = bv[17];
-      f16 = bv[16];
-      f17 = bv[15];
-      f18 = bv[14];
-      f19 = bv[13];
-      f20 = bv[12];
-      f21 = bv[11];
-      f22 = bv[10];
-      f23 = bv[9];
-      f24 = bv[8];
-      f25 = bv[7];
-      f26 = bv[6];
-      f27 = bv[5];
-      f28 = bv[4];
-      f29 = bv[3];
-      f30 = bv[2];
-      f31 = bv[1];
-      f32 = bv[0];
+      f0 = bv[39];
+      f1 = bv[38];
+      f2 = bv[37];
+      f3 = bv[36];
+      f4 = bv[35];
+      f5 = bv[34];
+      f6 = bv[33];
+      f7 = bv[32];
+      f8 = bv[31];
+      f9 = bv[30];
+      f10 = bv[29];
+      f11 = bv[28];
+      f12 = bv[27];
+      f13 = bv[26];
+      f14 = bv[25];
+      f15 = bv[24];
+      f16 = bv[23];
+      f17 = bv[22];
+      f18 = bv[21];
+      f19 = bv[20];
+      f20 = bv[19];
+      f21 = bv[18];
+      f22 = bv[17];
+      f23 = bv[16];
+      f24 = bv[15];
+      f25 = bv[14];
+      f26 = bv[13];
+      f27 = bv[12];
+      f28 = bv[11];
+      f29 = bv[10];
+      f30 = bv[9];
+      f31 = bv[8];
+      f32 = bv[7];
     endfunction
   
     function void copy(input very_wide_ct rhs);
