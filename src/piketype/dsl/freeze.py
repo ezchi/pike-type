@@ -246,6 +246,8 @@ def _serialized_width_from_dsl(struct_type: StructType) -> int:
             inner_natural = _serialized_width_from_dsl(member.type)
             inner_align = _compute_alignment_bits(member.type)
             total += inner_natural + inner_align
+        elif isinstance(member.type, FlagsType):
+            total += byte_count(len(member.type.flags)) * 8
     return total
 
 
@@ -290,7 +292,7 @@ def _freeze_struct_field(
 
 def _freeze_field_type(
     *,
-    type_obj: ScalarType | StructType,
+    type_obj: ScalarType | StructType | FlagsType,
     definition_map: dict[int, tuple[ModuleRefIR, str]],
     type_definition_map: dict[int, tuple[ModuleRefIR, str]],
 ):
@@ -302,6 +304,8 @@ def _freeze_field_type(
         return TypeRefIR(module=module_ref, name=type_name, source=source)
     if isinstance(type_obj, StructType):
         raise ValidationError("inline anonymous struct member types are not supported in this milestone")
+    if isinstance(type_obj, FlagsType):
+        raise ValidationError("inline anonymous flags member types are not supported in this milestone")
     return ScalarTypeSpecIR(
         source=source,
         state_kind=type_obj.state_kind,
