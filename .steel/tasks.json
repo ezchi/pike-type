@@ -1,0 +1,14 @@
+[
+  {"id": 1, "title": "DSL Runtime — EnumType and Enum() factory", "description": "Create dsl/enum.py with EnumMember, EnumType, Enum() factory. Eager validation, auto-fill, width property."},
+  {"id": 2, "title": "DSL Export", "description": "Add Enum to dsl/__init__.py imports and __all__."},
+  {"id": 3, "title": "IR Nodes — EnumValueIR and EnumIR", "description": "Add EnumValueIR, EnumIR frozen dataclasses. Update TypeDefIR union."},
+  {"id": 4, "title": "Freeze Logic", "description": "Add EnumType to freeze discovery, duplicate check, and freeze branch."},
+  {"id": 5, "title": "Validation", "description": "Add EnumIR validation branch + collision checks."},
+  {"id": 6, "title": "SV Backend — Synth Package", "description": "Add EnumIR dispatch for typedef enum, pack/unpack functions."},
+  {"id": 7, "title": "SV Backend — Test Package", "description": "Add enum helper class with to_slv/from_slv/to_bytes/from_bytes/copy/clone/compare/sprint."},
+  {"id": 8, "title": "Python Backend", "description": "Add IntEnum subclass and wrapper class with to_bytes/from_bytes/clone/eq/repr."},
+  {"id": 9, "title": "C++ Backend", "description": "Add enum class and wrapper class with to_bytes/from_bytes/validate_value/clone/operator==."},
+  {"id": 10, "title": "Manifest", "description": "Add EnumIR serialization with kind/width/values/source."},
+  {"id": 11, "title": "Test Fixture and Golden Files", "description": "Create enum_basic fixture and golden outputs."},
+  {"id": 12, "title": "Integration and Negative Tests", "description": "Golden comparison, idempotency, 13 negative tests, Python runtime round-trip tests."}
+]
