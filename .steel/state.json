@@ -1,12 +1,12 @@
 {
-  "currentStage": "specification",
+  "currentStage": "clarification",
   "specId": "009-struct-enum-member",
   "branch": "feature/009-struct-enum-member",
   "description": "Update Struct() to accept Enum() member",
   "iteration": 1,
   "stages": {
     "specification": {
-      "status": "in_progress"
+      "status": "complete"
     },
     "clarification": {
       "status": "pending"
@@ -27,5 +27,7 @@
       "status": "pending"
     }
   },
-  "skillsUsed": {}
+  "skillsUsed": {
+    "specification": []
+  }
 }
