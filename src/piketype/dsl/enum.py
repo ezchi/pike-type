@@ -33,6 +33,8 @@ class EnumType(DslNode):
         resolved_source = capture_source_info() if source is None else source
         DslNode.__init__(self, source=resolved_source)
         if width is not None:
+            if not isinstance(width, int):
+                raise ValidationError(f"enum width must be an integer, got {type(width).__name__}")
             if width < 1 or width > 64:
                 raise ValidationError(f"enum width must be in [1, 64], got {width}")
         self.members = []
@@ -44,6 +46,8 @@ class EnumType(DslNode):
             raise ValidationError(f"enum value name must be UPPER_CASE, got {name!r}")
         if any(m.name == name for m in self.members):
             raise ValidationError(f"duplicate enum value name {name!r}")
+        if value is not None and not isinstance(value, int):
+            raise ValidationError(f"enum value must be an integer, got {type(value).__name__}")
         if value is not None and value < 0:
             raise ValidationError(f"enum value must be non-negative, got {value}")
         self.members.append(
