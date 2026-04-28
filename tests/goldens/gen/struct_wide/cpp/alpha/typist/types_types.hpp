@@ -14,8 +14,8 @@ namespace alpha::types {
 
 class big_ct {
  public:
-  static constexpr std::size_t kWidth = 194;
-  static constexpr std::size_t kByteCount = 26;
+  static constexpr std::size_t WIDTH = 194;
+  static constexpr std::size_t BYTE_COUNT = 26;
   std::vector<std::uint8_t> data{std::vector<std::uint8_t>(9, 0U)};
   std::uint8_t flag = 0;
   std::vector<std::uint8_t> extra{std::vector<std::uint8_t>(16, 0U)};
@@ -24,7 +24,7 @@ class big_ct {
 
   std::vector<std::uint8_t> to_bytes() const {
     std::vector<std::uint8_t> bytes;
-    bytes.reserve(kByteCount);
+    bytes.reserve(BYTE_COUNT);
     {
       auto field_bytes = encode_data(data);
       bytes.insert(bytes.end(), field_bytes.begin(), field_bytes.end());
@@ -41,7 +41,7 @@ class big_ct {
   }
 
   void from_bytes(const std::vector<std::uint8_t>& bytes) {
-    if (bytes.size() != kByteCount) {
+    if (bytes.size() != BYTE_COUNT) {
       throw std::invalid_argument("byte width mismatch");
     }
     std::size_t offset = 0;
@@ -99,8 +99,8 @@ class big_ct {
   }
 
   static std::uint8_t validate_flag(std::uint8_t value_in) {
-    constexpr std::uint8_t kMaxValue = static_cast<std::uint8_t>(1U);
-    if (value_in > kMaxValue) {
+    constexpr std::uint8_t MAX_VALUE = static_cast<std::uint8_t>(1U);
+    if (value_in > MAX_VALUE) {
       throw std::out_of_range("value out of range");
     }
     return value_in;

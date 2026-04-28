@@ -14,8 +14,8 @@ namespace alpha::types {
 
 class aligned_ct {
  public:
-  static constexpr std::size_t kWidth = 17;
-  static constexpr std::size_t kByteCount = 4;
+  static constexpr std::size_t WIDTH = 17;
+  static constexpr std::size_t BYTE_COUNT = 4;
   std::uint8_t a = 0;
   std::uint16_t b = 0;
 
@@ -23,7 +23,7 @@ class aligned_ct {
 
   std::vector<std::uint8_t> to_bytes() const {
     std::vector<std::uint8_t> bytes;
-    bytes.reserve(kByteCount);
+    bytes.reserve(BYTE_COUNT);
     {
       auto field_bytes = encode_a(a);
       bytes.insert(bytes.end(), field_bytes.begin(), field_bytes.end());
@@ -37,7 +37,7 @@ class aligned_ct {
   }
 
   void from_bytes(const std::vector<std::uint8_t>& bytes) {
-    if (bytes.size() != kByteCount) {
+    if (bytes.size() != BYTE_COUNT) {
       throw std::invalid_argument("byte width mismatch");
     }
     std::size_t offset = 0;
@@ -77,8 +77,8 @@ class aligned_ct {
   }
 
   static std::uint8_t validate_a(std::uint8_t value_in) {
-    constexpr std::uint8_t kMaxValue = static_cast<std::uint8_t>(31U);
-    if (value_in > kMaxValue) {
+    constexpr std::uint8_t MAX_VALUE = static_cast<std::uint8_t>(31U);
+    if (value_in > MAX_VALUE) {
       throw std::out_of_range("value out of range");
     }
     return value_in;
@@ -104,8 +104,8 @@ class aligned_ct {
   }
 
   static std::uint16_t validate_b(std::uint16_t value_in) {
-    constexpr std::uint16_t kMaxValue = static_cast<std::uint16_t>(4095U);
-    if (value_in > kMaxValue) {
+    constexpr std::uint16_t MAX_VALUE = static_cast<std::uint16_t>(4095U);
+    if (value_in > MAX_VALUE) {
       throw std::out_of_range("value out of range");
     }
     return value_in;
@@ -114,8 +114,8 @@ class aligned_ct {
 
 class no_extra_pad_ct {
  public:
-  static constexpr std::size_t kWidth = 17;
-  static constexpr std::size_t kByteCount = 3;
+  static constexpr std::size_t WIDTH = 17;
+  static constexpr std::size_t BYTE_COUNT = 3;
   std::uint8_t a = 0;
   std::uint16_t b = 0;
 
@@ -123,7 +123,7 @@ class no_extra_pad_ct {
 
   std::vector<std::uint8_t> to_bytes() const {
     std::vector<std::uint8_t> bytes;
-    bytes.reserve(kByteCount);
+    bytes.reserve(BYTE_COUNT);
     {
       auto field_bytes = encode_a(a);
       bytes.insert(bytes.end(), field_bytes.begin(), field_bytes.end());
@@ -136,7 +136,7 @@ class no_extra_pad_ct {
   }
 
   void from_bytes(const std::vector<std::uint8_t>& bytes) {
-    if (bytes.size() != kByteCount) {
+    if (bytes.size() != BYTE_COUNT) {
       throw std::invalid_argument("byte width mismatch");
     }
     std::size_t offset = 0;
@@ -176,8 +176,8 @@ class no_extra_pad_ct {
   }
 
   static std::uint8_t validate_a(std::uint8_t value_in) {
-    constexpr std::uint8_t kMaxValue = static_cast<std::uint8_t>(31U);
-    if (value_in > kMaxValue) {
+    constexpr std::uint8_t MAX_VALUE = static_cast<std::uint8_t>(31U);
+    if (value_in > MAX_VALUE) {
       throw std::out_of_range("value out of range");
     }
     return value_in;
@@ -203,8 +203,8 @@ class no_extra_pad_ct {
   }
 
   static std::uint16_t validate_b(std::uint16_t value_in) {
-    constexpr std::uint16_t kMaxValue = static_cast<std::uint16_t>(4095U);
-    if (value_in > kMaxValue) {
+    constexpr std::uint16_t MAX_VALUE = static_cast<std::uint16_t>(4095U);
+    if (value_in > MAX_VALUE) {
       throw std::out_of_range("value out of range");
     }
     return value_in;
@@ -213,15 +213,15 @@ class no_extra_pad_ct {
 
 class inner_ct {
  public:
-  static constexpr std::size_t kWidth = 3;
-  static constexpr std::size_t kByteCount = 2;
+  static constexpr std::size_t WIDTH = 3;
+  static constexpr std::size_t BYTE_COUNT = 2;
   std::uint8_t x = 0;
 
   inner_ct() = default;
 
   std::vector<std::uint8_t> to_bytes() const {
     std::vector<std::uint8_t> bytes;
-    bytes.reserve(kByteCount);
+    bytes.reserve(BYTE_COUNT);
     {
       auto field_bytes = encode_x(x);
       bytes.insert(bytes.end(), field_bytes.begin(), field_bytes.end());
@@ -231,7 +231,7 @@ class inner_ct {
   }
 
   void from_bytes(const std::vector<std::uint8_t>& bytes) {
-    if (bytes.size() != kByteCount) {
+    if (bytes.size() != BYTE_COUNT) {
       throw std::invalid_argument("byte width mismatch");
     }
     std::size_t offset = 0;
@@ -268,8 +268,8 @@ class inner_ct {
   }
 
   static std::uint8_t validate_x(std::uint8_t value_in) {
-    constexpr std::uint8_t kMaxValue = static_cast<std::uint8_t>(7U);
-    if (value_in > kMaxValue) {
+    constexpr std::uint8_t MAX_VALUE = static_cast<std::uint8_t>(7U);
+    if (value_in > MAX_VALUE) {
       throw std::out_of_range("value out of range");
     }
     return value_in;
@@ -278,8 +278,8 @@ class inner_ct {
 
 class outer_ct {
  public:
-  static constexpr std::size_t kWidth = 11;
-  static constexpr std::size_t kByteCount = 3;
+  static constexpr std::size_t WIDTH = 11;
+  static constexpr std::size_t BYTE_COUNT = 3;
   inner_ct inner{};
   std::uint8_t y = 0;
 
@@ -287,7 +287,7 @@ class outer_ct {
 
   std::vector<std::uint8_t> to_bytes() const {
     std::vector<std::uint8_t> bytes;
-    bytes.reserve(kByteCount);
+    bytes.reserve(BYTE_COUNT);
     {
       auto field_bytes = inner.to_bytes();
       bytes.insert(bytes.end(), field_bytes.begin(), field_bytes.end());
@@ -300,7 +300,7 @@ class outer_ct {
   }
 
   void from_bytes(const std::vector<std::uint8_t>& bytes) {
-    if (bytes.size() != kByteCount) {
+    if (bytes.size() != BYTE_COUNT) {
       throw std::invalid_argument("byte width mismatch");
     }
     std::size_t offset = 0;
@@ -342,8 +342,8 @@ class outer_ct {
   }
 
   static std::uint8_t validate_y(std::uint8_t value_in) {
-    constexpr std::uint8_t kMaxValue = static_cast<std::uint8_t>(255U);
-    if (value_in > kMaxValue) {
+    constexpr std::uint8_t MAX_VALUE = static_cast<std::uint8_t>(255U);
+    if (value_in > MAX_VALUE) {
       throw std::out_of_range("value out of range");
     }
     return value_in;

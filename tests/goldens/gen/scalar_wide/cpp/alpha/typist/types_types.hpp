@@ -14,34 +14,34 @@ namespace alpha::types {
 
 class narrow_ct {
  public:
-  static constexpr std::size_t kWidth = 37;
-  static constexpr bool kSigned = false;
-  static constexpr std::size_t kByteCount = 5;
+  static constexpr std::size_t WIDTH = 37;
+  static constexpr bool SIGNED = false;
+  static constexpr std::size_t BYTE_COUNT = 5;
   using value_type = std::uint64_t;
   value_type value;
-  static constexpr std::uint64_t kMask = 137438953471ULL;
-  static constexpr value_type kMaxValue = static_cast<value_type>(137438953471ULL);
+  static constexpr std::uint64_t MASK = 137438953471ULL;
+  static constexpr value_type MAX_VALUE = static_cast<value_type>(137438953471ULL);
   narrow_ct() : value(0) {}
   narrow_ct(value_type value_in) : value(validate_value(value_in)) {}
 
   std::vector<std::uint8_t> to_bytes() const {
-    std::vector<std::uint8_t> bytes(kByteCount, 0);
+    std::vector<std::uint8_t> bytes(BYTE_COUNT, 0);
     std::uint64_t bits = static_cast<std::uint64_t>(value);
-    for (std::size_t idx = 0; idx < kByteCount; ++idx) {
-      bytes[kByteCount - 1 - idx] = static_cast<std::uint8_t>((bits >> (8U * idx)) & 0xFFU);
+    for (std::size_t idx = 0; idx < BYTE_COUNT; ++idx) {
+      bytes[BYTE_COUNT - 1 - idx] = static_cast<std::uint8_t>((bits >> (8U * idx)) & 0xFFU);
     }
     return bytes;
   }
 
   void from_bytes(const std::vector<std::uint8_t>& bytes) {
-    if (bytes.size() != kByteCount) {
+    if (bytes.size() != BYTE_COUNT) {
       throw std::invalid_argument("byte width mismatch");
     }
     std::uint64_t bits = 0;
-    for (std::size_t idx = 0; idx < kByteCount; ++idx) {
+    for (std::size_t idx = 0; idx < BYTE_COUNT; ++idx) {
       bits = (bits << 8U) | bytes[idx];
     }
-    value = validate_value(static_cast<value_type>(bits & kMask));
+    value = validate_value(static_cast<value_type>(bits & MASK));
   }
 
   narrow_ct clone() const {
@@ -56,7 +56,7 @@ class narrow_ct {
 
  private:
   static value_type validate_value(value_type value_in) {
-    if (value_in > kMaxValue) {
+    if (value_in > MAX_VALUE) {
       throw std::out_of_range("value out of range");
     }
     return value_in;
@@ -65,12 +65,12 @@ class narrow_ct {
 
 class wide_ct {
  public:
-  static constexpr std::size_t kWidth = 65;
-  static constexpr bool kSigned = false;
-  static constexpr std::size_t kByteCount = 9;
+  static constexpr std::size_t WIDTH = 65;
+  static constexpr bool SIGNED = false;
+  static constexpr std::size_t BYTE_COUNT = 9;
   using value_type = std::vector<std::uint8_t>;
   value_type value;
-  wide_ct() : value(kByteCount, 0U) {}
+  wide_ct() : value(BYTE_COUNT, 0U) {}
   wide_ct(const value_type& value_in) : value(validate_value(value_in)) {}
 
   std::vector<std::uint8_t> to_bytes() const {
@@ -89,7 +89,7 @@ class wide_ct {
 
  private:
   static value_type validate_value(const value_type& value_in) {
-    if (value_in.size() != kByteCount) {
+    if (value_in.size() != BYTE_COUNT) {
       throw std::invalid_argument("byte width mismatch");
     }
     value_type normalized = value_in;
@@ -100,12 +100,12 @@ class wide_ct {
 
 class very_wide_ct {
  public:
-  static constexpr std::size_t kWidth = 128;
-  static constexpr bool kSigned = false;
-  static constexpr std::size_t kByteCount = 16;
+  static constexpr std::size_t WIDTH = 128;
+  static constexpr bool SIGNED = false;
+  static constexpr std::size_t BYTE_COUNT = 16;
   using value_type = std::vector<std::uint8_t>;
   value_type value;
-  very_wide_ct() : value(kByteCount, 0U) {}
+  very_wide_ct() : value(BYTE_COUNT, 0U) {}
   very_wide_ct(const value_type& value_in) : value(validate_value(value_in)) {}
 
   std::vector<std::uint8_t> to_bytes() const {
@@ -124,7 +124,7 @@ class very_wide_ct {
 
  private:
   static value_type validate_value(const value_type& value_in) {
-    if (value_in.size() != kByteCount) {
+    if (value_in.size() != BYTE_COUNT) {
       throw std::invalid_argument("byte width mismatch");
     }
     value_type normalized = value_in;

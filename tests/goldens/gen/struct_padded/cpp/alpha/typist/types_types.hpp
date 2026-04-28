@@ -14,34 +14,34 @@ namespace alpha::types {
 
 class foo_ct {
  public:
-  static constexpr std::size_t kWidth = 13;
-  static constexpr bool kSigned = false;
-  static constexpr std::size_t kByteCount = 2;
+  static constexpr std::size_t WIDTH = 13;
+  static constexpr bool SIGNED = false;
+  static constexpr std::size_t BYTE_COUNT = 2;
   using value_type = std::uint16_t;
   value_type value;
-  static constexpr std::uint64_t kMask = 8191U;
-  static constexpr value_type kMaxValue = static_cast<value_type>(8191U);
+  static constexpr std::uint64_t MASK = 8191U;
+  static constexpr value_type MAX_VALUE = static_cast<value_type>(8191U);
   foo_ct() : value(0) {}
   foo_ct(value_type value_in) : value(validate_value(value_in)) {}
 
   std::vector<std::uint8_t> to_bytes() const {
-    std::vector<std::uint8_t> bytes(kByteCount, 0);
+    std::vector<std::uint8_t> bytes(BYTE_COUNT, 0);
     std::uint64_t bits = static_cast<std::uint64_t>(value);
-    for (std::size_t idx = 0; idx < kByteCount; ++idx) {
-      bytes[kByteCount - 1 - idx] = static_cast<std::uint8_t>((bits >> (8U * idx)) & 0xFFU);
+    for (std::size_t idx = 0; idx < BYTE_COUNT; ++idx) {
+      bytes[BYTE_COUNT - 1 - idx] = static_cast<std::uint8_t>((bits >> (8U * idx)) & 0xFFU);
     }
     return bytes;
   }
 
   void from_bytes(const std::vector<std::uint8_t>& bytes) {
-    if (bytes.size() != kByteCount) {
+    if (bytes.size() != BYTE_COUNT) {
       throw std::invalid_argument("byte width mismatch");
     }
     std::uint64_t bits = 0;
-    for (std::size_t idx = 0; idx < kByteCount; ++idx) {
+    for (std::size_t idx = 0; idx < BYTE_COUNT; ++idx) {
       bits = (bits << 8U) | bytes[idx];
     }
-    value = validate_value(static_cast<value_type>(bits & kMask));
+    value = validate_value(static_cast<value_type>(bits & MASK));
   }
 
   foo_ct clone() const {
@@ -56,7 +56,7 @@ class foo_ct {
 
  private:
   static value_type validate_value(value_type value_in) {
-    if (value_in > kMaxValue) {
+    if (value_in > MAX_VALUE) {
       throw std::out_of_range("value out of range");
     }
     return value_in;
@@ -65,8 +65,8 @@ class foo_ct {
 
 class bar_ct {
  public:
-  static constexpr std::size_t kWidth = 19;
-  static constexpr std::size_t kByteCount = 5;
+  static constexpr std::size_t WIDTH = 19;
+  static constexpr std::size_t BYTE_COUNT = 5;
   std::uint8_t flag_a = 0;
   foo_ct field_1{};
   std::uint8_t status = 0;
@@ -76,7 +76,7 @@ class bar_ct {
 
   std::vector<std::uint8_t> to_bytes() const {
     std::vector<std::uint8_t> bytes;
-    bytes.reserve(kByteCount);
+    bytes.reserve(BYTE_COUNT);
     {
       auto field_bytes = encode_flag_a(flag_a);
       bytes.insert(bytes.end(), field_bytes.begin(), field_bytes.end());
@@ -97,7 +97,7 @@ class bar_ct {
   }
 
   void from_bytes(const std::vector<std::uint8_t>& bytes) {
-    if (bytes.size() != kByteCount) {
+    if (bytes.size() != BYTE_COUNT) {
       throw std::invalid_argument("byte width mismatch");
     }
     std::size_t offset = 0;
@@ -146,8 +146,8 @@ class bar_ct {
   }
 
   static std::uint8_t validate_flag_a(std::uint8_t value_in) {
-    constexpr std::uint8_t kMaxValue = static_cast<std::uint8_t>(1U);
-    if (value_in > kMaxValue) {
+    constexpr std::uint8_t MAX_VALUE = static_cast<std::uint8_t>(1U);
+    if (value_in > MAX_VALUE) {
       throw std::out_of_range("value out of range");
     }
     return value_in;
@@ -173,8 +173,8 @@ class bar_ct {
   }
 
   static std::uint8_t validate_status(std::uint8_t value_in) {
-    constexpr std::uint8_t kMaxValue = static_cast<std::uint8_t>(15U);
-    if (value_in > kMaxValue) {
+    constexpr std::uint8_t MAX_VALUE = static_cast<std::uint8_t>(15U);
+    if (value_in > MAX_VALUE) {
       throw std::out_of_range("value out of range");
     }
     return value_in;
@@ -200,8 +200,8 @@ class bar_ct {
   }
 
   static std::uint8_t validate_flag_b(std::uint8_t value_in) {
-    constexpr std::uint8_t kMaxValue = static_cast<std::uint8_t>(1U);
-    if (value_in > kMaxValue) {
+    constexpr std::uint8_t MAX_VALUE = static_cast<std::uint8_t>(1U);
+    if (value_in > MAX_VALUE) {
       throw std::out_of_range("value out of range");
     }
     return value_in;
