@@ -20,7 +20,7 @@ This corresponds to v1 delivery order steps 10–11 (Enum in SV, then Enum in Py
 
 ### DSL Runtime
 
-**FR-1**: A new `Enum()` factory function is exported from `piketype.dsl` and returns a mutable `EnumType` DSL object. Source location is captured via `capture_source_info()` at the call site.
+**FR-1**: A new `Enum(width: int | None = None)` factory function is exported from `piketype.dsl` and returns a mutable `EnumType` DSL object. Source location is captured via `capture_source_info()` at the call site. When `width` is provided, it sets an explicit bit-width for the enum; when `None`, width is inferred from the largest enumerator value. `Enum()` raises `ValidationError` immediately if `width` is provided and `width < 1` or `width > 64`.
 
 **FR-2**: `EnumType.add_value(name: str, value: int | None = None) -> EnumType` appends one enumerator and returns `self` for chaining. Source location is captured at each `add_value()` call.
 
@@ -32,7 +32,7 @@ This corresponds to v1 delivery order steps 10–11 (Enum in SV, then Enum in Py
 
 **FR-6**: Auto-fill numbering: when `value` is `None`, the enumerator receives the previous enumerator's resolved value plus one. If there is no preceding enumerator, the value is `0`. This matches the standard C/C++/SystemVerilog convention. Example: `add_value("A", 0).add_value("B", 2).add_value("C").add_value("D")` yields `A=0, B=2, C=3, D=4`.
 
-**FR-7**: `EnumType` exposes a `width` property returning the minimum number of bits needed to represent the largest enumerator value: `max(1, ceil(log2(max_value + 1)))`. For a single-value enum with value `0`, width is `1`. For an empty enum (no values added yet), width returns `0` — validation will reject this, but the property itself does not raise.
+**FR-7**: `EnumType` exposes a `width` property. If an explicit width was provided to `Enum(width)`, the property returns that value. Otherwise, it returns the minimum number of bits needed to represent the largest enumerator value: `max(1, ceil(log2(max_value + 1)))`. For a single-value enum with value `0` and no explicit width, width is `1`. For an empty enum (no values added yet) with no explicit width, width returns `0` — validation will reject this, but the property itself does not raise.
 
 **FR-8**: `Enum` is added to the `__all__` export list in `piketype/dsl/__init__.py`.
 
@@ -59,7 +59,7 @@ This corresponds to v1 delivery order steps 10–11 (Enum in SV, then Enum in Py
 
 **FR-13**: `freeze_module()` adds an `elif isinstance(value, EnumType)` branch that:
 - Resolves auto-fill values into concrete integers.
-- Computes width from the maximum resolved value.
+- Uses the explicit width if provided, otherwise computes width from the maximum resolved value.
 - Emits an `EnumIR` node with `IntLiteralExprIR` for both value expressions and width expression.
 
 **FR-14**: The duplicate-binding check in `freeze_module()` includes `EnumType` in its `isinstance` tuple.
@@ -74,8 +74,7 @@ This corresponds to v1 delivery order steps 10–11 (Enum in SV, then Enum in Py
 - All resolved values are non-negative.
 - `resolved_width > 0`.
 - `resolved_width <= 64`.
-- All resolved values fit within `resolved_width` bits (i.e., `value < 2**resolved_width` for all values).
-- `resolved_width` equals the minimum width for the maximum value (consistency check between freeze and validation).
+- All resolved values fit within `resolved_width` bits (i.e., `value < 2**resolved_width` for all values). This applies whether the width was explicitly set or inferred.
 - Enum name ends with `_t`.
 
 **FR-16**: The generated-identifier-collision check adds enum-specific generated identifiers (`LP_<UPPER_BASE>_WIDTH`, `LP_<UPPER_BASE>_BYTE_COUNT`, `pack_<base>`, `unpack_<base>`) to the reserved set.
@@ -191,11 +190,15 @@ Note: `to_slv()`/`from_slv()` are not included in this milestone, consistent wit
 - Enumerator name colliding with an enumerator in a different enum in the same module.
 - Enumerator name colliding with a generated SV identifier (e.g., `LP_STATE_WIDTH`).
 - Enum value requiring width > 64 (e.g., `value=2**64`).
+- Explicit width too small for enum values (e.g., `Enum(2)` with value `4`).
+- Explicit width < 1 (e.g., `Enum(0)`).
+- Explicit width > 64 (e.g., `Enum(65)`).
 
 **FR-32**: Additional positive test coverage (can be in the `enum_basic` fixture or a second fixture):
 - Auto-fill sequential behavior: explicit `0, 2` then two auto-fills → `0, 2, 3, 4`.
 - Single-value enum (width = 1).
 - Large enum value near 64-bit boundary (e.g., `2**63`).
+- Explicit width larger than minimum (e.g., `Enum(8)` with values 0–3 → width is 8, not 2).
 
 ## Non-Functional Requirements
 
@@ -249,3 +252,8 @@ None — all design decisions are resolved by the v1 product spec, existing code
 - [Clarification iter1] AC-3: Updated wording to match corrected FR-6 auto-fill semantics.
 - [Clarification iter1] FR-32: Updated test example from `0, 2, 1, 3` to `0, 2, 3, 4` to match corrected FR-6.
 - [Clarification iter2] FR-28: Changed "gap-filling behavior" to "sequential auto-fill behavior" to match corrected FR-6.
+- [Clarification iter3] FR-1: Added optional `width` parameter to `Enum()` factory. Validates width in [1, 64] at DSL time.
+- [Clarification iter3] FR-7: Width property now returns explicit width when set, otherwise inferred minimum.
+- [Clarification iter3] FR-13: Freeze uses explicit width if provided, otherwise infers from max value.
+- [Clarification iter3] FR-15: Removed consistency check that width must equal minimum. Width can now be larger (explicit). Still validates all values fit.
+- [Clarification iter3] FR-31/32: Added negative and positive test cases for explicit width.

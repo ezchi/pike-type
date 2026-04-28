@@ -37,3 +37,18 @@ The spec has no unresolved `[NEEDS CLARIFICATION]` markers. The "Open Questions"
 ## CLR-6: No contradictions between remaining requirements [NO SPEC CHANGE]
 
 With the FR-6 fix applied, all requirements are internally consistent. The v1 product spec's "starts at 0 and increments by 1" is now faithfully represented.
+
+## CLR-7: Enum() accepts optional explicit width parameter [SPEC UPDATE]
+
+**Issue**: FR-7 only supports inferred width. User requests ability to set explicit width via `Enum(width)`, e.g., `Enum(3)` for a 3-bit enum.
+
+**Resolution**: `Enum(width: int | None = None)` accepts an optional width. When provided:
+- The width is stored on the `EnumType` and used as `resolved_width` in the frozen IR.
+- DSL-time validation rejects `width < 1` or `width > 64`.
+- Freeze uses the explicit width instead of inferring.
+- Post-freeze validation confirms all enumerator values fit within the explicit width.
+- When `None`, width is inferred from the largest value as before.
+
+This does not affect backends — they consume `resolved_width` from `EnumIR` regardless of how it was determined. The only difference is that an explicit width can be larger than the minimum needed, producing wider SV enum types (useful for reserving encoding space for future values).
+
+**Rationale**: SystemVerilog enums commonly use explicit widths for protocol compatibility or future extensibility. This is a natural expectation for hardware engineers.
