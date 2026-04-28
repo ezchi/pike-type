@@ -126,6 +126,7 @@ class StructIR:
     name: str
     source: SourceSpanIR
     fields: tuple[StructFieldIR, ...]
+    alignment_bits: int = 0
 
 
 type TypeDefIR = ScalarAliasIR | StructIR
