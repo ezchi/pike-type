@@ -2,7 +2,7 @@
 
 ## Overview
 
-This plan follows the constitution's 7-step process for adding a new feature: DSL → IR → freeze → validate → backends → fixture → test. Each step is a self-contained unit that can be committed independently.
+This plan follows the constitution's 7-step process: DSL → IR → freeze → validate → backends → fixture → test.
 
 ---
 
@@ -11,16 +11,18 @@ This plan follows the constitution's 7-step process for adding a new feature: DS
 **File:** `src/typist/dsl/struct.py`
 
 **Changes:**
-1. Add `_alignment: int | None` field to `StructType.__init__` (initialized to `None`).
-2. Add `_alignment_locked: bool` field (initialized to `False`) — tracks whether `multiple_of` has been called.
+1. Add `_alignment: int | None` as a declared dataclass field on `StructType` (required because `slots=True` generates `__slots__` from annotations).
+2. Initialize `self._alignment = None` in `__init__`.
 3. Add `multiple_of(self, n: int) -> StructType` method:
-   - Validate: `type(n) is int` (rejects `bool`), `n > 0`, `n % 8 == 0`.
-   - Validate: `_alignment_locked` is `False` (no duplicate calls).
-   - Set `self._alignment = n`, `self._alignment_locked = True`.
+   - Validate: `type(n) is not int or isinstance(n, bool)` → reject bool and non-int.
+   - Validate: `n > 0`.
+   - Validate: `n % 8 == 0`.
+   - Validate: `self._alignment is None` (no duplicate calls).
+   - Set `self._alignment = n`.
    - Return `self`.
-4. Guard `add_member`: if `self._alignment_locked`, raise `ValidationError`.
+4. Guard `add_member`: at the top, `if self._alignment is not None: raise ValidationError("cannot add members after multiple_of()")`.
 
-**No other files change in this step.**
+**No `_alignment_locked` needed** — `_alignment is not None` is the lock.
 
 ---
 
@@ -29,9 +31,9 @@ This plan follows the constitution's 7-step process for adding a new feature: DS
 **File:** `src/typist/ir/nodes.py`
 
 **Changes:**
-1. Add `alignment_bits: int = 0` field to `StructIR` dataclass (after `fields`).
+1. Add `alignment_bits: int = 0` field to `StructIR` frozen dataclass (after `fields`).
 
-This is a backward-compatible addition — default `0` means no alignment, so all existing IR construction is unaffected.
+Backward-compatible — default `0` means existing IR construction is unaffected.
 
 ---
 
@@ -39,17 +41,38 @@ This is a backward-compatible addition — default `0` means no alignment, so al
 
 **File:** `src/typist/dsl/freeze.py`
 
-**Changes:**
-1. In the `freeze_module` function, where `StructIR` is constructed (lines 151-163):
-   - After freezing all fields, compute `natural_width`:
-     - For each field: if scalar, `byte_count(data_width) * 8`. If struct-ref, look up the target `StructIR` and use its total serialized width (sum of per-field byte-counts * 8 + target's own `alignment_bits`).
-   - If `value._alignment is not None`: compute `alignment_bits = (-natural_width) % value._alignment`.
-   - Otherwise: `alignment_bits = 0`.
-   - Pass `alignment_bits=alignment_bits` to `StructIR(...)`.
+**Design:** Compute alignment from the **mutable DSL objects** before constructing `StructIR`. This avoids any dependency on freeze ordering or IR availability.
 
-2. To support the recursive width calculation, we need the target struct's `alignment_bits`. This means structs must be frozen in dependency order (which they already are — the constitution guarantees dependency-first ordering). We'll build a local map of `struct_name -> StructIR` during freeze to look up inner struct alignment_bits.
+**New helper functions:**
 
-**Key concern:** The current `freeze_module` freezes all structs in a single pass over `module.__dict__`. If struct A references struct B (both in the same module), we need B's `StructIR` to be available when freezing A. The existing code relies on declaration order, and the constitution says ordering is dependency-first. The fix: build a `frozen_structs: dict[int, StructIR]` keyed by `id(value)` and look up targets during alignment computation.
+```python
+def _compute_alignment_bits(struct_type: StructType) -> int:
+    """Compute trailing alignment padding bits for a struct."""
+    if struct_type._alignment is None:
+        return 0
+    natural_width = _serialized_width_from_dsl(struct_type)
+    return (-natural_width) % struct_type._alignment
+
+def _serialized_width_from_dsl(struct_type: StructType) -> int:
+    """Compute serialized bit width of a struct from DSL objects (recursive)."""
+    total = 0
+    for member in struct_type.members:
+        if isinstance(member.type, ScalarType):
+            total += byte_count(member.type.width_value) * 8
+        elif isinstance(member.type, StructType):
+            inner_width = _serialized_width_from_dsl(member.type)
+            inner_align = _compute_alignment_bits(member.type)
+            total += inner_width + inner_align
+    return total
+```
+
+**Key insight:** This works on DSL `StructType` objects, not IR. `ScalarType` always has `width_value` (both inline and named aliases — the DSL `StructMember.type` is always the actual `ScalarType` or `StructType` object, even for named aliases). This is ordering-independent and handles all field type variants.
+
+**Integration:** In `freeze_module`, where `StructIR` is constructed (line ~151-163):
+```python
+alignment_bits = _compute_alignment_bits(value)
+local_types.append(StructIR(..., alignment_bits=alignment_bits))
+```
 
 ---
 
@@ -59,9 +82,8 @@ This is a backward-compatible addition — default `0` means no alignment, so al
 
 **Changes:**
 1. Add `_validate_alignment_bits` function:
-   - For each `StructIR` in each module: if `alignment_bits > 0`, assert `alignment_bits % 8 == 0`.
-   - Error message: `"struct {name} alignment_bits {n} is not a multiple of 8"`.
-2. Call it from `validate_repo` after `_validate_generated_identifier_collision`.
+   - For each `StructIR`: if `alignment_bits > 0`, assert `alignment_bits % 8 == 0`.
+2. Call it from `validate_repo` after `_validate_generated_identifier_collision` (line 83).
 
 ---
 
@@ -70,107 +92,109 @@ This is a backward-compatible addition — default `0` means no alignment, so al
 ### Step 5a: SV synthesizable package (`src/typist/backends/sv/emitter.py`)
 
 **`_render_sv_struct` (line 137):**
-- After the field loop (line 147), if `type_ir.alignment_bits > 0`:
-  - Add `logic [alignment_bits-1:0] _align_pad;` as the last field.
+- After field loop (before closing `}}`), if `type_ir.alignment_bits > 0`:
+  - Add `logic [alignment_bits-1:0] _align_pad;` (or `logic _align_pad;` if 1 bit).
 
 **`_type_byte_count` (line 625):**
-- For `StructIR`: add `type_ir.alignment_bits // 8` to the sum.
+- For `StructIR`: return `sum(field_byte_counts) + type_ir.alignment_bits // 8`.
 
-**`_render_sv_pack_fn` (line 163):**
-- No change. Pack operates on data-only width. `_data_width` is unchanged.
-
-**`_render_sv_unpack_fn` (line 191):**
-- No change. Unpack operates on data-only width.
-
-### Step 5b: SV verification package (`src/typist/backends/sv/emitter.py`)
+### Step 5b: SV verification package (same file)
 
 **`_render_sv_struct_helper_class` (line 351):**
-- `to_slv()` (line 374): After all fields, if `alignment_bits > 0`: `packed_value._align_pad = '0;`
-- `from_slv()` (line 391): No change (we don't extract `_align_pad` into any user field).
-- `to_bytes` (line 399): After all field steps, append zero bytes for alignment padding:
-  ```
-  for (int i = 0; i < alignment_bytes; i++) bytes[byte_idx + i] = 8'h00;
-  byte_idx += alignment_bytes;
-  ```
-- `from_bytes` (line 411): After all field steps, advance `byte_idx` by alignment_bytes (consume and ignore).
+- `to_slv()`: After all fields, add `packed_value._align_pad = '0;`.
+- `to_bytes`: After all field steps, if `alignment_bits > 0`: write zero bytes for alignment padding.
+- `from_bytes`: After all field steps, advance `byte_idx` past alignment bytes (consume and ignore).
 
 ### Step 5c: C++ backend (`src/typist/backends/cpp/emitter.py`)
 
 **`_type_byte_count` (line 782):**
-- For `StructIR`: add `type_ir.alignment_bits // 8` to the sum.
+- For `StructIR`: return `sum(field_byte_counts) + type_ir.alignment_bits // 8`.
 
 **`_render_cpp_struct` (line 340):**
-- `kByteCount` at line 349 already uses `_type_byte_count`, so it automatically picks up the alignment.
-- `to_bytes()` (line 358): After all pack steps, append zero bytes:
-  ```cpp
-  for (std::size_t i = 0; i < alignment_bytes; ++i) result.push_back(0);
-  ```
-- `from_bytes()` (line 370): The offset tracking already advances past all field bytes. After all unpack steps, the offset will be at `kByteCount - alignment_bytes`. No explicit skip needed because the size validation at the top already ensures the full buffer is consumed.
-
-Actually, looking more carefully: the from_bytes validates `bytes.size() == kByteCount` at the top and then unpacks fields. Since the alignment bytes are at the end and we only read field bytes, the offset will end at `kByteCount - alignment_bytes`. That's fine — the alignment bytes are implicitly ignored because we validated size upfront and don't read past the fields.
+- `to_bytes()`: After all pack steps, if `alignment_bits > 0`: `for (...) result.push_back(0);`.
+- `from_bytes()`: Size validation already at top. Alignment bytes are implicitly ignored at the tail.
 
 ### Step 5d: Python backend (`src/typist/backends/py/emitter.py`)
 
 **`_type_byte_count` (line 565):**
-- For `StructIR`: add `type_ir.alignment_bits // 8` to the sum.
+- For `StructIR`: return `sum(field_byte_counts) + type_ir.alignment_bits // 8`.
 
 **`_render_py_struct` (line 301):**
-- `BYTE_COUNT` at line 312 already uses the `_field_byte_count` sum inline. Need to add `type_ir.alignment_bits // 8` to this sum.
+- `struct_byte_count` computation (line 305-307): add `type_ir.alignment_bits // 8`.
 
 **`_render_py_struct_to_bytes` (line 350):**
-- After all field steps, if `alignment_bits > 0`: `result.extend(b'\x00' * alignment_bytes)`.
+- After all field steps: `result.extend(b'\\x00' * {alignment_bytes})`.
 
 **`_render_py_struct_from_bytes` (line 399):**
-- Validates `len(raw) != BYTE_COUNT` at the top. After all field steps, the offset lands at `BYTE_COUNT - alignment_bytes`. The alignment bytes are implicitly ignored. No explicit skip needed.
+- Size validation at top. Alignment bytes implicitly ignored at tail.
 
 ---
 
 ## Step 6: Test fixtures
 
-**New fixture:** `tests/fixtures/struct_multiple_of/project/typist/types.py`
+**Fixture:** `tests/fixtures/struct_multiple_of/project/alpha/typist/types.py`
 
 ```python
-from typist import Struct, Bit, UBit
+from typist.dsl import Logic, Struct
 
-# Case (a): struct that needs trailing padding
-aligned_t = Struct().add_member("a", Bit(5)).add_member("b", Bit(12)).multiple_of(32)
+# Case (a): struct that needs trailing padding (natural=24, aligned=32)
+inner_t = Logic(3)
+aligned_t = (
+    Struct()
+    .add_member("a", Logic(5))
+    .add_member("b", Logic(12))
+    .multiple_of(32)
+)
 
-# Case (b): struct where natural width already meets alignment
-no_extra_pad_t = Struct().add_member("a", Bit(5)).add_member("b", Bit(12)).multiple_of(24)
+# Case (b): struct where natural width already meets alignment (24 % 24 == 0)
+no_extra_pad_t = (
+    Struct()
+    .add_member("a", Logic(5))
+    .add_member("b", Logic(12))
+    .multiple_of(24)
+)
 
 # Case (c): nested — inner aligned struct as field in outer struct
-inner_t = Struct().add_member("x", UBit(3)).multiple_of(16)
-outer_t = Struct().add_member("inner", inner_t).add_member("y", Bit(8))
+inner_aligned_t = (
+    Struct()
+    .add_member("x", inner_t)
+    .multiple_of(16)
+)
+outer_t = (
+    Struct()
+    .add_member("inner", inner_aligned_t)
+    .add_member("y", Logic(8))
+)
 ```
 
-**Golden files:** Generate and commit golden outputs for all 3 backends (SV, C++, Python) under `tests/goldens/gen/struct_multiple_of/`.
+**Golden files:** Run `typist gen`, verify output, commit to `tests/goldens/gen/struct_multiple_of/`.
 
 ---
 
 ## Step 7: Tests
 
-**Golden-file integration test:** Add `test_struct_multiple_of` case to the existing test infrastructure.
+**Golden-file integration test:** Add `test_struct_multiple_of` to the existing test infrastructure.
 
-**Negative unit tests:** New `tests/test_struct_multiple_of.py` with:
-- `test_multiple_of_zero` — `ValidationError`
-- `test_multiple_of_negative` — `ValidationError`
-- `test_multiple_of_not_multiple_of_8` — `ValidationError("must be a multiple of 8")`
-- `test_multiple_of_bool` — `ValidationError`
-- `test_multiple_of_twice` — `ValidationError("already set")`
-- `test_add_member_after_multiple_of` — `ValidationError`
+**Negative unit tests:** `tests/test_struct_multiple_of.py`
 
-**Runtime round-trip test:** After generating the Python module, import it and verify `to_bytes`/`from_bytes` round-trip with correct byte count.
+| Test method | Input | Expected error substring |
+|---|---|---|
+| `test_multiple_of_zero` | `multiple_of(0)` | `"must be positive"` |
+| `test_multiple_of_negative` | `multiple_of(-8)` | `"must be positive"` |
+| `test_multiple_of_not_multiple_of_8_val_5` | `multiple_of(5)` | `"must be a multiple of 8"` |
+| `test_multiple_of_not_multiple_of_8_val_3` | `multiple_of(3)` | `"must be a multiple of 8"` |
+| `test_multiple_of_bool` | `multiple_of(True)` | `"must be int"` |
+| `test_multiple_of_twice` | `.multiple_of(32).multiple_of(64)` | `"already set"` |
+| `test_add_member_after_multiple_of` | `.multiple_of(32).add_member(...)` | `"cannot add"` |
+
+**Runtime round-trip test:** After `typist gen`, import generated Python module, verify `to_bytes`/`from_bytes` round-trip with correct byte count for the aligned struct.
 
 ---
 
-## Risk Assessment
-
-| Risk | Mitigation |
-|------|-----------|
-| Freeze order for nested structs with alignment | Constitution guarantees dependency-first ordering; verify with test case (c) |
-| Existing golden files break | `alignment_bits=0` default means no output change for existing structs |
-| Type checker errors | `alignment_bits: int = 0` on frozen dataclass is basedpyright-safe |
-
 ## Execution Order
 
-Steps 1-4 (DSL → IR → freeze → validate) should be done first as a foundation. Steps 5a-5d (backends) are independent of each other and can be done in any order. Steps 6-7 (fixtures + tests) come last.
+1. Steps 1-2: DSL + IR (foundation)
+2. Step 3: Freeze (connects DSL to IR)
+3. Step 4: Validate (safety net)
+4. Steps 5a-5d: Backends (independent of each other)
+5. Steps 6-7: Fixtures + tests (verification)
