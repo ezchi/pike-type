@@ -3,7 +3,12 @@
 from __future__ import annotations
 
 from piketype.errors import ValidationError
-from piketype.ir.nodes import FlagsIR, ModuleIR, RepoIR, ScalarAliasIR, ScalarTypeSpecIR, StructIR, TypeRefIR
+import re
+
+from piketype.ir.nodes import EnumIR, FlagsIR, ModuleIR, RepoIR, ScalarAliasIR, ScalarTypeSpecIR, StructIR, TypeRefIR
+
+
+_UPPER_CASE_RE = re.compile(r"^[A-Z][A-Z0-9_]*$")
 
 
 _FLAGS_RESERVED_API_NAMES = frozenset({"value", "to_bytes", "from_bytes", "clone", "width", "byte_count"})
@@ -107,12 +112,57 @@ def validate_repo(repo: RepoIR) -> None:
                             f"flag '{flag.name}' collides with generated class API name"
                         )
                 continue
+            if isinstance(type_ir, EnumIR):
+                if not type_ir.values:
+                    raise ValidationError(
+                        f"{module.ref.repo_relative_path}: enum {type_ir.name} must have at least one value"
+                    )
+                if type_ir.resolved_width <= 0:
+                    raise ValidationError(
+                        f"{module.ref.repo_relative_path}: enum {type_ir.name} width must be positive"
+                    )
+                if type_ir.resolved_width > 64:
+                    raise ValidationError(
+                        f"{module.ref.repo_relative_path}: enum {type_ir.name} width {type_ir.resolved_width} exceeds maximum 64"
+                    )
+                seen_value_names: set[str] = set()
+                seen_resolved_values: set[int] = set()
+                for enum_val in type_ir.values:
+                    if not _UPPER_CASE_RE.fullmatch(enum_val.name):
+                        raise ValidationError(
+                            f"{module.ref.repo_relative_path}: enum {type_ir.name} "
+                            f"value name {enum_val.name!r} must be UPPER_CASE"
+                        )
+                    if enum_val.name in seen_value_names:
+                        raise ValidationError(
+                            f"{module.ref.repo_relative_path}: enum {type_ir.name} "
+                            f"has duplicate value name {enum_val.name!r}"
+                        )
+                    seen_value_names.add(enum_val.name)
+                    if enum_val.resolved_value in seen_resolved_values:
+                        raise ValidationError(
+                            f"{module.ref.repo_relative_path}: enum {type_ir.name} "
+                            f"has duplicate resolved value {enum_val.resolved_value}"
+                        )
+                    seen_resolved_values.add(enum_val.resolved_value)
+                    if enum_val.resolved_value < 0:
+                        raise ValidationError(
+                            f"{module.ref.repo_relative_path}: enum {type_ir.name} "
+                            f"value {enum_val.name} has negative value {enum_val.resolved_value}"
+                        )
+                    if enum_val.resolved_value >= 2**type_ir.resolved_width:
+                        raise ValidationError(
+                            f"{module.ref.repo_relative_path}: enum {type_ir.name} "
+                            f"value {enum_val.name}={enum_val.resolved_value} does not fit in {type_ir.resolved_width} bits"
+                        )
+                continue
             raise ValidationError(f"{module.ref.repo_relative_path}: unsupported type node {type(type_ir).__name__}")
         _validate_struct_cycles(module=module, type_index=type_index)
         _validate_pad_suffix_reservation(module=module)
         _validate_signed_width_constraint(module=module, type_index=type_index)
         _validate_generated_identifier_collision(module=module)
         _validate_alignment_bits(module=module)
+        _validate_enum_literal_collision(module=module)
 
 
 def _validate_const_storage(*, value: int, signed: bool, width: int, module_path: str, const_name: str) -> None:
@@ -222,6 +272,14 @@ def _validate_generated_identifier_collision(*, module: ModuleIR) -> None:
                 f"{module.ref.repo_relative_path}: constant '{const_name}' "
                 f"collides with generated identifier for type '{reserved[const_name]}'"
             )
+    for type_ir in module.types:
+        if isinstance(type_ir, EnumIR):
+            for enum_val in type_ir.values:
+                if enum_val.name in reserved:
+                    raise ValidationError(
+                        f"{module.ref.repo_relative_path}: enum {type_ir.name} "
+                        f"value '{enum_val.name}' collides with generated identifier for type '{reserved[enum_val.name]}'"
+                    )
 
 
 def _validate_alignment_bits(*, module: ModuleIR) -> None:
@@ -234,3 +292,24 @@ def _validate_alignment_bits(*, module: ModuleIR) -> None:
                 f"{module.ref.repo_relative_path}: struct {type_ir.name} "
                 f"alignment_bits {type_ir.alignment_bits} is not a multiple of 8"
             )
+
+
+def _validate_enum_literal_collision(*, module: ModuleIR) -> None:
+    """FR-17: Reject enum value names that collide across enums or with constants."""
+    const_names = {const.name for const in module.constants}
+    all_enum_value_names: dict[str, str] = {}
+    for type_ir in module.types:
+        if not isinstance(type_ir, EnumIR):
+            continue
+        for enum_val in type_ir.values:
+            if enum_val.name in const_names:
+                raise ValidationError(
+                    f"{module.ref.repo_relative_path}: enum {type_ir.name} "
+                    f"value '{enum_val.name}' collides with constant name in same module"
+                )
+            if enum_val.name in all_enum_value_names:
+                raise ValidationError(
+                    f"{module.ref.repo_relative_path}: enum {type_ir.name} "
+                    f"value '{enum_val.name}' collides with value in enum {all_enum_value_names[enum_val.name]}"
+                )
+            all_enum_value_names[enum_val.name] = type_ir.name

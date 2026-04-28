@@ -8,6 +8,7 @@ from types import ModuleType
 
 from piketype.discovery.module_name import module_basename, module_name_from_path
 from piketype.dsl.const import Const, ConstExpr
+from piketype.dsl.enum import EnumType
 from piketype.dsl.flags import FlagsType
 from piketype.dsl.scalar import ScalarType
 from piketype.dsl.struct import StructType
@@ -16,6 +17,8 @@ from piketype.ir.nodes import (
     BinaryExprIR,
     ConstIR,
     ConstRefExprIR,
+    EnumIR,
+    EnumValueIR,
     FlagFieldIR,
     FlagsIR,
     IntLiteralExprIR,
@@ -94,7 +97,7 @@ def build_type_definition_map(*, loaded_modules: list[LoadedModule]) -> dict[int
         for name, value in loaded.module.__dict__.items():
             if name.startswith("__"):
                 continue
-            if not isinstance(value, (ScalarType, StructType, FlagsType)):
+            if not isinstance(value, (ScalarType, StructType, FlagsType, EnumType)):
                 continue
             if id(value) in seen_object_ids:
                 raise ValidationError(f"{loaded.module_path}: DSL object bound to multiple top-level names")
@@ -120,7 +123,7 @@ def freeze_module(
     for name, value in loaded_module.module.__dict__.items():
         if name.startswith("__"):
             continue
-        if isinstance(value, (Const, ScalarType, StructType, FlagsType)):
+        if isinstance(value, (Const, ScalarType, StructType, FlagsType, EnumType)):
             if id(value) in seen_local_object_ids:
                 raise ValidationError(f"{loaded_module.module_path}: DSL object bound to multiple top-level names")
             seen_local_object_ids.add(id(value))
@@ -190,6 +193,53 @@ def freeze_module(
                             for flag in value.flags
                         ),
                         alignment_bits=(-len(value.flags)) % 8,
+                    )
+                )
+            elif isinstance(value, EnumType):
+                if Path(value.source.path).resolve() != loaded_module.module_path.resolve():
+                    continue
+                enum_source = SourceSpanIR(
+                    path=value.source.path,
+                    line=value.source.line,
+                    column=value.source.column,
+                )
+                resolved_values = _resolve_enum_values(value)
+                if value._explicit_width is not None:
+                    resolved_width = value._explicit_width
+                elif not resolved_values:
+                    resolved_width = 0
+                else:
+                    max_val = max(v for _, v in resolved_values)
+                    resolved_width = max(1, max_val.bit_length())
+                local_types.append(
+                    EnumIR(
+                        name=name,
+                        source=enum_source,
+                        width_expr=IntLiteralExprIR(
+                            value=resolved_width,
+                            source=enum_source,
+                        ),
+                        resolved_width=resolved_width,
+                        values=tuple(
+                            EnumValueIR(
+                                name=member_name,
+                                source=SourceSpanIR(
+                                    path=value.members[idx].source.path,
+                                    line=value.members[idx].source.line,
+                                    column=value.members[idx].source.column,
+                                ),
+                                expr=IntLiteralExprIR(
+                                    value=resolved_val,
+                                    source=SourceSpanIR(
+                                        path=value.members[idx].source.path,
+                                        line=value.members[idx].source.line,
+                                        column=value.members[idx].source.column,
+                                    ),
+                                ),
+                                resolved_value=resolved_val,
+                            )
+                            for idx, (member_name, resolved_val) in enumerate(resolved_values)
+                        ),
                     )
                 )
             continue
@@ -405,6 +455,20 @@ def _resolve_const_storage(*, value: int, signed: bool | None, width: int | None
     effective_width = inferred_width if width is None else width
     _validate_const_storage(value=value, signed=inferred_signed, width=effective_width)
     return (inferred_signed, effective_width)
+
+
+def _resolve_enum_values(enum_type: EnumType) -> list[tuple[str, int]]:
+    """Resolve auto-fill values for an enum, returning (name, resolved_value) pairs."""
+    resolved: list[tuple[str, int]] = []
+    prev_val = -1
+    for member in enum_type.members:
+        if member.value is not None:
+            val = member.value
+        else:
+            val = prev_val + 1
+        resolved.append((member.name, val))
+        prev_val = val
+    return resolved
 
 
 def _validate_const_storage(*, value: int, signed: bool, width: int) -> None:
