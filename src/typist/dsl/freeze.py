@@ -160,6 +160,7 @@ def freeze_module(
                             )
                             for member in value.members
                         ),
+                        alignment_bits=_compute_alignment_bits(value),
                     )
                 )
             continue
@@ -202,6 +203,29 @@ def freeze_repo(*, repo_root: Path, frozen_modules: list[FrozenModule], tool_ver
     """Assemble repository IR from frozen modules."""
     modules = tuple(frozen_module.module_ir for frozen_module in frozen_modules)
     return RepoIR(repo_root=str(repo_root), modules=modules, tool_version=tool_version)
+
+
+def _serialized_width_from_dsl(struct_type: StructType) -> int:
+    """Compute serialized bit width of a struct from mutable DSL objects (recursive)."""
+    from typist.ir.nodes import byte_count
+
+    total = 0
+    for member in struct_type.members:
+        if isinstance(member.type, ScalarType):
+            total += byte_count(member.type.width_value) * 8
+        elif isinstance(member.type, StructType):
+            inner_natural = _serialized_width_from_dsl(member.type)
+            inner_align = _compute_alignment_bits(member.type)
+            total += inner_natural + inner_align
+    return total
+
+
+def _compute_alignment_bits(struct_type: StructType) -> int:
+    """Compute trailing alignment padding bits for a struct from DSL objects."""
+    if struct_type._alignment is None:
+        return 0
+    natural_width = _serialized_width_from_dsl(struct_type)
+    return (-natural_width) % struct_type._alignment
 
 
 def _freeze_struct_field(
