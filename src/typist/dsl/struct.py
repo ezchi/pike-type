@@ -29,11 +29,13 @@ class StructType(DslNode):
     """Packed struct definition."""
 
     members: list[StructMember]
+    _alignment: int | None
 
     def __init__(self, *, source: SourceInfo | None = None) -> None:
         resolved_source = capture_source_info() if source is None else source
         DslNode.__init__(self, source=resolved_source)
         self.members = []
+        self._alignment = None
 
     def add_member(
         self,
@@ -44,6 +46,8 @@ class StructType(DslNode):
         sw: object | None = None,
     ) -> StructType:
         """Append one member and return self for chaining."""
+        if self._alignment is not None:
+            raise ValidationError("cannot add members after multiple_of()")
         if sw is not None:
             raise ValidationError("struct member sw= override is not supported in this milestone")
         if not isinstance(name, str) or not _SNAKE_CASE_RE.fullmatch(name):
@@ -60,6 +64,19 @@ class StructType(DslNode):
                 rand=rand,
             )
         )
+        return self
+
+    def multiple_of(self, n: int) -> StructType:
+        """Pad total struct width to a multiple of *n* bits. Returns self."""
+        if type(n) is not int:
+            raise ValidationError(f"multiple_of() argument must be int, got {type(n).__name__}")
+        if n <= 0:
+            raise ValidationError(f"multiple_of() argument must be positive, got {n}")
+        if n % 8 != 0:
+            raise ValidationError(f"multiple_of() argument must be a multiple of 8, got {n}")
+        if self._alignment is not None:
+            raise ValidationError("multiple_of() already set on this struct")
+        self._alignment = n
         return self
 
 

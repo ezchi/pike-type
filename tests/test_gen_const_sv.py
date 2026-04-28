@@ -218,6 +218,17 @@ class GenConstSvIntegrationTest(unittest.TestCase):
             self.assertEqual(result.returncode, 0, msg=result.stderr)
             assert_trees_equal(self, expected_root, repo_dir / "gen")
 
+    def test_generates_struct_multiple_of(self) -> None:
+        fixture_root = FIXTURES_DIR / "struct_multiple_of" / "project"
+        expected_root = GOLDENS_DIR / "struct_multiple_of"
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo_dir = Path(tmp_dir) / "project"
+            copy_tree(fixture_root, repo_dir)
+            cli_file = repo_dir / "alpha" / "typist" / "types.py"
+            result = self.run_typist(repo_dir, str(cli_file))
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            assert_trees_equal(self, expected_root, repo_dir / "gen")
+
     # -- Negative validation tests --
 
     def test_rejects_pad_suffix_field(self) -> None:

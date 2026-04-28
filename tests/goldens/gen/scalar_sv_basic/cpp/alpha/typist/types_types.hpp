@@ -16,34 +16,34 @@ constexpr std::int32_t W = 13;
 
 class addr_ct {
  public:
-  static constexpr std::size_t kWidth = 13;
-  static constexpr bool kSigned = false;
-  static constexpr std::size_t kByteCount = 2;
+  static constexpr std::size_t WIDTH = 13;
+  static constexpr bool SIGNED = false;
+  static constexpr std::size_t BYTE_COUNT = 2;
   using value_type = std::uint16_t;
   value_type value;
-  static constexpr std::uint64_t kMask = 8191U;
-  static constexpr value_type kMaxValue = static_cast<value_type>(8191U);
+  static constexpr std::uint64_t MASK = 8191U;
+  static constexpr value_type MAX_VALUE = static_cast<value_type>(8191U);
   addr_ct() : value(0) {}
   addr_ct(value_type value_in) : value(validate_value(value_in)) {}
 
   std::vector<std::uint8_t> to_bytes() const {
-    std::vector<std::uint8_t> bytes(kByteCount, 0);
+    std::vector<std::uint8_t> bytes(BYTE_COUNT, 0);
     std::uint64_t bits = static_cast<std::uint64_t>(value);
-    for (std::size_t idx = 0; idx < kByteCount; ++idx) {
-      bytes[kByteCount - 1 - idx] = static_cast<std::uint8_t>((bits >> (8U * idx)) & 0xFFU);
+    for (std::size_t idx = 0; idx < BYTE_COUNT; ++idx) {
+      bytes[BYTE_COUNT - 1 - idx] = static_cast<std::uint8_t>((bits >> (8U * idx)) & 0xFFU);
     }
     return bytes;
   }
 
   void from_bytes(const std::vector<std::uint8_t>& bytes) {
-    if (bytes.size() != kByteCount) {
+    if (bytes.size() != BYTE_COUNT) {
       throw std::invalid_argument("byte width mismatch");
     }
     std::uint64_t bits = 0;
-    for (std::size_t idx = 0; idx < kByteCount; ++idx) {
+    for (std::size_t idx = 0; idx < BYTE_COUNT; ++idx) {
       bits = (bits << 8U) | bytes[idx];
     }
-    value = validate_value(static_cast<value_type>(bits & kMask));
+    value = validate_value(static_cast<value_type>(bits & MASK));
   }
 
   addr_ct clone() const {
@@ -58,7 +58,7 @@ class addr_ct {
 
  private:
   static value_type validate_value(value_type value_in) {
-    if (value_in > kMaxValue) {
+    if (value_in > MAX_VALUE) {
       throw std::out_of_range("value out of range");
     }
     return value_in;
@@ -67,37 +67,37 @@ class addr_ct {
 
 class mask_ct {
  public:
-  static constexpr std::size_t kWidth = 8;
-  static constexpr bool kSigned = true;
-  static constexpr std::size_t kByteCount = 1;
+  static constexpr std::size_t WIDTH = 8;
+  static constexpr bool SIGNED = true;
+  static constexpr std::size_t BYTE_COUNT = 1;
   using value_type = std::int8_t;
   value_type value;
-  static constexpr value_type kMinValue = static_cast<value_type>(-128);
-  static constexpr value_type kMaxValue = static_cast<value_type>(127);
-  static constexpr std::uint64_t kMask = 255U;
+  static constexpr value_type MIN_VALUE = static_cast<value_type>(-128);
+  static constexpr value_type MAX_VALUE = static_cast<value_type>(127);
+  static constexpr std::uint64_t MASK = 255U;
   mask_ct() : value(0) {}
   mask_ct(value_type value_in) : value(validate_value(value_in)) {}
 
   std::vector<std::uint8_t> to_bytes() const {
-    std::vector<std::uint8_t> bytes(kByteCount, 0);
-    std::uint64_t bits = static_cast<std::uint64_t>(value) & kMask;
-    for (std::size_t idx = 0; idx < kByteCount; ++idx) {
-      bytes[kByteCount - 1 - idx] = static_cast<std::uint8_t>((bits >> (8U * idx)) & 0xFFU);
+    std::vector<std::uint8_t> bytes(BYTE_COUNT, 0);
+    std::uint64_t bits = static_cast<std::uint64_t>(value) & MASK;
+    for (std::size_t idx = 0; idx < BYTE_COUNT; ++idx) {
+      bytes[BYTE_COUNT - 1 - idx] = static_cast<std::uint8_t>((bits >> (8U * idx)) & 0xFFU);
     }
     return bytes;
   }
 
   void from_bytes(const std::vector<std::uint8_t>& bytes) {
-    if (bytes.size() != kByteCount) {
+    if (bytes.size() != BYTE_COUNT) {
       throw std::invalid_argument("byte width mismatch");
     }
     std::uint64_t bits = 0;
-    for (std::size_t idx = 0; idx < kByteCount; ++idx) {
+    for (std::size_t idx = 0; idx < BYTE_COUNT; ++idx) {
       bits = (bits << 8U) | bytes[idx];
     }
-    bits &= kMask;
+    bits &= MASK;
     std::int64_t signed_value = static_cast<std::int64_t>(bits);
-    if ((bits & 128U) != 0U && kWidth < 64) {
+    if ((bits & 128U) != 0U && WIDTH < 64) {
       signed_value -= static_cast<std::int64_t>(256U);
     }
     value = validate_value(static_cast<value_type>(signed_value));
@@ -115,7 +115,7 @@ class mask_ct {
 
  private:
   static value_type validate_value(value_type value_in) {
-    if (value_in < kMinValue || value_in > kMaxValue) {
+    if (value_in < MIN_VALUE || value_in > MAX_VALUE) {
       throw std::out_of_range("value out of range");
     }
     return value_in;
@@ -124,34 +124,34 @@ class mask_ct {
 
 class flag_ct {
  public:
-  static constexpr std::size_t kWidth = 1;
-  static constexpr bool kSigned = false;
-  static constexpr std::size_t kByteCount = 1;
+  static constexpr std::size_t WIDTH = 1;
+  static constexpr bool SIGNED = false;
+  static constexpr std::size_t BYTE_COUNT = 1;
   using value_type = std::uint8_t;
   value_type value;
-  static constexpr std::uint64_t kMask = 1U;
-  static constexpr value_type kMaxValue = static_cast<value_type>(1U);
+  static constexpr std::uint64_t MASK = 1U;
+  static constexpr value_type MAX_VALUE = static_cast<value_type>(1U);
   flag_ct() : value(0) {}
   flag_ct(value_type value_in) : value(validate_value(value_in)) {}
 
   std::vector<std::uint8_t> to_bytes() const {
-    std::vector<std::uint8_t> bytes(kByteCount, 0);
+    std::vector<std::uint8_t> bytes(BYTE_COUNT, 0);
     std::uint64_t bits = static_cast<std::uint64_t>(value);
-    for (std::size_t idx = 0; idx < kByteCount; ++idx) {
-      bytes[kByteCount - 1 - idx] = static_cast<std::uint8_t>((bits >> (8U * idx)) & 0xFFU);
+    for (std::size_t idx = 0; idx < BYTE_COUNT; ++idx) {
+      bytes[BYTE_COUNT - 1 - idx] = static_cast<std::uint8_t>((bits >> (8U * idx)) & 0xFFU);
     }
     return bytes;
   }
 
   void from_bytes(const std::vector<std::uint8_t>& bytes) {
-    if (bytes.size() != kByteCount) {
+    if (bytes.size() != BYTE_COUNT) {
       throw std::invalid_argument("byte width mismatch");
     }
     std::uint64_t bits = 0;
-    for (std::size_t idx = 0; idx < kByteCount; ++idx) {
+    for (std::size_t idx = 0; idx < BYTE_COUNT; ++idx) {
       bits = (bits << 8U) | bytes[idx];
     }
-    value = validate_value(static_cast<value_type>(bits & kMask));
+    value = validate_value(static_cast<value_type>(bits & MASK));
   }
 
   flag_ct clone() const {
@@ -166,7 +166,7 @@ class flag_ct {
 
  private:
   static value_type validate_value(value_type value_in) {
-    if (value_in > kMaxValue) {
+    if (value_in > MAX_VALUE) {
       throw std::out_of_range("value out of range");
     }
     return value_in;

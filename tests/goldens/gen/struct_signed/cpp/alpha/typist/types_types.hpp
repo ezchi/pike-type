@@ -14,48 +14,48 @@ namespace alpha::types {
 
 class signed_4_ct {
  public:
-  static constexpr std::size_t kWidth = 4;
-  static constexpr bool kSigned = true;
-  static constexpr std::size_t kByteCount = 1;
+  static constexpr std::size_t WIDTH = 4;
+  static constexpr bool SIGNED = true;
+  static constexpr std::size_t BYTE_COUNT = 1;
   using value_type = std::int8_t;
   value_type value;
-  static constexpr value_type kMinValue = static_cast<value_type>(-8);
-  static constexpr value_type kMaxValue = static_cast<value_type>(7);
-  static constexpr std::uint64_t kMask = 15U;
+  static constexpr value_type MIN_VALUE = static_cast<value_type>(-8);
+  static constexpr value_type MAX_VALUE = static_cast<value_type>(7);
+  static constexpr std::uint64_t MASK = 15U;
   signed_4_ct() : value(0) {}
   signed_4_ct(value_type value_in) : value(validate_value(value_in)) {}
 
   std::vector<std::uint8_t> to_bytes() const {
-    std::vector<std::uint8_t> bytes(kByteCount, 0);
-    std::uint64_t bits = static_cast<std::uint64_t>(value) & kMask;
-    if (value < 0 && kWidth < kByteCount * 8U) {
-      for (std::size_t i = kWidth; i < kByteCount * 8U; ++i) {
+    std::vector<std::uint8_t> bytes(BYTE_COUNT, 0);
+    std::uint64_t bits = static_cast<std::uint64_t>(value) & MASK;
+    if (value < 0 && WIDTH < BYTE_COUNT * 8U) {
+      for (std::size_t i = WIDTH; i < BYTE_COUNT * 8U; ++i) {
         bits |= (1ULL << i);
       }
     }
-    for (std::size_t idx = 0; idx < kByteCount; ++idx) {
-      bytes[kByteCount - 1 - idx] = static_cast<std::uint8_t>((bits >> (8U * idx)) & 0xFFU);
+    for (std::size_t idx = 0; idx < BYTE_COUNT; ++idx) {
+      bytes[BYTE_COUNT - 1 - idx] = static_cast<std::uint8_t>((bits >> (8U * idx)) & 0xFFU);
     }
     return bytes;
   }
 
   void from_bytes(const std::vector<std::uint8_t>& bytes) {
-    if (bytes.size() != kByteCount) {
+    if (bytes.size() != BYTE_COUNT) {
       throw std::invalid_argument("byte width mismatch");
     }
     std::uint64_t bits = 0;
-    for (std::size_t idx = 0; idx < kByteCount; ++idx) {
+    for (std::size_t idx = 0; idx < BYTE_COUNT; ++idx) {
       bits = (bits << 8U) | bytes[idx];
     }
-    std::uint64_t data_bits = bits & kMask;
+    std::uint64_t data_bits = bits & MASK;
     bool sign_bit = ((data_bits >> (3U)) & 1U) != 0U;
-    std::uint64_t expected_pad = sign_bit ? (~kMask & 255U) : 0ULL;
-    if ((bits & ~kMask & 255U) != expected_pad) {
+    std::uint64_t expected_pad = sign_bit ? (~MASK & 255U) : 0ULL;
+    if ((bits & ~MASK & 255U) != expected_pad) {
       throw std::invalid_argument("signed padding mismatch");
     }
-    bits &= kMask;
+    bits &= MASK;
     std::int64_t signed_value = static_cast<std::int64_t>(bits);
-    if ((bits & 8U) != 0U && kWidth < 64) {
+    if ((bits & 8U) != 0U && WIDTH < 64) {
       signed_value -= static_cast<std::int64_t>(16U);
     }
     value = validate_value(static_cast<value_type>(signed_value));
@@ -73,7 +73,7 @@ class signed_4_ct {
 
  private:
   static value_type validate_value(value_type value_in) {
-    if (value_in < kMinValue || value_in > kMaxValue) {
+    if (value_in < MIN_VALUE || value_in > MAX_VALUE) {
       throw std::out_of_range("value out of range");
     }
     return value_in;
@@ -82,48 +82,48 @@ class signed_4_ct {
 
 class signed_5_ct {
  public:
-  static constexpr std::size_t kWidth = 5;
-  static constexpr bool kSigned = true;
-  static constexpr std::size_t kByteCount = 1;
+  static constexpr std::size_t WIDTH = 5;
+  static constexpr bool SIGNED = true;
+  static constexpr std::size_t BYTE_COUNT = 1;
   using value_type = std::int8_t;
   value_type value;
-  static constexpr value_type kMinValue = static_cast<value_type>(-16);
-  static constexpr value_type kMaxValue = static_cast<value_type>(15);
-  static constexpr std::uint64_t kMask = 31U;
+  static constexpr value_type MIN_VALUE = static_cast<value_type>(-16);
+  static constexpr value_type MAX_VALUE = static_cast<value_type>(15);
+  static constexpr std::uint64_t MASK = 31U;
   signed_5_ct() : value(0) {}
   signed_5_ct(value_type value_in) : value(validate_value(value_in)) {}
 
   std::vector<std::uint8_t> to_bytes() const {
-    std::vector<std::uint8_t> bytes(kByteCount, 0);
-    std::uint64_t bits = static_cast<std::uint64_t>(value) & kMask;
-    if (value < 0 && kWidth < kByteCount * 8U) {
-      for (std::size_t i = kWidth; i < kByteCount * 8U; ++i) {
+    std::vector<std::uint8_t> bytes(BYTE_COUNT, 0);
+    std::uint64_t bits = static_cast<std::uint64_t>(value) & MASK;
+    if (value < 0 && WIDTH < BYTE_COUNT * 8U) {
+      for (std::size_t i = WIDTH; i < BYTE_COUNT * 8U; ++i) {
         bits |= (1ULL << i);
       }
     }
-    for (std::size_t idx = 0; idx < kByteCount; ++idx) {
-      bytes[kByteCount - 1 - idx] = static_cast<std::uint8_t>((bits >> (8U * idx)) & 0xFFU);
+    for (std::size_t idx = 0; idx < BYTE_COUNT; ++idx) {
+      bytes[BYTE_COUNT - 1 - idx] = static_cast<std::uint8_t>((bits >> (8U * idx)) & 0xFFU);
     }
     return bytes;
   }
 
   void from_bytes(const std::vector<std::uint8_t>& bytes) {
-    if (bytes.size() != kByteCount) {
+    if (bytes.size() != BYTE_COUNT) {
       throw std::invalid_argument("byte width mismatch");
     }
     std::uint64_t bits = 0;
-    for (std::size_t idx = 0; idx < kByteCount; ++idx) {
+    for (std::size_t idx = 0; idx < BYTE_COUNT; ++idx) {
       bits = (bits << 8U) | bytes[idx];
     }
-    std::uint64_t data_bits = bits & kMask;
+    std::uint64_t data_bits = bits & MASK;
     bool sign_bit = ((data_bits >> (4U)) & 1U) != 0U;
-    std::uint64_t expected_pad = sign_bit ? (~kMask & 255U) : 0ULL;
-    if ((bits & ~kMask & 255U) != expected_pad) {
+    std::uint64_t expected_pad = sign_bit ? (~MASK & 255U) : 0ULL;
+    if ((bits & ~MASK & 255U) != expected_pad) {
       throw std::invalid_argument("signed padding mismatch");
     }
-    bits &= kMask;
+    bits &= MASK;
     std::int64_t signed_value = static_cast<std::int64_t>(bits);
-    if ((bits & 16U) != 0U && kWidth < 64) {
+    if ((bits & 16U) != 0U && WIDTH < 64) {
       signed_value -= static_cast<std::int64_t>(32U);
     }
     value = validate_value(static_cast<value_type>(signed_value));
@@ -141,7 +141,7 @@ class signed_5_ct {
 
  private:
   static value_type validate_value(value_type value_in) {
-    if (value_in < kMinValue || value_in > kMaxValue) {
+    if (value_in < MIN_VALUE || value_in > MAX_VALUE) {
       throw std::out_of_range("value out of range");
     }
     return value_in;
@@ -150,8 +150,8 @@ class signed_5_ct {
 
 class mixed_ct {
  public:
-  static constexpr std::size_t kWidth = 9;
-  static constexpr std::size_t kByteCount = 2;
+  static constexpr std::size_t WIDTH = 9;
+  static constexpr std::size_t BYTE_COUNT = 2;
   signed_4_ct field_s{};
   std::int8_t field_u = 0;
 
@@ -159,7 +159,7 @@ class mixed_ct {
 
   std::vector<std::uint8_t> to_bytes() const {
     std::vector<std::uint8_t> bytes;
-    bytes.reserve(kByteCount);
+    bytes.reserve(BYTE_COUNT);
     {
       auto field_bytes = field_s.to_bytes();
       bytes.insert(bytes.end(), field_bytes.begin(), field_bytes.end());
@@ -172,7 +172,7 @@ class mixed_ct {
   }
 
   void from_bytes(const std::vector<std::uint8_t>& bytes) {
-    if (bytes.size() != kByteCount) {
+    if (bytes.size() != BYTE_COUNT) {
       throw std::invalid_argument("byte width mismatch");
     }
     std::size_t offset = 0;
@@ -197,10 +197,10 @@ class mixed_ct {
  private:
   static std::vector<std::uint8_t> encode_field_u(std::int8_t v) {
     validate_field_u(v);
-    constexpr std::uint64_t mask = 31U;
-    std::uint64_t bits = static_cast<std::uint64_t>(v) & mask;
+    constexpr std::uint64_t MASK = 31U;
+    std::uint64_t bits = static_cast<std::uint64_t>(v) & MASK;
     if (v < 0) {
-      bits |= ~mask;
+      bits |= ~MASK;
     }
     std::vector<std::uint8_t> b(1, 0U);
     for (std::size_t i = 0; i < 1; ++i) {
@@ -214,11 +214,11 @@ class mixed_ct {
     for (std::size_t i = 0; i < 1; ++i) {
       bits = (bits << 8U) | bytes[offset + i];
     }
-    constexpr std::uint64_t mask = 31U;
-    std::uint64_t data_bits = bits & mask;
+    constexpr std::uint64_t MASK = 31U;
+    std::uint64_t data_bits = bits & MASK;
     bool sign_bit = ((data_bits >> (4U)) & 1U) != 0U;
-    std::uint64_t expected_pad = sign_bit ? (~mask & 255U) : 0ULL;
-    if ((bits & ~mask & 255U) != expected_pad) {
+    std::uint64_t expected_pad = sign_bit ? (~MASK & 255U) : 0ULL;
+    if ((bits & ~MASK & 255U) != expected_pad) {
       throw std::invalid_argument("signed padding mismatch");
     }
     bits = data_bits;
@@ -230,9 +230,9 @@ class mixed_ct {
   }
 
   static std::int8_t validate_field_u(std::int8_t value_in) {
-    constexpr std::int8_t kMinValue = static_cast<std::int8_t>(-16);
-    constexpr std::int8_t kMaxValue = static_cast<std::int8_t>(15);
-    if (value_in < kMinValue || value_in > kMaxValue) {
+    constexpr std::int8_t MIN_VALUE = static_cast<std::int8_t>(-16);
+    constexpr std::int8_t MAX_VALUE = static_cast<std::int8_t>(15);
+    if (value_in < MIN_VALUE || value_in > MAX_VALUE) {
       throw std::out_of_range("value out of range");
     }
     return value_in;

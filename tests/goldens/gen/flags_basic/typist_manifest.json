@@ -1,0 +1,151 @@
+{
+  "modules": [
+    {
+      "basename": "types",
+      "constants": [],
+      "dependencies": [],
+      "generated_outputs": {
+        "cpp": "gen/cpp/alpha/typist/types_types.hpp",
+        "py": "gen/py/alpha/typist/types_types.py",
+        "sv": "gen/sv/alpha/typist/types_pkg.sv",
+        "sv_test": "gen/sv/alpha/typist/types_test_pkg.sv"
+      },
+      "namespace_parts": [
+        "alpha",
+        "typist",
+        "types"
+      ],
+      "python_module_name": "alpha.typist.types",
+      "repo_relative_path": "alpha/typist/types.py",
+      "source": {
+        "column": null,
+        "line": 1,
+        "path": "alpha/typist/types.py"
+      },
+      "types": [
+        {
+          "flag_count": 1,
+          "flag_names": [
+            "flag"
+          ],
+          "kind": "flags",
+          "name": "single_t",
+          "source": {
+            "column": null,
+            "line": 4,
+            "path": "alpha/typist/types.py"
+          }
+        },
+        {
+          "flag_count": 3,
+          "flag_names": [
+            "a",
+            "b",
+            "c"
+          ],
+          "kind": "flags",
+          "name": "triple_t",
+          "source": {
+            "column": null,
+            "line": 7,
+            "path": "alpha/typist/types.py"
+          }
+        },
+        {
+          "flag_count": 8,
+          "flag_names": [
+            "f0",
+            "f1",
+            "f2",
+            "f3",
+            "f4",
+            "f5",
+            "f6",
+            "f7"
+          ],
+          "kind": "flags",
+          "name": "byte_t",
+          "source": {
+            "column": null,
+            "line": 11,
+            "path": "alpha/typist/types.py"
+          }
+        },
+        {
+          "flag_count": 9,
+          "flag_names": [
+            "f0",
+            "f1",
+            "f2",
+            "f3",
+            "f4",
+            "f5",
+            "f6",
+            "f7",
+            "f8"
+          ],
+          "kind": "flags",
+          "name": "wide_t",
+          "source": {
+            "column": null,
+            "line": 24,
+            "path": "alpha/typist/types.py"
+          }
+        },
+        {
+          "flag_count": 33,
+          "flag_names": [
+            "f0",
+            "f1",
+            "f2",
+            "f3",
+            "f4",
+            "f5",
+            "f6",
+            "f7",
+            "f8",
+            "f9",
+            "f10",
+            "f11",
+            "f12",
+            "f13",
+            "f14",
+            "f15",
+            "f16",
+            "f17",
+            "f18",
+            "f19",
+            "f20",
+            "f21",
+            "f22",
+            "f23",
+            "f24",
+            "f25",
+            "f26",
+            "f27",
+            "f28",
+            "f29",
+            "f30",
+            "f31",
+            "f32"
+          ],
+          "kind": "flags",
+          "name": "very_wide_t",
+          "source": {
+            "column": null,
+            "line": 38,
+            "path": "alpha/typist/types.py"
+          }
+        }
+      ]
+    }
+  ],
+  "repo_root": ".",
+  "runtime_outputs": {
+    "cpp_header": "gen/cpp/runtime/typist_runtime.hpp",
+    "cpp_source": "gen/cpp/runtime/typist_runtime.cpp",
+    "py": "gen/py/runtime/typist_runtime.py",
+    "sv": "gen/sv/runtime/typist_runtime_pkg.sv"
+  },
+  "tool_version": "0.1.0"
+}

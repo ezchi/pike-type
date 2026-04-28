@@ -126,9 +126,28 @@ class StructIR:
     name: str
     source: SourceSpanIR
     fields: tuple[StructFieldIR, ...]
+    alignment_bits: int = 0
 
 
-type TypeDefIR = ScalarAliasIR | StructIR
+@dataclass(frozen=True, slots=True)
+class FlagFieldIR:
+    """Frozen single-bit flag field."""
+
+    name: str
+    source: SourceSpanIR
+
+
+@dataclass(frozen=True, slots=True)
+class FlagsIR:
+    """Frozen packed flags definition."""
+
+    name: str
+    source: SourceSpanIR
+    fields: tuple[FlagFieldIR, ...]
+    alignment_bits: int = 0
+
+
+type TypeDefIR = ScalarAliasIR | StructIR | FlagsIR
 
 
 @dataclass(frozen=True, slots=True)

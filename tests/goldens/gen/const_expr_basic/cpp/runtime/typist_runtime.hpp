@@ -7,7 +7,7 @@
 
 namespace typist_runtime {
 
-inline constexpr bool kVerboseDefault = false;
+inline constexpr bool VERBOSE_DEFAULT = false;
 
 }  // namespace typist_runtime
 

@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 from typist.errors import ValidationError
-from typist.ir.nodes import ModuleIR, RepoIR, ScalarAliasIR, ScalarTypeSpecIR, StructIR, TypeRefIR
+from typist.ir.nodes import FlagsIR, ModuleIR, RepoIR, ScalarAliasIR, ScalarTypeSpecIR, StructIR, TypeRefIR
+
+
+_FLAGS_RESERVED_API_NAMES = frozenset({"value", "to_bytes", "from_bytes", "clone", "width", "byte_count"})
 
 
 def validate_repo(repo: RepoIR) -> None:
@@ -76,11 +79,40 @@ def validate_repo(repo: RepoIR) -> None:
                             )
                         continue
                 continue
+            if isinstance(type_ir, FlagsIR):
+                if not type_ir.fields:
+                    raise ValidationError(
+                        f"{module.ref.repo_relative_path}: flags {type_ir.name} must have at least one flag"
+                    )
+                if len(type_ir.fields) > 64:
+                    raise ValidationError(
+                        f"{module.ref.repo_relative_path}: flags {type_ir.name} has {len(type_ir.fields)} flags, "
+                        "maximum is 64"
+                    )
+                seen_flag_names: set[str] = set()
+                for flag in type_ir.fields:
+                    if flag.name in seen_flag_names:
+                        raise ValidationError(
+                            f"{module.ref.repo_relative_path}: flags {type_ir.name} has duplicate flag {flag.name}"
+                        )
+                    seen_flag_names.add(flag.name)
+                    if flag.name.endswith("_pad"):
+                        raise ValidationError(
+                            f"{module.ref.repo_relative_path}: flags {type_ir.name} "
+                            f"flag '{flag.name}' uses reserved '_pad' suffix"
+                        )
+                    if flag.name in _FLAGS_RESERVED_API_NAMES:
+                        raise ValidationError(
+                            f"{module.ref.repo_relative_path}: flags {type_ir.name} "
+                            f"flag '{flag.name}' collides with generated class API name"
+                        )
+                continue
             raise ValidationError(f"{module.ref.repo_relative_path}: unsupported type node {type(type_ir).__name__}")
         _validate_struct_cycles(module=module, type_index=type_index)
         _validate_pad_suffix_reservation(module=module)
         _validate_signed_width_constraint(module=module, type_index=type_index)
         _validate_generated_identifier_collision(module=module)
+        _validate_alignment_bits(module=module)
 
 
 def _validate_const_storage(*, value: int, signed: bool, width: int, module_path: str, const_name: str) -> None:
@@ -189,4 +221,16 @@ def _validate_generated_identifier_collision(*, module: ModuleIR) -> None:
             raise ValidationError(
                 f"{module.ref.repo_relative_path}: constant '{const_name}' "
                 f"collides with generated identifier for type '{reserved[const_name]}'"
+            )
+
+
+def _validate_alignment_bits(*, module: ModuleIR) -> None:
+    """Validate that struct alignment_bits is a multiple of 8."""
+    for type_ir in module.types:
+        if not isinstance(type_ir, StructIR):
+            continue
+        if type_ir.alignment_bits > 0 and type_ir.alignment_bits % 8 != 0:
+            raise ValidationError(
+                f"{module.ref.repo_relative_path}: struct {type_ir.name} "
+                f"alignment_bits {type_ir.alignment_bits} is not a multiple of 8"
             )
