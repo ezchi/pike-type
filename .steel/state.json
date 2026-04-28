@@ -1,5 +1,5 @@
 {
-  "currentStage": "clarification",
+  "currentStage": "planning",
   "specId": "008-enum-dsl-type",
   "branch": "feature/008-enum-dsl-type",
   "description": "Implement Enum() DSL type with SV, Python, and C++ backend support",
@@ -9,7 +9,7 @@
       "status": "complete"
     },
     "clarification": {
-      "status": "in_progress"
+      "status": "complete"
     },
     "planning": {
       "status": "pending"
@@ -28,6 +28,7 @@
     }
   },
   "skillsUsed": {
-    "specification": []
+    "specification": [],
+    "clarification": []
   }
 }
