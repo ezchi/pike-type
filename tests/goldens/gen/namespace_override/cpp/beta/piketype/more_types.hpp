@@ -2,15 +2,15 @@
 // Source: beta/piketype/more.py
 // Do not edit by hand.
 
-#ifndef BETA_PIKETYPE_MORE_TYPES_HPP
-#define BETA_PIKETYPE_MORE_TYPES_HPP
+#ifndef FOO_BAR_MORE_TYPES_HPP
+#define FOO_BAR_MORE_TYPES_HPP
 
 #include <cstdint>
 
-namespace beta::more {
+namespace foo::bar::more {
 
 constexpr std::int32_t BAZ = 7;
 
-}  // namespace beta::more
+}  // namespace foo::bar::more
 
-#endif  // BETA_PIKETYPE_MORE_TYPES_HPP
+#endif  // FOO_BAR_MORE_TYPES_HPP
