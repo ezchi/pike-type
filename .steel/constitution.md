@@ -56,10 +56,10 @@ No external runtime dependencies beyond Jinja2. Dev tooling is limited to basedp
 ### Project Layout
 
 ```
-src/typist/          -- implementation source
+src/piketype/          -- implementation source
   cli.py             -- thin CLI entry point
   commands/          -- command orchestration (gen, build, test, lint)
-  discovery/         -- repo scanning for typist/ modules
+  discovery/         -- repo scanning for piketype/ modules
   loader/            -- Python module execution
   dsl/               -- mutable runtime DSL object model
   ir/                -- frozen immutable IR nodes and builders
@@ -85,9 +85,9 @@ docs/                -- RFC, product spec, architecture docs
 
 - **Golden-file integration tests** are the primary correctness mechanism. Each test case:
   1. Copies a fixture repo from `tests/fixtures/<case>/project/` into a temp directory.
-  2. Runs `typist gen` via subprocess.
+  2. Runs `piketype gen` via subprocess.
   3. Compares the full `gen/` output tree byte-for-byte against `tests/goldens/gen/<case>/`.
-- **Idempotency tests** verify that running `typist gen` twice on the same input produces identical output and does not rescan generated files as DSL modules.
+- **Idempotency tests** verify that running `piketype gen` twice on the same input produces identical output and does not rescan generated files as DSL modules.
 - **Negative tests** verify that invalid inputs produce specific error messages and non-zero exit codes.
 - Tests use `unittest.TestCase`, not pytest fixtures or parametrize.
 - Golden files are committed to the repo and updated explicitly when output format changes.
