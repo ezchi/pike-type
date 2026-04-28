@@ -304,7 +304,7 @@ def _render_py_struct(*, type_ir: StructIR, type_index: dict[str, TypeDefIR]) ->
     width = _resolved_type_width(type_ir=type_ir, type_index=type_index)
     struct_byte_count = sum(
         _field_byte_count(field_ir=f, type_index=type_index) for f in type_ir.fields
-    )
+    ) + type_ir.alignment_bits // 8
     lines = [
         "@dataclass",
         f"class {class_name}:",
@@ -392,6 +392,9 @@ def _render_py_struct_to_bytes(*, type_ir: StructIR, type_index: dict[str, TypeD
                     lines.append(f"        result.extend(self.{field_ir.name})")
             case _:
                 raise ValueError(f"unsupported Python struct field type {type(field_ir.type_ir).__name__}")
+    if type_ir.alignment_bits > 0:
+        align_bytes = type_ir.alignment_bits // 8
+        lines.append(f"        result.extend(b'\\x00' * {align_bytes})")
     lines.append("        return bytes(result)")
     return lines
 
@@ -563,10 +566,11 @@ def _resolved_field_width(*, field_type: FieldTypeIR, type_index: dict[str, Type
 
 
 def _type_byte_count(*, type_ir: TypeDefIR, type_index: dict[str, TypeDefIR]) -> int:
-    """Resolve the byte-aligned byte count of one type."""
+    """Resolve the byte-aligned byte count of one type (including alignment)."""
     if isinstance(type_ir, ScalarAliasIR):
         return byte_count(type_ir.resolved_width)
-    return sum(_field_byte_count(field_ir=f, type_index=type_index) for f in type_ir.fields)
+    field_bytes = sum(_field_byte_count(field_ir=f, type_index=type_index) for f in type_ir.fields)
+    return field_bytes + type_ir.alignment_bits // 8
 
 
 def _field_byte_count(*, field_ir: StructFieldIR, type_index: dict[str, TypeDefIR]) -> int:
