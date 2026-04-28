@@ -1,0 +1,129 @@
+{
+  "modules": [
+    {
+      "basename": "defs",
+      "constants": [],
+      "dependencies": [],
+      "generated_outputs": {
+        "cpp": "gen/cpp/foo/piketype/defs_types.hpp",
+        "py": "gen/py/foo/piketype/defs_types.py",
+        "sv": "gen/sv/foo/piketype/defs_pkg.sv",
+        "sv_test": "gen/sv/foo/piketype/defs_test_pkg.sv"
+      },
+      "namespace_parts": [
+        "foo",
+        "piketype",
+        "defs"
+      ],
+      "python_module_name": "foo.piketype.defs",
+      "repo_relative_path": "foo/piketype/defs.py",
+      "source": {
+        "column": null,
+        "line": 1,
+        "path": "foo/piketype/defs.py"
+      },
+      "types": [
+        {
+          "kind": "enum",
+          "name": "color_t",
+          "resolved_width": 4,
+          "source": {
+            "column": null,
+            "line": 5,
+            "path": "foo/piketype/defs.py"
+          },
+          "value_count": 3,
+          "values": [
+            {
+              "name": "RED",
+              "resolved_value": 0
+            },
+            {
+              "name": "GREEN",
+              "resolved_value": 5
+            },
+            {
+              "name": "BLUE",
+              "resolved_value": 10
+            }
+          ]
+        },
+        {
+          "kind": "enum",
+          "name": "cmd_t",
+          "resolved_width": 8,
+          "source": {
+            "column": null,
+            "line": 13,
+            "path": "foo/piketype/defs.py"
+          },
+          "value_count": 4,
+          "values": [
+            {
+              "name": "NOP",
+              "resolved_value": 0
+            },
+            {
+              "name": "READ",
+              "resolved_value": 5
+            },
+            {
+              "name": "WRITE",
+              "resolved_value": 6
+            },
+            {
+              "name": "RESET",
+              "resolved_value": 7
+            }
+          ]
+        },
+        {
+          "kind": "enum",
+          "name": "flag_t",
+          "resolved_width": 1,
+          "source": {
+            "column": null,
+            "line": 22,
+            "path": "foo/piketype/defs.py"
+          },
+          "value_count": 1,
+          "values": [
+            {
+              "name": "SET",
+              "resolved_value": 0
+            }
+          ]
+        },
+        {
+          "kind": "enum",
+          "name": "big_t",
+          "resolved_width": 64,
+          "source": {
+            "column": null,
+            "line": 28,
+            "path": "foo/piketype/defs.py"
+          },
+          "value_count": 2,
+          "values": [
+            {
+              "name": "SMALL",
+              "resolved_value": 0
+            },
+            {
+              "name": "LARGE",
+              "resolved_value": 9223372036854775808
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "repo_root": ".",
+  "runtime_outputs": {
+    "cpp_header": "gen/cpp/runtime/piketype_runtime.hpp",
+    "cpp_source": "gen/cpp/runtime/piketype_runtime.cpp",
+    "py": "gen/py/runtime/piketype_runtime.py",
+    "sv": "gen/sv/runtime/piketype_runtime_pkg.sv"
+  },
+  "tool_version": "0.1.0"
+}
