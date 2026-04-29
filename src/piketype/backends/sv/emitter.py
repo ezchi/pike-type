@@ -8,6 +8,7 @@ from piketype.backends.common.headers import render_header
 from piketype.ir.nodes import (
     BinaryExprIR,
     ConstRefExprIR,
+    EnumIR,
     ExprIR,
     FieldTypeIR,
     FlagFieldIR,
@@ -111,6 +112,8 @@ def _render_sv_type_block(*, type_ir: TypeDefIR, type_index: dict[str, TypeDefIR
         lines.extend(f"  {line}" for line in _render_sv_struct(type_ir=type_ir))
     elif isinstance(type_ir, FlagsIR):
         lines.extend(f"  {line}" for line in _render_sv_flags(type_ir=type_ir))
+    elif isinstance(type_ir, EnumIR):
+        lines.extend(f"  {line}" for line in _render_sv_enum(type_ir=type_ir))
 
     lines.append("")
     lines.extend(f"  {line}" for line in _render_sv_pack_fn(type_ir=type_ir, type_index=type_index))
@@ -124,6 +127,8 @@ def _render_sv_width_value(*, type_ir: TypeDefIR, type_index: dict[str, TypeDefI
     """Render the width value for a localparam."""
     if isinstance(type_ir, ScalarAliasIR):
         return _render_sv_expr(expr=type_ir.width_expr)
+    if isinstance(type_ir, EnumIR):
+        return str(type_ir.resolved_width)
     return str(_data_width(type_ir=type_ir, type_index=type_index))
 
 
@@ -183,6 +188,16 @@ def _render_sv_flags(*, type_ir: FlagsIR) -> list[str]:
     return lines
 
 
+def _render_sv_enum(*, type_ir: EnumIR) -> list[str]:
+    """Render one enum typedef."""
+    base = _type_base_name(type_ir.name)
+    upper_base = base.upper()
+    members = ", ".join(f"{v.name} = {v.resolved_value}" for v in type_ir.values)
+    if type_ir.resolved_width == 1:
+        return [f"typedef enum logic {{{members}}} {type_ir.name};"]
+    return [f"typedef enum logic [LP_{upper_base}_WIDTH-1:0] {{{members}}} {type_ir.name};"]
+
+
 def _render_sv_pack_fn(*, type_ir: TypeDefIR, type_index: dict[str, TypeDefIR]) -> list[str]:
     """Render a pack_<base> function."""
     base = _type_base_name(type_ir.name)
@@ -201,6 +216,13 @@ def _render_sv_pack_fn(*, type_ir: TypeDefIR, type_index: dict[str, TypeDefIR]) 
         return [
             f"function automatic logic [LP_{upper_base}_WIDTH-1:0] pack_{base}({type_ir.name} a);",
             f"  return {{{concat}}};",
+            "endfunction",
+        ]
+
+    if isinstance(type_ir, EnumIR):
+        return [
+            f"function automatic logic [LP_{upper_base}_WIDTH-1:0] pack_{base}({type_ir.name} a);",
+            f"  return logic'(a);",
             "endfunction",
         ]
 
@@ -243,6 +265,13 @@ def _render_sv_unpack_fn(*, type_ir: TypeDefIR, type_index: dict[str, TypeDefIR]
         lines.append("  return result;")
         lines.append("endfunction")
         return lines
+
+    if isinstance(type_ir, EnumIR):
+        return [
+            f"function automatic {type_ir.name} unpack_{base}(logic [LP_{upper_base}_WIDTH-1:0] a);",
+            f"  return {type_ir.name}'(a);",
+            "endfunction",
+        ]
 
     lines = [
         f"function automatic {type_ir.name} unpack_{base}(logic [LP_{upper_base}_WIDTH-1:0] a);",
@@ -295,6 +324,8 @@ def render_module_test_sv(module: ModuleIR) -> str:
             body_lines.extend(f"  {line}" for line in _render_sv_struct_helper_class(type_ir=type_ir, type_index=type_index))
         elif isinstance(type_ir, FlagsIR):
             body_lines.extend(f"  {line}" for line in _render_sv_flags_helper_class(type_ir=type_ir))
+        elif isinstance(type_ir, EnumIR):
+            body_lines.extend(f"  {line}" for line in _render_sv_enum_helper_class(type_ir=type_ir))
     body_lines.append("endpackage")
     return f"{header}\n" + "\n".join(body_lines) + "\n"
 
@@ -640,11 +671,93 @@ def _render_sv_flags_helper_class(*, type_ir: FlagsIR) -> list[str]:
     return lines
 
 
+def _render_sv_enum_helper_class(*, type_ir: EnumIR) -> list[str]:
+    """Render a verification helper class for an enum type."""
+    class_name = _helper_class_name(type_ir.name)
+    base = _type_base_name(type_ir.name)
+    upper_base = base.upper()
+    bc = byte_count(type_ir.resolved_width)
+    pad_bits = bc * 8 - type_ir.resolved_width
+    first_value = type_ir.values[0].name if type_ir.values else "0"
+
+    lines = [
+        f"class {class_name};",
+        f"  localparam int WIDTH = LP_{upper_base}_WIDTH;",
+        f"  localparam int BYTE_COUNT = LP_{upper_base}_BYTE_COUNT;",
+        f"  rand {type_ir.name} value;",
+        "",
+        f"  function new({type_ir.name} value_in = {first_value});",
+        "    value = value_in;",
+        "  endfunction",
+        "",
+        f"  function automatic {type_ir.name} to_slv();",
+        "    return value;",
+        "  endfunction",
+        "",
+        f"  function void from_slv({type_ir.name} value_in);",
+        "    value = value_in;",
+        "  endfunction",
+        "",
+    ]
+
+    # to_bytes: big-endian serialization
+    lines.extend([
+        "  task automatic to_bytes(output byte unsigned bytes[]);",
+        f"    logic [{bc * 8 - 1}:0] padded;",
+        "    bytes = new[BYTE_COUNT];",
+        "    padded = '0;",
+        f"    padded[WIDTH-1:0] = value;",
+        "    for (int idx = 0; idx < BYTE_COUNT; idx++) begin",
+        "      bytes[idx] = padded[(BYTE_COUNT - 1 - idx)*8 +: 8];",
+        "    end",
+        "  endtask",
+        "",
+    ])
+
+    # from_bytes: big-endian deserialization with padding mask
+    lines.extend([
+        "  function void from_bytes(input byte unsigned bytes[]);",
+        f"    logic [{bc * 8 - 1}:0] padded;",
+        "    if (bytes.size() != BYTE_COUNT) begin",
+        f'      $fatal(1, "{class_name}.from_bytes size mismatch: expected %0d got %0d", BYTE_COUNT, bytes.size());',
+        "    end",
+        "    padded = '0;",
+        "    for (int idx = 0; idx < BYTE_COUNT; idx++) begin",
+        "      padded[(BYTE_COUNT - 1 - idx)*8 +: 8] = bytes[idx];",
+        "    end",
+        f"    value = {type_ir.name}'(padded[WIDTH-1:0]);",
+        "  endfunction",
+        "",
+    ])
+
+    lines.extend([
+        f"  function void copy(input {class_name} rhs);",
+        "    value = rhs.value;",
+        "  endfunction",
+        "",
+        f"  function automatic {class_name} clone();",
+        f"    {class_name} cloned = new();",
+        "    cloned.value = value;",
+        "    return cloned;",
+        "  endfunction",
+        "",
+        f"  function automatic bit compare(input {class_name} rhs);",
+        "    return value === rhs.value;",
+        "  endfunction",
+        "",
+        "  function automatic string sprint();",
+        f'    return $sformatf("{class_name}(value=0x%0h)", value);',
+        "  endfunction",
+        f"endclass : {class_name}",
+    ])
+    return lines
+
+
 def _render_sv_helper_field_decl(*, field: StructFieldIR, type_index: dict[str, TypeDefIR]) -> str:
     """Render one struct helper field declaration."""
     if isinstance(field.type_ir, TypeRefIR):
         target = type_index[field.type_ir.name]
-        if isinstance(target, (StructIR, FlagsIR)):
+        if isinstance(target, (StructIR, FlagsIR, EnumIR)):
             return f"{_helper_class_name(target.name)} {field.name};"
         rand_kw = "rand " if field.rand else ""
         return f"{rand_kw}{target.name} {field.name};"
@@ -781,6 +894,8 @@ def _data_width(*, type_ir: TypeDefIR, type_index: dict[str, TypeDefIR]) -> int:
         return type_ir.resolved_width
     if isinstance(type_ir, FlagsIR):
         return len(type_ir.fields)
+    if isinstance(type_ir, EnumIR):
+        return type_ir.resolved_width
     return sum(_field_data_width(field=f, type_index=type_index) for f in type_ir.fields)
 
 
@@ -798,6 +913,8 @@ def _type_byte_count(*, type_ir: TypeDefIR, type_index: dict[str, TypeDefIR]) ->
         return byte_count(type_ir.resolved_width)
     if isinstance(type_ir, FlagsIR):
         return byte_count(len(type_ir.fields))
+    if isinstance(type_ir, EnumIR):
+        return byte_count(type_ir.resolved_width)
     field_bytes = sum(_field_byte_count(field=f, type_index=type_index) for f in type_ir.fields)
     return field_bytes + type_ir.alignment_bits // 8
 
@@ -822,7 +939,7 @@ def _is_field_signed(*, field: StructFieldIR, type_index: dict[str, TypeDefIR]) 
 
 def _is_sv_composite_ref(*, field_type: FieldTypeIR, type_index: dict[str, TypeDefIR]) -> bool:
     """Return whether one SV field references a named struct or flags type."""
-    return isinstance(field_type, TypeRefIR) and isinstance(type_index[field_type.name], (StructIR, FlagsIR))
+    return isinstance(field_type, TypeRefIR) and isinstance(type_index[field_type.name], (StructIR, FlagsIR, EnumIR))
 
 
 def _helper_class_name(type_name: str) -> str:

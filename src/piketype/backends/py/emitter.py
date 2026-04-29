@@ -8,6 +8,7 @@ from piketype.backends.common.headers import render_header
 from piketype.ir.nodes import (
     BinaryExprIR,
     ConstRefExprIR,
+    EnumIR,
     ExprIR,
     FieldTypeIR,
     FlagsIR,
@@ -50,12 +51,16 @@ def render_module_py(module: ModuleIR) -> str:
     type_index = {type_ir.name: type_ir for type_ir in module.types}
     has_types = bool(module.types)
     has_structs = any(isinstance(type_ir, StructIR) for type_ir in module.types)
+    has_enums = any(isinstance(type_ir, EnumIR) for type_ir in module.types)
     body_lines: list[str] = []
     if has_types:
         body_lines.append("from __future__ import annotations")
         if has_structs:
             body_lines.append("")
             body_lines.append("from dataclasses import dataclass, field")
+        if has_enums:
+            body_lines.append("")
+            body_lines.append("from enum import IntEnum")
         body_lines.append("")
     body_lines.extend(f"{const.name} = {_render_py_expr(expr=const.expr)}" for const in module.constants)
     if module.constants and module.types:
@@ -69,6 +74,8 @@ def render_module_py(module: ModuleIR) -> str:
             body_lines.extend(_render_py_struct(type_ir=type_ir, type_index=type_index))
         elif isinstance(type_ir, FlagsIR):
             body_lines.extend(_render_py_flags(type_ir=type_ir))
+        elif isinstance(type_ir, EnumIR):
+            body_lines.extend(_render_py_enum(type_ir=type_ir))
     return f"{header}\n" + "\n".join(body_lines) + "\n"
 
 
@@ -523,6 +530,14 @@ def _render_py_struct_field_coercer(*, owner_name: str, field_ir: StructFieldIR,
                         f'        raise TypeError("{owner_name}.{field_ir.name} must be {class_name}")',
                     ]
                 )
+            elif isinstance(target, EnumIR):
+                lines.extend(
+                    [
+                        f"        if isinstance(value, {class_name}):",
+                        "            return value",
+                        f'        raise TypeError("{owner_name}.{field_ir.name} must be {class_name}")',
+                    ]
+                )
             else:
                 lines.extend(
                     [
@@ -568,6 +583,8 @@ def _resolved_type_width(*, type_ir: TypeDefIR, type_index: dict[str, TypeDefIR]
         return type_ir.resolved_width
     if isinstance(type_ir, FlagsIR):
         return len(type_ir.fields)
+    if isinstance(type_ir, EnumIR):
+        return type_ir.resolved_width
     return sum(_resolved_field_width(field_type=field.type_ir, type_index=type_index) for field in type_ir.fields)
 
 
@@ -584,6 +601,8 @@ def _type_byte_count(*, type_ir: TypeDefIR, type_index: dict[str, TypeDefIR]) ->
         return byte_count(type_ir.resolved_width)
     if isinstance(type_ir, FlagsIR):
         return (len(type_ir.fields) + type_ir.alignment_bits) // 8
+    if isinstance(type_ir, EnumIR):
+        return byte_count(type_ir.resolved_width)
     field_bytes = sum(_field_byte_count(field_ir=f, type_index=type_index) for f in type_ir.fields)
     return field_bytes + type_ir.alignment_bits // 8
 
@@ -605,6 +624,79 @@ def _type_class_name(type_name: str) -> str:
     if type_name.endswith("_t"):
         return f"{type_name[:-2]}_ct"
     return f"{type_name}_ct"
+
+
+# ---------------------------------------------------------------------------
+# Enum IntEnum + wrapper class
+# ---------------------------------------------------------------------------
+
+
+def _render_py_enum(*, type_ir: EnumIR) -> list[str]:
+    """Render a Python IntEnum subclass and wrapper class for an enum type."""
+    base = type_ir.name[:-2] if type_ir.name.endswith("_t") else type_ir.name
+    enum_class_name = f"{base}_enum_t"
+    class_name = _type_class_name(type_ir.name)
+    bc = byte_count(type_ir.resolved_width)
+    width = type_ir.resolved_width
+    first_member = type_ir.values[0].name if type_ir.values else "0"
+    mask = (1 << width) - 1
+
+    lines: list[str] = []
+
+    # IntEnum subclass
+    lines.append(f"class {enum_class_name}(IntEnum):")
+    for v in type_ir.values:
+        lines.append(f"    {v.name} = {v.resolved_value}")
+    lines.append("")
+
+    # Wrapper class
+    lines.extend([
+        f"class {class_name}:",
+        f"    WIDTH = {width}",
+        f"    BYTE_COUNT = {bc}",
+        "",
+        f"    def __init__(self, value: {enum_class_name} = {enum_class_name}.{first_member}) -> None:",
+        f"        if not isinstance(value, {enum_class_name}):",
+        f'            raise TypeError("{class_name} value must be {enum_class_name}")',
+        "        self.value = value",
+        "",
+        "    def to_bytes(self) -> bytes:",
+        f'        return int(self.value).to_bytes({bc}, "big", signed=False)',
+        "",
+        "    @classmethod",
+        f'    def from_bytes(cls, data: bytes | bytearray) -> "{class_name}":',
+        "        if not isinstance(data, (bytes, bytearray)):",
+        f'            raise TypeError("{class_name}.from_bytes expects bytes or bytearray")',
+        "        raw = bytes(data)",
+        f"        if len(raw) != {bc}:",
+        f'            raise ValueError("{class_name}.from_bytes size mismatch")',
+        f'        raw_int = int.from_bytes(raw, "big", signed=False) & {mask}',
+        "        try:",
+        f"            enum_val = {enum_class_name}(raw_int)",
+        "        except ValueError:",
+        f'            raise ValueError("{class_name}.from_bytes unknown enum value")',
+        "        return cls(enum_val)",
+        "",
+        f'    def clone(self) -> "{class_name}":',
+        "        return type(self)(self.value)",
+        "",
+        "    def __int__(self) -> int:",
+        "        return int(self.value)",
+        "",
+        "    def __index__(self) -> int:",
+        "        return int(self.value)",
+        "",
+        "    def __eq__(self, other: object) -> bool:",
+        "        if isinstance(other, type(self)):",
+        "            return self.value == other.value",
+        "        if isinstance(other, int):",
+        "            return int(self.value) == other",
+        "        return NotImplemented",
+        "",
+        "    def __repr__(self) -> str:",
+        f'        return f"{class_name}(value={{self.value!r}})"',
+    ])
+    return lines
 
 
 # ---------------------------------------------------------------------------

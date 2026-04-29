@@ -147,7 +147,28 @@ class FlagsIR:
     alignment_bits: int = 0
 
 
-type TypeDefIR = ScalarAliasIR | StructIR | FlagsIR
+@dataclass(frozen=True, slots=True)
+class EnumValueIR:
+    """Frozen enum value definition."""
+
+    name: str
+    source: SourceSpanIR
+    expr: ExprIR
+    resolved_value: int
+
+
+@dataclass(frozen=True, slots=True)
+class EnumIR:
+    """Frozen enum type definition."""
+
+    name: str
+    source: SourceSpanIR
+    width_expr: ExprIR
+    resolved_width: int
+    values: tuple[EnumValueIR, ...]
+
+
+type TypeDefIR = ScalarAliasIR | StructIR | FlagsIR | EnumIR
 
 
 @dataclass(frozen=True, slots=True)

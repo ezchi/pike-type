@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from piketype.ir.nodes import FlagsIR, RepoIR, ScalarAliasIR, StructIR
+from piketype.ir.nodes import EnumIR, FlagsIR, RepoIR, ScalarAliasIR, StructIR
 from piketype.paths import (
     cpp_header_output_path,
     cpp_runtime_header_output_path,
@@ -19,7 +19,7 @@ from piketype.paths import (
 )
 
 
-def _serialize_type_ir(*, type_ir: ScalarAliasIR | StructIR | FlagsIR, repo_root: Path) -> dict[str, object]:
+def _serialize_type_ir(*, type_ir: ScalarAliasIR | StructIR | FlagsIR | EnumIR, repo_root: Path) -> dict[str, object]:
     """Serialize one type IR node to a manifest dictionary."""
     source = {
         "path": str(Path(type_ir.source.path).resolve().relative_to(repo_root.resolve())),
@@ -40,6 +40,18 @@ def _serialize_type_ir(*, type_ir: ScalarAliasIR | StructIR | FlagsIR, repo_root
             "name": type_ir.name,
             "kind": "struct",
             "field_count": len(type_ir.fields),
+            "source": source,
+        }
+    if isinstance(type_ir, EnumIR):
+        return {
+            "name": type_ir.name,
+            "kind": "enum",
+            "resolved_width": type_ir.resolved_width,
+            "value_count": len(type_ir.values),
+            "values": [
+                {"name": v.name, "resolved_value": v.resolved_value}
+                for v in type_ir.values
+            ],
             "source": source,
         }
     return {

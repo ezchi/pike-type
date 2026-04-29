@@ -9,6 +9,7 @@ from piketype.errors import ValidationError
 from piketype.ir.nodes import (
     BinaryExprIR,
     ConstRefExprIR,
+    EnumIR,
     ExprIR,
     FieldTypeIR,
     FlagFieldIR,
@@ -83,6 +84,8 @@ def render_module_hpp(module: ModuleIR, *, namespace: str | None = None) -> str:
             body_lines.extend(_render_cpp_struct(type_ir=type_ir, type_index=type_index))
         elif isinstance(type_ir, FlagsIR):
             body_lines.extend(_render_cpp_flags(type_ir=type_ir))
+        elif isinstance(type_ir, EnumIR):
+            body_lines.extend(_render_cpp_enum(type_ir=type_ir))
     if ns:
         body_lines.append("")
         body_lines.append(f"}}  // namespace {ns}")
@@ -337,6 +340,87 @@ def _render_cpp_scalar_alias(*, type_ir: ScalarAliasIR) -> list[str]:
 
 
 # ---------------------------------------------------------------------------
+# Enum class + wrapper
+# ---------------------------------------------------------------------------
+
+
+def _render_cpp_enum(*, type_ir: EnumIR) -> list[str]:
+    """Render a C++ enum class and wrapper class."""
+    base = type_ir.name[:-2] if type_ir.name.endswith("_t") else type_ir.name
+    enum_class_name = f"{base}_enum_t"
+    class_name = _type_class_name(type_ir.name)
+    width = type_ir.resolved_width
+    bc = byte_count(width)
+    uint_type = _cpp_scalar_value_type(width=width, signed=False)
+    first_member = type_ir.values[0].name if type_ir.values else "0"
+    mask_lit = _cpp_unsigned_literal((1 << width) - 1 if width < 64 else 2**64 - 1)
+
+    lines: list[str] = []
+
+    # enum class
+    members = ", ".join(f"{v.name} = {_cpp_unsigned_literal(v.resolved_value)}" for v in type_ir.values)
+    lines.append(f"enum class {enum_class_name} : {uint_type} {{{members}}};")
+    lines.append("")
+
+    # wrapper class
+    lines.extend([
+        f"class {class_name} {{",
+        " public:",
+        f"  static constexpr std::size_t WIDTH = {width};",
+        f"  static constexpr std::size_t BYTE_COUNT = {bc};",
+        f"  using enum_type = {enum_class_name};",
+        f"  enum_type value;",
+        "",
+        f"  {class_name}() : value({enum_class_name}::{first_member}) {{}}",
+        f"  explicit {class_name}(enum_type value_in) : value(validate_value(value_in)) {{}}",
+        "",
+        "  std::vector<std::uint8_t> to_bytes() const {",
+        f"    std::vector<std::uint8_t> bytes({bc}, 0);",
+        f"    std::uint64_t bits = static_cast<std::uint64_t>(value);",
+        f"    for (std::size_t idx = 0; idx < {bc}; ++idx) {{",
+        f"      bytes[{bc} - 1 - idx] = static_cast<std::uint8_t>((bits >> (8U * idx)) & 0xFFU);",
+        "    }",
+        "    return bytes;",
+        "  }",
+        "",
+        "  void from_bytes(const std::vector<std::uint8_t>& bytes) {",
+        f"    if (bytes.size() != {bc}) {{",
+        '      throw std::invalid_argument("byte width mismatch");',
+        "    }",
+        "    std::uint64_t bits = 0;",
+        f"    for (std::size_t idx = 0; idx < {bc}; ++idx) {{",
+        "      bits = (bits << 8U) | bytes[idx];",
+        "    }",
+        f"    value = validate_value(static_cast<enum_type>(bits & {mask_lit}));",
+        "  }",
+        "",
+        f"  {class_name} clone() const {{",
+        f"    return {class_name}(value);",
+        "  }",
+        "",
+        "  operator enum_type() const {",
+        "    return value;",
+        "  }",
+        "",
+        f"  bool operator==(const {class_name}& other) const = default;",
+        "",
+        " private:",
+        "  static enum_type validate_value(enum_type v) {",
+        "    switch (v) {",
+    ])
+    for v in type_ir.values:
+        lines.append(f"      case {enum_class_name}::{v.name}: return v;")
+    lines.extend([
+        "      default:",
+        '        throw std::invalid_argument("unknown enum value");',
+        "    }",
+        "  }",
+        "};",
+    ])
+    return lines
+
+
+# ---------------------------------------------------------------------------
 # Flags wrapper class
 # ---------------------------------------------------------------------------
 
@@ -513,7 +597,9 @@ def _render_cpp_struct(*, type_ir: StructIR, type_index: dict[str, TypeDefIR]) -
     for field_ir in type_ir.fields:
         if _is_struct_ref(field_type=field_ir.type_ir, type_index=type_index) or _is_scalar_ref(
             field_type=field_ir.type_ir, type_index=type_index
-        ) or _is_flags_ref(field_type=field_ir.type_ir, type_index=type_index):
+        ) or _is_flags_ref(field_type=field_ir.type_ir, type_index=type_index) or _is_enum_ref(
+            field_type=field_ir.type_ir, type_index=type_index
+        ):
             lines.append(f"    cloned.{field_ir.name} = {field_ir.name}.clone();")
         elif _is_wide_inline_scalar(field_type=field_ir.type_ir):
             lines.append(f"    cloned.{field_ir.name} = {field_ir.name};")
@@ -614,7 +700,7 @@ def _render_cpp_struct_pack_step(*, field_ir: StructFieldIR, type_index: dict[st
         )
     elif isinstance(field_ir.type_ir, TypeRefIR):
         target = type_index[field_ir.type_ir.name]
-        if isinstance(target, (StructIR, ScalarAliasIR, FlagsIR)):
+        if isinstance(target, (StructIR, ScalarAliasIR, FlagsIR, EnumIR)):
             lines.extend(
                 [
                     "    {",
@@ -658,7 +744,7 @@ def _render_cpp_struct_unpack_step(
         )
     elif isinstance(field_ir.type_ir, TypeRefIR):
         target = type_index[field_ir.type_ir.name]
-        if isinstance(target, (StructIR, ScalarAliasIR, FlagsIR)):
+        if isinstance(target, (StructIR, ScalarAliasIR, FlagsIR, EnumIR)):
             lines.extend(
                 [
                     "    {",
@@ -888,6 +974,8 @@ def _resolved_type_width(*, type_ir: TypeDefIR, type_index: dict[str, TypeDefIR]
         return type_ir.resolved_width
     if isinstance(type_ir, FlagsIR):
         return len(type_ir.fields)
+    if isinstance(type_ir, EnumIR):
+        return type_ir.resolved_width
     return sum(_resolved_field_width(field_type=field.type_ir, type_index=type_index) for field in type_ir.fields)
 
 
@@ -904,6 +992,8 @@ def _type_byte_count(*, type_ir: TypeDefIR, type_index: dict[str, TypeDefIR]) ->
         return byte_count(type_ir.resolved_width)
     if isinstance(type_ir, FlagsIR):
         return (len(type_ir.fields) + type_ir.alignment_bits) // 8
+    if isinstance(type_ir, EnumIR):
+        return byte_count(type_ir.resolved_width)
     field_bytes = sum(_field_byte_count(field=field, type_index=type_index) for field in type_ir.fields)
     return field_bytes + type_ir.alignment_bits // 8
 
@@ -958,6 +1048,11 @@ def _is_scalar_ref(*, field_type: FieldTypeIR, type_index: dict[str, TypeDefIR])
 def _is_flags_ref(*, field_type: FieldTypeIR, type_index: dict[str, TypeDefIR]) -> bool:
     """Return whether one field references a named flags type."""
     return isinstance(field_type, TypeRefIR) and isinstance(type_index[field_type.name], FlagsIR)
+
+
+def _is_enum_ref(*, field_type: FieldTypeIR, type_index: dict[str, TypeDefIR]) -> bool:
+    """Return whether one field references a named enum type."""
+    return isinstance(field_type, TypeRefIR) and isinstance(type_index[field_type.name], EnumIR)
 
 
 def _is_wide_inline_scalar(*, field_type: FieldTypeIR) -> bool:
