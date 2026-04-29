@@ -1,5 +1,5 @@
 {
-  "currentStage": "task_breakdown",
+  "currentStage": "implementation",
   "specId": "010-jinja-template-migration",
   "branch": "feature/010-jinja-template-migration",
   "description": "Migrate code emitters to Jinja2 templates with backend-built view models",
@@ -15,10 +15,10 @@
       "status": "complete"
     },
     "task_breakdown": {
-      "status": "in_progress"
+      "status": "complete"
     },
     "implementation": {
-      "status": "pending"
+      "status": "in_progress"
     },
     "validation": {
       "status": "pending"
