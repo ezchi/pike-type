@@ -77,10 +77,10 @@ def validate_repo(repo: RepoIR) -> None:
                                 f"{module.ref.repo_relative_path}: struct {type_ir.name} field {field.name} "
                                 f"references unknown type {field.type_ir.name}"
                             )
-                        if not isinstance(target, (ScalarAliasIR, StructIR, FlagsIR)):
+                        if not isinstance(target, (ScalarAliasIR, StructIR, FlagsIR, EnumIR)):
                             raise ValidationError(
                                 f"{module.ref.repo_relative_path}: struct {type_ir.name} field {field.name} "
-                                "must reference a scalar alias, struct, or flags in this milestone"
+                                "must reference a scalar alias, struct, flags, or enum in this milestone"
                             )
                         continue
                 continue

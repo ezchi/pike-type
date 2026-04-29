@@ -6,6 +6,7 @@ from dataclasses import dataclass
 import re
 
 from piketype.dsl.base import DslNode
+from piketype.dsl.enum import EnumType
 from piketype.dsl.flags import FlagsType
 from piketype.dsl.scalar import ScalarType
 from piketype.dsl.source_info import SourceInfo, capture_source_info
@@ -20,7 +21,7 @@ class StructMember:
     """One mutable-DSL struct member."""
 
     name: str
-    type: ScalarType | StructType | FlagsType
+    type: ScalarType | StructType | FlagsType | EnumType
     source: SourceInfo
     rand: bool
 
@@ -41,7 +42,7 @@ class StructType(DslNode):
     def add_member(
         self,
         name: str,
-        type: ScalarType | StructType | FlagsType,
+        type: ScalarType | StructType | FlagsType | EnumType,
         *,
         rand: bool = True,
         sw: object | None = None,
@@ -53,8 +54,8 @@ class StructType(DslNode):
             raise ValidationError("struct member sw= override is not supported in this milestone")
         if not isinstance(name, str) or not _SNAKE_CASE_RE.fullmatch(name):
             raise ValidationError(f"struct member name must be snake_case, got {name!r}")
-        if not isinstance(type, (ScalarType, StructType, FlagsType)):
-            raise ValidationError("struct member type must be a scalar, struct, or flags type in this milestone")
+        if not isinstance(type, (ScalarType, StructType, FlagsType, EnumType)):
+            raise ValidationError("struct member type must be a scalar, struct, flags, or enum type in this milestone")
         if not isinstance(rand, bool):
             raise ValidationError(f"struct member rand= must be bool, got {rand.__class__.__name__}")
         self.members.append(

@@ -298,6 +298,8 @@ def _serialized_width_from_dsl(struct_type: StructType) -> int:
             total += inner_natural + inner_align
         elif isinstance(member.type, FlagsType):
             total += byte_count(len(member.type.flags)) * 8
+        elif isinstance(member.type, EnumType):
+            total += byte_count(member.type.width) * 8
     return total
 
 
@@ -327,6 +329,8 @@ def _freeze_struct_field(
     elif isinstance(type_ir, TypeRefIR):
         if isinstance(member.type, ScalarType):
             pad = compute_padding_bits(member.type.width_value)
+        elif isinstance(member.type, EnumType):
+            pad = compute_padding_bits(member.type.width)
         else:
             pad = 0
     else:
@@ -342,7 +346,7 @@ def _freeze_struct_field(
 
 def _freeze_field_type(
     *,
-    type_obj: ScalarType | StructType | FlagsType,
+    type_obj: ScalarType | StructType | FlagsType | EnumType,
     definition_map: dict[int, tuple[ModuleRefIR, str]],
     type_definition_map: dict[int, tuple[ModuleRefIR, str]],
 ):
@@ -356,6 +360,8 @@ def _freeze_field_type(
         raise ValidationError("inline anonymous struct member types are not supported in this milestone")
     if isinstance(type_obj, FlagsType):
         raise ValidationError("inline anonymous flags member types are not supported in this milestone")
+    if isinstance(type_obj, EnumType):
+        raise ValidationError("inline anonymous enum member types are not supported in this milestone")
     return ScalarTypeSpecIR(
         source=source,
         state_kind=type_obj.state_kind,

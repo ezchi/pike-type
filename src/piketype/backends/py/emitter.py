@@ -530,6 +530,14 @@ def _render_py_struct_field_coercer(*, owner_name: str, field_ir: StructFieldIR,
                         f'        raise TypeError("{owner_name}.{field_ir.name} must be {class_name}")',
                     ]
                 )
+            elif isinstance(target, EnumIR):
+                lines.extend(
+                    [
+                        f"        if isinstance(value, {class_name}):",
+                        "            return value",
+                        f'        raise TypeError("{owner_name}.{field_ir.name} must be {class_name}")',
+                    ]
+                )
             else:
                 lines.extend(
                     [

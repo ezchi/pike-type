@@ -597,7 +597,9 @@ def _render_cpp_struct(*, type_ir: StructIR, type_index: dict[str, TypeDefIR]) -
     for field_ir in type_ir.fields:
         if _is_struct_ref(field_type=field_ir.type_ir, type_index=type_index) or _is_scalar_ref(
             field_type=field_ir.type_ir, type_index=type_index
-        ) or _is_flags_ref(field_type=field_ir.type_ir, type_index=type_index):
+        ) or _is_flags_ref(field_type=field_ir.type_ir, type_index=type_index) or _is_enum_ref(
+            field_type=field_ir.type_ir, type_index=type_index
+        ):
             lines.append(f"    cloned.{field_ir.name} = {field_ir.name}.clone();")
         elif _is_wide_inline_scalar(field_type=field_ir.type_ir):
             lines.append(f"    cloned.{field_ir.name} = {field_ir.name};")
@@ -698,7 +700,7 @@ def _render_cpp_struct_pack_step(*, field_ir: StructFieldIR, type_index: dict[st
         )
     elif isinstance(field_ir.type_ir, TypeRefIR):
         target = type_index[field_ir.type_ir.name]
-        if isinstance(target, (StructIR, ScalarAliasIR, FlagsIR)):
+        if isinstance(target, (StructIR, ScalarAliasIR, FlagsIR, EnumIR)):
             lines.extend(
                 [
                     "    {",
@@ -742,7 +744,7 @@ def _render_cpp_struct_unpack_step(
         )
     elif isinstance(field_ir.type_ir, TypeRefIR):
         target = type_index[field_ir.type_ir.name]
-        if isinstance(target, (StructIR, ScalarAliasIR, FlagsIR)):
+        if isinstance(target, (StructIR, ScalarAliasIR, FlagsIR, EnumIR)):
             lines.extend(
                 [
                     "    {",
@@ -1046,6 +1048,11 @@ def _is_scalar_ref(*, field_type: FieldTypeIR, type_index: dict[str, TypeDefIR])
 def _is_flags_ref(*, field_type: FieldTypeIR, type_index: dict[str, TypeDefIR]) -> bool:
     """Return whether one field references a named flags type."""
     return isinstance(field_type, TypeRefIR) and isinstance(type_index[field_type.name], FlagsIR)
+
+
+def _is_enum_ref(*, field_type: FieldTypeIR, type_index: dict[str, TypeDefIR]) -> bool:
+    """Return whether one field references a named enum type."""
+    return isinstance(field_type, TypeRefIR) and isinstance(type_index[field_type.name], EnumIR)
 
 
 def _is_wide_inline_scalar(*, field_type: FieldTypeIR) -> bool:

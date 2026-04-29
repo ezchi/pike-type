@@ -757,7 +757,7 @@ def _render_sv_helper_field_decl(*, field: StructFieldIR, type_index: dict[str, 
     """Render one struct helper field declaration."""
     if isinstance(field.type_ir, TypeRefIR):
         target = type_index[field.type_ir.name]
-        if isinstance(target, (StructIR, FlagsIR)):
+        if isinstance(target, (StructIR, FlagsIR, EnumIR)):
             return f"{_helper_class_name(target.name)} {field.name};"
         rand_kw = "rand " if field.rand else ""
         return f"{rand_kw}{target.name} {field.name};"
@@ -939,7 +939,7 @@ def _is_field_signed(*, field: StructFieldIR, type_index: dict[str, TypeDefIR]) 
 
 def _is_sv_composite_ref(*, field_type: FieldTypeIR, type_index: dict[str, TypeDefIR]) -> bool:
     """Return whether one SV field references a named struct or flags type."""
-    return isinstance(field_type, TypeRefIR) and isinstance(type_index[field_type.name], (StructIR, FlagsIR))
+    return isinstance(field_type, TypeRefIR) and isinstance(type_index[field_type.name], (StructIR, FlagsIR, EnumIR))
 
 
 def _helper_class_name(type_name: str) -> str:
