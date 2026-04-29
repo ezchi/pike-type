@@ -1,5 +1,5 @@
 {
-  "currentStage": "implementation",
+  "currentStage": "validation",
   "specId": "009-struct-enum-member",
   "branch": "feature/009-struct-enum-member",
   "description": "Update Struct() to accept Enum() member",
@@ -18,10 +18,10 @@
       "status": "complete"
     },
     "implementation": {
-      "status": "in_progress"
+      "status": "complete"
     },
     "validation": {
-      "status": "pending"
+      "status": "in_progress"
     },
     "retrospect": {
       "status": "pending"
@@ -31,6 +31,7 @@
     "specification": [],
     "clarification": [],
     "planning": [],
-    "task_breakdown": []
+    "task_breakdown": [],
+    "implementation": []
   }
 }
