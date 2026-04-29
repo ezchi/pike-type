@@ -216,9 +216,36 @@ After all three per-backend gates are met, **all** of the following SHALL hold:
 
 ---
 
+## Resolved Clarifications
+
+The following clarifications were resolved during the clarification stage and are now binding parts of the spec. They supersede the corresponding `[NEEDS CLARIFICATION]` entries from the specification stage.
+
+- **CL-1 (was Q-1) — Per-backend commit granularity.** Each backend's migration lands as **multiple contiguous commits** on `feature/010-jinja-template-migration`, one per FR-6 sub-step where the change is non-trivial (skeleton, top-level types, helpers, fragments). The first commit of a backend's migration block introduces `view.py` and the primary template; subsequent commits replace inline emitter sections with template-rendered output. Squash-on-merge is permitted by project policy but SHALL NOT be required by this spec. Reverting any backend's migration is a contiguous-range revert per NFR-6.
+
+- **CL-2 (was Q-2) — Custom Jinja filters.** Custom filters SHALL be added **on demand** as concrete migration needs arise. No pre-defined filter set is mandated. Each filter added SHALL: (a) be a pure function over primitives, (b) be deterministic, (c) be registered on the environment in `backends/common/render.py` or in the per-backend env factory if backend-specific, (d) be documented in `docs/templates.md` with a one-line description, name, signature, and example use site, and (e) carry a unit test in `tests/test_render.py` (or per-backend `tests/test_view_<lang>.py`). Filters that perform IR traversal, file I/O, or non-deterministic computation are forbidden.
+
+- **CL-3 (was Q-3) — Template hot-reload during development.** No special hot-reload escape hatch is added. Production and development both use `PackageLoader`. Developers using `pip install -e .` rely on standard Python import semantics; if template edits are not picked up by a long-running process, the developer restarts the process. The minor ergonomic cost is accepted because adding a `PIKETYPE_TEMPLATE_DEV=1` `FileSystemLoader` escape would create a second loading code path and a second potential source of behavior divergence.
+
+- **CL-4 (was Q-4) — Pre-migration `baseline_ms` capture.** The baseline is captured at the start of the implementation stage, **before** the first backend migration commit, by running `python tools/perf_bench.py` against `tests/fixtures/struct_padded` while `HEAD` still produces the pre-migration output. The result is committed as the file `specs/010-jinja-template-migration/perf.md` in a single dedicated commit with subject `steel(perf): capture pre-migration baseline_ms`. Subsequent commits in the implementation/validation stages append `current_ms` measurements to the same file under the corresponding backend section. The baseline SHALL NOT be reconstructed on demand from a tagged commit; the recorded value in `perf.md` is authoritative.
+
+## Clarification-driven additions
+
+The following requirements were added or tightened during clarification to make the resolutions above enforceable:
+
+- **FR-23.** `tools/perf_bench.py` SHALL exist before the first backend-migration commit. The file SHALL implement a CLI entry point `python tools/perf_bench.py [--fixture <name>] [--iterations <N>] [--output <path>]` with defaults `--fixture struct_padded`, `--iterations 5`, `--output -` (stdout). Output is a single line `<fixture>\t<median_ms>\t<min_ms>\t<max_ms>\n`, suitable for appending to `perf.md` as a markdown table row.
+- **FR-24.** `docs/templates.md` SHALL include a "Custom Filters" section. Each filter added during migration SHALL be appended to that section with: name, signature, deterministic guarantee, registered location (global env or backend-local), test file location.
+- **FR-25.** `specs/010-jinja-template-migration/perf.md` SHALL contain at minimum:
+  ```
+  | stage          | backend | median_ms | min_ms | max_ms |
+  |----------------|---------|-----------|--------|--------|
+  | baseline       | -       | <num>     | <num>  | <num>  |
+  | py-complete    | py      | <num>     | <num>  | <num>  |
+  | cpp-complete   | cpp     | <num>     | <num>  | <num>  |
+  | sv-complete    | sv      | <num>     | <num>  | <num>  |
+  | feature-final  | all     | <num>     | <num>  | <num>  |
+  ```
+  AC-F4 verifies that the `feature-final` row's `median_ms` is ≤ 1.25× the `baseline` row's `median_ms`.
+
 ## Open Questions
 
-- **[NEEDS CLARIFICATION Q-1]** Backend migration commit/PR granularity: should each backend's migration land as a single commit (squashed) on `feature/010-jinja-template-migration`, or as multiple commits per backend (one per FR-6 sub-step)? Both satisfy NFR-6 (contiguous reverts). **Recommendation:** multiple commits per backend, contiguous; squash on merge if project policy requires. Confirm.
-- **[NEEDS CLARIFICATION Q-2]** Custom Jinja filters: should the project define any custom filters up front (e.g., `to_hex`, `comment_block`, `c_string_escape`), or only add them as concrete need arises? **Recommendation:** add on demand during migration; document each in `docs/templates.md`; never add a filter that performs IR traversal or non-deterministic computation. Confirm.
-- **[NEEDS CLARIFICATION Q-3]** Template hot-reload during development: `PackageLoader` does not pick up template edits in editable installs (`pip install -e .`) without a re-import in some setups. Is this acceptable, or should developer ergonomics warrant a `PIKETYPE_TEMPLATE_DEV=1` environment-variable escape that switches to `FileSystemLoader` for local iteration? **Recommendation:** accept the small ergonomic cost; rely on `pip install -e .` and Python's standard import semantics. Confirm.
-- **[NEEDS CLARIFICATION Q-4]** Pre-migration baseline capture: NFR-1 requires capturing `baseline_ms` on `develop`. Should this baseline be captured and committed to `perf.md` at the start of the implementation stage (before the first backend migration), or computed on demand from a tagged commit (`steel/010/baseline`)? **Recommendation:** capture on the first implementation commit, store in `perf.md`, do not rely on tagged-commit replay. Confirm.
+(none — all questions resolved as CL-1..CL-4 above)
