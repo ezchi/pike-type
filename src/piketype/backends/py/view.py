@@ -133,6 +133,9 @@ class StructFieldView:
     sign_bit_value: int
     pad_bits: int
     msb_byte_mask: int
+    # Pre-computed shift / range values used by signed-narrow from_bytes.
+    sign_bit_index: int  # width - 1 (signed narrow); 0 otherwise
+    full_range: int  # 2 ** width = 1 << width (signed narrow); 0 otherwise
 
 
 @dataclass(frozen=True, slots=True)
@@ -365,6 +368,8 @@ def _build_struct_field_view(
     sign_bit_value = 0
     pad_bits = 0
     msb_byte_mask = 0
+    sign_bit_index = 0
+    full_range = 0
 
     match field_ir.type_ir:
         case TypeRefIR(name=ref_name):
@@ -400,6 +405,8 @@ def _build_struct_field_view(
                     mask = (1 << rw) - 1
                     sign_bit_value = 1 << (rw - 1)
                     pad_bits = pack_bits - rw
+                    sign_bit_index = rw - 1
+                    full_range = 1 << rw
                 else:
                     max_value = 2**rw - 1
                     mask = (1 << rw) - 1
@@ -430,6 +437,8 @@ def _build_struct_field_view(
         sign_bit_value=sign_bit_value,
         pad_bits=pad_bits,
         msb_byte_mask=msb_byte_mask,
+        sign_bit_index=sign_bit_index,
+        full_range=full_range,
     )
 
 

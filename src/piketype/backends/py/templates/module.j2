@@ -28,6 +28,8 @@ from enum import IntEnum
 {{ macros.enum(t) }}
 {% elif t.kind == "flags" %}
 {{ macros.flags(t) }}
+{% elif t.kind == "struct" %}
+{{ macros.struct(t) }}
 {% else %}
 {{ t.body_text }}
 {% endif %}

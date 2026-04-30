@@ -268,3 +268,119 @@ class {{ view.class_name }}:
             return NotImplemented
         return (self._value & {{ view.data_mask }}) == (other._value & {{ view.data_mask }})
 {%- endmacro %}
+
+
+{% macro struct(view) -%}
+@dataclass
+class {{ view.class_name }}:
+    WIDTH = {{ view.width }}
+    BYTE_COUNT = {{ view.byte_count }}
+{% for f in view.fields %}
+    {{ f.name }}: {{ f.annotation }} = {{ f.default_expr }}
+{% endfor %}
+
+    def __setattr__(self, name: str, value: object) -> None:
+{% for f in view.fields %}
+        {{ "if" if loop.first else "elif" }} name == "{{ f.name }}":
+            value = self._coerce_{{ f.name }}(value)
+{% endfor %}
+        super().__setattr__(name, value)
+
+{% for f in view.fields %}
+    @staticmethod
+    def _coerce_{{ f.name }}(value: object) -> {{ f.annotation }}:
+{% if f.is_struct_ref %}
+        if value is None:
+            return None
+        if isinstance(value, {{ f.target_class }}):
+            return value
+        raise TypeError("{{ view.class_name }}.{{ f.name }} must be {{ f.target_class }} or None")
+{% elif f.is_flags_ref or f.is_enum_ref %}
+        if isinstance(value, {{ f.target_class }}):
+            return value
+        raise TypeError("{{ view.class_name }}.{{ f.name }} must be {{ f.target_class }}")
+{% elif f.is_scalar_ref %}
+        if isinstance(value, {{ f.target_class }}):
+            return value
+        return {{ f.target_class }}(value)
+{% elif f.is_narrow_scalar %}
+        if not isinstance(value, int):
+            raise TypeError("{{ view.class_name }}.{{ f.name }} must be int")
+        if value < {{ f.min_value }} or value > {{ f.max_value }}:
+            raise ValueError("{{ view.class_name }}.{{ f.name }} value out of range")
+        return value
+{% elif f.is_wide_scalar %}
+        if isinstance(value, bytearray):
+            value = bytes(value)
+        if not isinstance(value, bytes):
+            raise TypeError("{{ view.class_name }}.{{ f.name }} must be bytes")
+        if len(value) != {{ f.byte_count }}:
+            raise ValueError("{{ view.class_name }}.{{ f.name }} size mismatch")
+        return value
+{% endif %}
+
+{% endfor %}
+    def to_bytes(self) -> bytes:
+        result = bytearray()
+{% for f in view.fields %}
+{% if f.is_struct_ref %}
+        if self.{{ f.name }} is None:
+            raise ValueError("{{ f.name }} cannot be None during packing")
+        result.extend(self.{{ f.name }}.to_bytes())
+{% elif f.is_flags_ref or f.is_enum_ref or f.is_scalar_ref %}
+        result.extend(self.{{ f.name }}.to_bytes())
+{% elif f.is_narrow_scalar and f.signed %}
+        _mask_{{ f.name }} = {{ f.mask }}
+        _packed_{{ f.name }} = self.{{ f.name }} & _mask_{{ f.name }}
+        if self.{{ f.name }} < 0:
+            _packed_{{ f.name }} |= ((1 << {{ f.pack_bits }}) - 1) ^ _mask_{{ f.name }}
+        result.extend(_packed_{{ f.name }}.to_bytes({{ f.byte_count }}, "big", signed=False))
+{% elif f.is_narrow_scalar %}
+        _packed_{{ f.name }} = self.{{ f.name }} & {{ f.mask }}
+        result.extend(_packed_{{ f.name }}.to_bytes({{ f.byte_count }}, "big", signed=False))
+{% elif f.is_wide_scalar %}
+        result.extend(self.{{ f.name }})
+{% endif %}
+{% endfor %}
+{% if view.alignment_bytes > 0 %}
+        result.extend(b'\x00' * {{ view.alignment_bytes }})
+{% endif %}
+        return bytes(result)
+
+    @classmethod
+    def from_bytes(cls, data: bytes | bytearray) -> "{{ view.class_name }}":
+        if not isinstance(data, (bytes, bytearray)):
+            raise TypeError("{{ view.class_name }}.from_bytes expects bytes or bytearray")
+        raw = bytes(data)
+        if len(raw) != cls.BYTE_COUNT:
+            raise ValueError("{{ view.class_name }}.from_bytes size mismatch")
+        obj = cls()
+        offset = 0
+{% for f in view.fields %}
+{% if f.is_struct_ref or f.is_flags_ref or f.is_enum_ref or f.is_scalar_ref %}
+        obj.{{ f.name }} = {{ f.target_class }}.from_bytes(raw[offset:offset + {{ f.byte_count }}])
+        offset += {{ f.byte_count }}
+{% elif f.is_narrow_scalar and f.signed %}
+        _raw_int_{{ f.name }} = int.from_bytes(raw[offset:offset + {{ f.byte_count }}], "big", signed=False)
+        _data_{{ f.name }} = _raw_int_{{ f.name }} & {{ f.mask }}
+        _padding_{{ f.name }} = _raw_int_{{ f.name }} >> {{ f.width }}
+        _sign_bit_{{ f.name }} = (_data_{{ f.name }} >> {{ f.sign_bit_index }}) & 1
+        _expected_padding_{{ f.name }} = ((1 << {{ f.pad_bits }}) - 1) if _sign_bit_{{ f.name }} else 0
+        if _padding_{{ f.name }} != _expected_padding_{{ f.name }}:
+            raise ValueError("{{ view.class_name }}.from_bytes signed padding mismatch for {{ f.name }}")
+        obj.{{ f.name }} = _data_{{ f.name }} - {{ f.full_range }} if (_data_{{ f.name }} & {{ f.sign_bit_value }}) else _data_{{ f.name }}
+        offset += {{ f.byte_count }}
+{% elif f.is_narrow_scalar %}
+        obj.{{ f.name }} = int.from_bytes(raw[offset:offset + {{ f.byte_count }}], "big", signed=False) & {{ f.mask }}
+        offset += {{ f.byte_count }}
+{% elif f.is_wide_scalar %}
+        _wide_raw_{{ f.name }} = raw[offset:offset + {{ f.byte_count }}]
+        obj.{{ f.name }} = bytes([_wide_raw_{{ f.name }}[0] & {{ f.msb_byte_mask }}]) + _wide_raw_{{ f.name }}[1:]
+        offset += {{ f.byte_count }}
+{% endif %}
+{% endfor %}
+        return obj
+
+    def clone(self) -> "{{ view.class_name }}":
+        return type(self).from_bytes(self.to_bytes())
+{%- endmacro %}
