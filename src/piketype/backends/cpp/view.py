@@ -26,13 +26,13 @@ from piketype.ir.nodes import (
     BinaryExprIR,
     ConstIR,
     ConstRefExprIR,
-    EnumIR,
     ExprIR,
     FlagsIR,
     IntLiteralExprIR,
     ModuleIR,
     ScalarAliasIR,
     StructIR,
+    TypeDefIR,
     UnaryExprIR,
 )
 
@@ -93,8 +93,6 @@ def _render_cpp_expr(expr: ExprIR) -> str:
             return f"({op}{_render_cpp_expr(operand)})"
         case BinaryExprIR(op=op, lhs=lhs, rhs=rhs):
             return f"({_render_cpp_expr(lhs)} {op} {_render_cpp_expr(rhs)})"
-        case _:
-            raise ValueError(f"unsupported C++ expression node {type(expr).__name__}")
 
 
 def _build_guard_view(*, module: ModuleIR, namespace: str | None) -> CppGuardView:
@@ -130,9 +128,9 @@ def _standard_includes(*, has_types: bool) -> tuple[str, ...]:
 
 def _build_constant_view(*, const_ir: ConstIR) -> CppConstantView:
     # Lazy import to avoid circular dep with emitter.
-    from piketype.backends.cpp.emitter import _render_cpp_const
+    from piketype.backends.cpp import emitter as _legacy
 
-    cpp_type, cpp_literal = _render_cpp_const(
+    cpp_type, cpp_literal = _legacy._render_cpp_const(  # pyright: ignore[reportPrivateUsage]
         value=const_ir.resolved_value,
         signed=const_ir.resolved_signed,
         width=const_ir.resolved_width,
@@ -144,40 +142,35 @@ def _build_constant_view(*, const_ir: ConstIR) -> CppConstantView:
     return CppConstantView(cpp_type=cpp_type, name=const_ir.name, value_expr=value_expr)
 
 
-def _build_type_view(*, type_ir, type_index) -> CppTypeView:  # type: ignore[no-untyped-def]
+def _build_type_view(
+    *, type_ir: TypeDefIR, type_index: dict[str, TypeDefIR]
+) -> CppTypeView:
     """Render the type's body via legacy helpers and wrap as a CppTypeView."""
-    from piketype.backends.cpp.emitter import (
-        _render_cpp_enum,
-        _render_cpp_flags,
-        _render_cpp_scalar_alias,
-        _render_cpp_struct,
-    )
+    from piketype.backends.cpp import emitter as _legacy
 
     if isinstance(type_ir, ScalarAliasIR):
         return CppTypeView(
             kind="scalar_alias",
             name=type_ir.name,
-            body_text="\n".join(_render_cpp_scalar_alias(type_ir=type_ir)),
+            body_text="\n".join(_legacy._render_cpp_scalar_alias(type_ir=type_ir)),  # pyright: ignore[reportPrivateUsage]
         )
     if isinstance(type_ir, StructIR):
         return CppTypeView(
             kind="struct",
             name=type_ir.name,
-            body_text="\n".join(_render_cpp_struct(type_ir=type_ir, type_index=type_index)),
+            body_text="\n".join(_legacy._render_cpp_struct(type_ir=type_ir, type_index=type_index)),  # pyright: ignore[reportPrivateUsage]
         )
     if isinstance(type_ir, FlagsIR):
         return CppTypeView(
             kind="flags",
             name=type_ir.name,
-            body_text="\n".join(_render_cpp_flags(type_ir=type_ir)),
+            body_text="\n".join(_legacy._render_cpp_flags(type_ir=type_ir)),  # pyright: ignore[reportPrivateUsage]
         )
-    if isinstance(type_ir, EnumIR):
-        return CppTypeView(
-            kind="enum",
-            name=type_ir.name,
-            body_text="\n".join(_render_cpp_enum(type_ir=type_ir)),
-        )
-    raise ValueError(f"unsupported C++ type IR {type(type_ir).__name__}")
+    return CppTypeView(
+        kind="enum",
+        name=type_ir.name,
+        body_text="\n".join(_legacy._render_cpp_enum(type_ir=type_ir)),  # pyright: ignore[reportPrivateUsage]
+    )
 
 
 def build_module_view_cpp(*, module: ModuleIR, namespace: str | None = None) -> CppModuleView:

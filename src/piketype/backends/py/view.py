@@ -183,8 +183,6 @@ def _render_py_expr(expr: ExprIR) -> str:
             return f"({op}{_render_py_expr(operand)})"
         case BinaryExprIR(op=op, lhs=lhs, rhs=rhs):
             return f"({_render_py_expr(lhs)} {op} {_render_py_expr(rhs)})"
-        case _:
-            raise ValueError(f"unsupported Python expression node {type(expr).__name__}")
 
 
 def _resolved_type_width(*, type_ir: TypeDefIR, type_index: dict[str, TypeDefIR]) -> int:
@@ -225,8 +223,6 @@ def _field_byte_count(*, field_ir: StructFieldIR, type_index: dict[str, TypeDefI
             return byte_count(resolved_width)
         case TypeRefIR(name=name):
             return _type_byte_count(type_ir=type_index[name], type_index=type_index)
-        case _:
-            raise ValueError(f"unsupported field type {type(field_ir.type_ir).__name__}")
 
 
 # ---------------------------------------------------------------------------
@@ -476,7 +472,7 @@ def build_module_view_py(*, module: ModuleIR, header: str) -> ModuleView:
             types.append(build_struct_view(type_ir=t, type_index=type_index))
         elif isinstance(t, FlagsIR):
             types.append(build_flags_view(type_ir=t))
-        elif isinstance(t, EnumIR):
+        else:
             types.append(build_enum_view(type_ir=t))
 
     return ModuleView(

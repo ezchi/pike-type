@@ -24,8 +24,12 @@ from piketype.ir.nodes import (
     ConstIR,
     ConstRefExprIR,
     ExprIR,
+    FlagsIR,
     IntLiteralExprIR,
     ModuleIR,
+    ScalarAliasIR,
+    StructIR,
+    TypeDefIR,
     UnaryExprIR,
 )
 
@@ -81,14 +85,12 @@ def _render_sv_expr(expr: ExprIR) -> str:
             return f"({op}{_render_sv_expr(operand)})"
         case BinaryExprIR(op=op, lhs=lhs, rhs=rhs):
             return f"({_render_sv_expr(lhs)} {op} {_render_sv_expr(rhs)})"
-        case _:
-            raise ValueError(f"unsupported SV expression node {type(expr).__name__}")
 
 
 def _build_constant_view(*, const_ir: ConstIR) -> SvConstantView:
-    from piketype.backends.sv.emitter import _render_sv_const
+    from piketype.backends.sv import emitter as _legacy
 
-    sv_type, sv_literal = _render_sv_const(
+    sv_type, sv_literal = _legacy._render_sv_const(  # pyright: ignore[reportPrivateUsage]
         value=const_ir.resolved_value,
         signed=const_ir.resolved_signed,
         width=const_ir.resolved_width,
@@ -97,32 +99,28 @@ def _build_constant_view(*, const_ir: ConstIR) -> SvConstantView:
     return SvConstantView(sv_type=sv_type, name=const_ir.name, sv_expr=sv_expr)
 
 
-def _build_synth_type_view(*, type_ir, type_index) -> SvSynthTypeView:  # type: ignore[no-untyped-def]
-    from piketype.backends.sv.emitter import _render_sv_type_block
+def _build_synth_type_view(
+    *, type_ir: TypeDefIR, type_index: dict[str, TypeDefIR]
+) -> SvSynthTypeView:
+    from piketype.backends.sv import emitter as _legacy
 
-    lines = _render_sv_type_block(type_ir=type_ir, type_index=type_index)
+    lines = _legacy._render_sv_type_block(type_ir=type_ir, type_index=type_index)  # pyright: ignore[reportPrivateUsage]
     return SvSynthTypeView(name=type_ir.name, body_text="\n".join(lines))
 
 
-def _build_test_type_view(*, type_ir, type_index) -> SvTestTypeView:  # type: ignore[no-untyped-def]
-    from piketype.backends.sv.emitter import (
-        _render_sv_enum_helper_class,
-        _render_sv_flags_helper_class,
-        _render_sv_scalar_helper_class,
-        _render_sv_struct_helper_class,
-    )
-    from piketype.ir.nodes import EnumIR, FlagsIR, ScalarAliasIR, StructIR
+def _build_test_type_view(
+    *, type_ir: TypeDefIR, type_index: dict[str, TypeDefIR]
+) -> SvTestTypeView:
+    from piketype.backends.sv import emitter as _legacy
 
     if isinstance(type_ir, ScalarAliasIR):
-        lines = _render_sv_scalar_helper_class(type_ir=type_ir)
+        lines = _legacy._render_sv_scalar_helper_class(type_ir=type_ir)  # pyright: ignore[reportPrivateUsage]
     elif isinstance(type_ir, StructIR):
-        lines = _render_sv_struct_helper_class(type_ir=type_ir, type_index=type_index)
+        lines = _legacy._render_sv_struct_helper_class(type_ir=type_ir, type_index=type_index)  # pyright: ignore[reportPrivateUsage]
     elif isinstance(type_ir, FlagsIR):
-        lines = _render_sv_flags_helper_class(type_ir=type_ir)
-    elif isinstance(type_ir, EnumIR):
-        lines = _render_sv_enum_helper_class(type_ir=type_ir)
+        lines = _legacy._render_sv_flags_helper_class(type_ir=type_ir)  # pyright: ignore[reportPrivateUsage]
     else:
-        raise ValueError(f"unsupported SV type {type(type_ir).__name__}")
+        lines = _legacy._render_sv_enum_helper_class(type_ir=type_ir)  # pyright: ignore[reportPrivateUsage]
     indented = [f"  {line}" for line in lines]
     return SvTestTypeView(name=type_ir.name, body_text="\n".join(indented))
 
