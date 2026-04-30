@@ -14,6 +14,7 @@ builders, so this number reflects pre-migration timing per CL-4.
 | baseline       | -       | 2.448     | 2.261  | 2.812  |
 | py-complete    | py      | 12.016    | 11.824 | 12.170 |
 | cpp-complete   | cpp     | 12.885    | 12.833 | 13.312 |
+| sv-complete    | sv      | 14.862    | 13.573 | 15.143 |
 
 Subsequent rows are appended at:
 

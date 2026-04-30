@@ -1,0 +1,8 @@
+{{ header }}
+package {{ package_name }};
+{{ synth_package_import }}
+{% for t in types %}
+
+{{ t.body_text }}
+{% endfor %}
+endpackage
