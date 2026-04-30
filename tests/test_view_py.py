@@ -176,15 +176,5 @@ class FlagsBasicFixtureTests(unittest.TestCase):
         self.assertEqual(f.total_bits, f.byte_count * 8)
 
 
-class TransitionalFieldsTests(unittest.TestCase):
-    """The transitional body_lines/has_body_lines fields exist and default to empty."""
-
-    def test_default_module_view_has_empty_transitional_fields(self) -> None:
-        module = _load_fixture_module("scalar_wide")
-        view = build_module_view_py(module=module, header="# header\n")
-        self.assertEqual(view.body_lines, ())
-        self.assertFalse(view.has_body_lines)
-
-
 if __name__ == "__main__":
     unittest.main()
