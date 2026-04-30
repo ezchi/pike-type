@@ -24,6 +24,8 @@ from enum import IntEnum
 {% endif %}
 {% if t.kind == "scalar_alias" %}
 {{ macros.scalar_alias(t) }}
+{% elif t.kind == "enum" %}
+{{ macros.enum(t) }}
 {% else %}
 {{ t.body_text }}
 {% endif %}

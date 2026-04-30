@@ -168,3 +168,56 @@ class {{ view.class_name }}:
         return f"{{ view.class_name }}(value={% raw %}{self.value!r}{% endraw %})"
 {%- endif %}
 {%- endmacro %}
+
+
+{% macro enum(view) -%}
+class {{ view.enum_class_name }}(IntEnum):
+{% for m in view.members %}
+    {{ m.name }} = {{ m.resolved_value_expr }}
+{% endfor %}
+
+class {{ view.class_name }}:
+    WIDTH = {{ view.width }}
+    BYTE_COUNT = {{ view.byte_count }}
+
+    def __init__(self, value: {{ view.enum_class_name }} = {{ view.enum_class_name }}.{{ view.first_member_name }}) -> None:
+        if not isinstance(value, {{ view.enum_class_name }}):
+            raise TypeError("{{ view.class_name }} value must be {{ view.enum_class_name }}")
+        self.value = value
+
+    def to_bytes(self) -> bytes:
+        return int(self.value).to_bytes({{ view.byte_count }}, "big", signed=False)
+
+    @classmethod
+    def from_bytes(cls, data: bytes | bytearray) -> "{{ view.class_name }}":
+        if not isinstance(data, (bytes, bytearray)):
+            raise TypeError("{{ view.class_name }}.from_bytes expects bytes or bytearray")
+        raw = bytes(data)
+        if len(raw) != {{ view.byte_count }}:
+            raise ValueError("{{ view.class_name }}.from_bytes size mismatch")
+        raw_int = int.from_bytes(raw, "big", signed=False) & {{ view.mask }}
+        try:
+            enum_val = {{ view.enum_class_name }}(raw_int)
+        except ValueError:
+            raise ValueError("{{ view.class_name }}.from_bytes unknown enum value")
+        return cls(enum_val)
+
+    def clone(self) -> "{{ view.class_name }}":
+        return type(self)(self.value)
+
+    def __int__(self) -> int:
+        return int(self.value)
+
+    def __index__(self) -> int:
+        return int(self.value)
+
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, type(self)):
+            return self.value == other.value
+        if isinstance(other, int):
+            return int(self.value) == other
+        return NotImplemented
+
+    def __repr__(self) -> str:
+        return f"{{ view.class_name }}(value={% raw %}{self.value!r}{% endraw %})"
+{%- endmacro %}
