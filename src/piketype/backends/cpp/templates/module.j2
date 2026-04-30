@@ -1,3 +1,4 @@
+{% import "_macros.j2" as macros %}
 {{ header }}
 #ifndef {{ guard.macro }}
 #define {{ guard.macro }}
@@ -23,7 +24,15 @@ constexpr {{ c.cpp_type }} {{ c.name }} = {{ c.value_expr }};
 {% if not loop.first %}
 
 {% endif %}
-{{ t.body_text }}
+{% if t.kind == "scalar_alias" %}
+{{ macros.scalar_alias(t) }}
+{% elif t.kind == "enum" %}
+{{ macros.enum(t) }}
+{% elif t.kind == "flags" %}
+{{ macros.flags(t) }}
+{% elif t.kind == "struct" %}
+{{ macros.struct(t) }}
+{% endif %}
 {% endfor %}
 {% if namespace.has_namespace %}
 

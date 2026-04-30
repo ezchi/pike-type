@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import unittest
 
-from piketype.backends.cpp.emitter import _render_cpp_const
+from piketype.backends.cpp.view import _render_cpp_const
 from piketype.backends.sv.emitter import _render_sv_const
 from piketype.dsl.freeze import _resolve_const_storage
 from piketype.errors import ValidationError

@@ -1,0 +1,448 @@
+{% macro scalar_alias(view) -%}
+class {{ view.class_name }} {
+ public:
+  static constexpr std::size_t WIDTH = {{ view.width }};
+  static constexpr bool SIGNED = {{ "true" if view.signed else "false" }};
+  static constexpr std::size_t BYTE_COUNT = {{ view.byte_count }};
+{% if view.is_wide %}
+  using value_type = std::vector<std::uint8_t>;
+  value_type value;
+  {{ view.class_name }}() : value(BYTE_COUNT, 0U) {}
+  {{ view.class_name }}(const value_type& value_in) : value(validate_value(value_in)) {}
+
+  std::vector<std::uint8_t> to_bytes() const {
+    return value;
+  }
+
+  void from_bytes(const std::vector<std::uint8_t>& bytes) {
+    value = validate_value(bytes);
+  }
+
+  {{ view.class_name }} clone() const {
+    return {{ view.class_name }}(value);
+  }
+
+  bool operator==(const {{ view.class_name }}& other) const = default;
+
+ private:
+  static value_type validate_value(const value_type& value_in) {
+    if (value_in.size() != BYTE_COUNT) {
+      throw std::invalid_argument("byte width mismatch");
+    }
+    value_type normalized = value_in;
+    normalized[0] &= {{ view.msb_byte_mask_literal }};
+    return normalized;
+  }
+};
+{%- elif view.is_narrow_signed %}
+  using value_type = {{ view.storage_type }};
+  value_type value;
+  static constexpr value_type MIN_VALUE = static_cast<value_type>({{ view.min_value_literal }});
+  static constexpr value_type MAX_VALUE = static_cast<value_type>({{ view.max_value_literal }});
+  static constexpr std::uint64_t MASK = {{ view.mask_literal }};
+  {{ view.class_name }}() : value(0) {}
+  {{ view.class_name }}(value_type value_in) : value(validate_value(value_in)) {}
+
+  std::vector<std::uint8_t> to_bytes() const {
+    std::vector<std::uint8_t> bytes(BYTE_COUNT, 0);
+    std::uint64_t bits = static_cast<std::uint64_t>(value) & MASK;
+{% if view.has_signed_padding %}
+    if (value < 0 && WIDTH < BYTE_COUNT * 8U) {
+      for (std::size_t i = WIDTH; i < BYTE_COUNT * 8U; ++i) {
+        bits |= (1ULL << i);
+      }
+    }
+{% endif %}
+    for (std::size_t idx = 0; idx < BYTE_COUNT; ++idx) {
+      bytes[BYTE_COUNT - 1 - idx] = static_cast<std::uint8_t>((bits >> (8U * idx)) & 0xFFU);
+    }
+    return bytes;
+  }
+
+  void from_bytes(const std::vector<std::uint8_t>& bytes) {
+    if (bytes.size() != BYTE_COUNT) {
+      throw std::invalid_argument("byte width mismatch");
+    }
+    std::uint64_t bits = 0;
+    for (std::size_t idx = 0; idx < BYTE_COUNT; ++idx) {
+      bits = (bits << 8U) | bytes[idx];
+    }
+{% if view.has_signed_padding %}
+    std::uint64_t data_bits = bits & MASK;
+    bool sign_bit = ((data_bits >> ({{ view.width - 1 }}U)) & 1U) != 0U;
+    std::uint64_t expected_pad = sign_bit ? (~MASK & {{ view.byte_total_mask_literal }}) : 0ULL;
+    if ((bits & ~MASK & {{ view.byte_total_mask_literal }}) != expected_pad) {
+      throw std::invalid_argument("signed padding mismatch");
+    }
+{% endif %}
+    bits &= MASK;
+    std::int64_t signed_value = static_cast<std::int64_t>(bits);
+{% if view.has_signed_short_width %}
+    if ((bits & {{ view.sign_bit_literal }}) != 0U && WIDTH < 64) {
+      signed_value -= static_cast<std::int64_t>({{ view.full_range_literal }});
+    }
+{% endif %}
+    value = validate_value(static_cast<value_type>(signed_value));
+  }
+
+  {{ view.class_name }} clone() const {
+    return {{ view.class_name }}(value);
+  }
+
+  operator value_type() const {
+    return value;
+  }
+
+  bool operator==(const {{ view.class_name }}& other) const = default;
+
+ private:
+  static value_type validate_value(value_type value_in) {
+    if (value_in < MIN_VALUE || value_in > MAX_VALUE) {
+      throw std::out_of_range("value out of range");
+    }
+    return value_in;
+  }
+};
+{%- else %}
+  using value_type = {{ view.storage_type }};
+  value_type value;
+  static constexpr std::uint64_t MASK = {{ view.mask_literal }};
+  static constexpr value_type MAX_VALUE = static_cast<value_type>({{ view.max_value_literal }});
+  {{ view.class_name }}() : value(0) {}
+  {{ view.class_name }}(value_type value_in) : value(validate_value(value_in)) {}
+
+  std::vector<std::uint8_t> to_bytes() const {
+    std::vector<std::uint8_t> bytes(BYTE_COUNT, 0);
+    std::uint64_t bits = static_cast<std::uint64_t>(value);
+    for (std::size_t idx = 0; idx < BYTE_COUNT; ++idx) {
+      bytes[BYTE_COUNT - 1 - idx] = static_cast<std::uint8_t>((bits >> (8U * idx)) & 0xFFU);
+    }
+    return bytes;
+  }
+
+  void from_bytes(const std::vector<std::uint8_t>& bytes) {
+    if (bytes.size() != BYTE_COUNT) {
+      throw std::invalid_argument("byte width mismatch");
+    }
+    std::uint64_t bits = 0;
+    for (std::size_t idx = 0; idx < BYTE_COUNT; ++idx) {
+      bits = (bits << 8U) | bytes[idx];
+    }
+    value = validate_value(static_cast<value_type>(bits & MASK));
+  }
+
+  {{ view.class_name }} clone() const {
+    return {{ view.class_name }}(value);
+  }
+
+  operator value_type() const {
+    return value;
+  }
+
+  bool operator==(const {{ view.class_name }}& other) const = default;
+
+ private:
+  static value_type validate_value(value_type value_in) {
+    if (value_in > MAX_VALUE) {
+      throw std::out_of_range("value out of range");
+    }
+    return value_in;
+  }
+};
+{%- endif %}
+{%- endmacro %}
+
+
+{% macro enum(view) -%}
+enum class {{ view.enum_class_name }} : {{ view.underlying_uint_type }} {{ '{' }}{% for m in view.members %}{{ m.name }} = {{ m.value_literal }}{% if not loop.last %}, {% endif %}{% endfor %}{{ '}' }};
+
+class {{ view.class_name }} {
+ public:
+  static constexpr std::size_t WIDTH = {{ view.width }};
+  static constexpr std::size_t BYTE_COUNT = {{ view.byte_count }};
+  using enum_type = {{ view.enum_class_name }};
+  enum_type value;
+
+  {{ view.class_name }}() : value({{ view.enum_class_name }}::{{ view.first_member_name }}) {}
+  explicit {{ view.class_name }}(enum_type value_in) : value(validate_value(value_in)) {}
+
+  std::vector<std::uint8_t> to_bytes() const {
+    std::vector<std::uint8_t> bytes({{ view.byte_count }}, 0);
+    std::uint64_t bits = static_cast<std::uint64_t>(value);
+    for (std::size_t idx = 0; idx < {{ view.byte_count }}; ++idx) {
+      bytes[{{ view.byte_count }} - 1 - idx] = static_cast<std::uint8_t>((bits >> (8U * idx)) & 0xFFU);
+    }
+    return bytes;
+  }
+
+  void from_bytes(const std::vector<std::uint8_t>& bytes) {
+    if (bytes.size() != {{ view.byte_count }}) {
+      throw std::invalid_argument("byte width mismatch");
+    }
+    std::uint64_t bits = 0;
+    for (std::size_t idx = 0; idx < {{ view.byte_count }}; ++idx) {
+      bits = (bits << 8U) | bytes[idx];
+    }
+    value = validate_value(static_cast<enum_type>(bits & {{ view.mask_literal }}));
+  }
+
+  {{ view.class_name }} clone() const {
+    return {{ view.class_name }}(value);
+  }
+
+  operator enum_type() const {
+    return value;
+  }
+
+  bool operator==(const {{ view.class_name }}& other) const = default;
+
+ private:
+  static enum_type validate_value(enum_type v) {
+    switch (v) {
+{% for m in view.members %}
+      case {{ view.enum_class_name }}::{{ m.name }}: return v;
+{% endfor %}
+      default:
+        throw std::invalid_argument("unknown enum value");
+    }
+  }
+};
+{%- endmacro %}
+
+
+{% macro flags(view) -%}
+class {{ view.class_name }} {
+ public:
+  static constexpr std::size_t WIDTH = {{ view.num_flags }};
+  static constexpr std::size_t BYTE_COUNT = {{ view.byte_count }};
+  using value_type = {{ view.storage_type }};
+{% for f in view.fields %}
+  static constexpr value_type {{ f.name_upper }}_MASK = {{ f.bit_mask_literal }};
+{% endfor %}
+  value_type value = 0;
+
+  {{ view.class_name }}() = default;
+{% for f in view.fields %}
+
+  bool get_{{ f.name }}() const { return (value & {{ f.name_upper }}_MASK) != 0; }
+  void set_{{ f.name }}(bool v) { if (v) value |= {{ f.name_upper }}_MASK; else value &= static_cast<value_type>(~{{ f.name_upper }}_MASK); }
+{% endfor %}
+
+  std::vector<std::uint8_t> to_bytes() const {
+    std::vector<std::uint8_t> bytes(BYTE_COUNT, 0);
+    value_type masked = value & {{ view.data_mask_literal }};
+    for (std::size_t idx = 0; idx < BYTE_COUNT; ++idx) {
+      bytes[BYTE_COUNT - 1 - idx] = static_cast<std::uint8_t>((static_cast<std::uint64_t>(masked) >> (8U * idx)) & 0xFFU);
+    }
+    return bytes;
+  }
+
+  void from_bytes(const std::vector<std::uint8_t>& bytes) {
+    if (bytes.size() != BYTE_COUNT) {
+      throw std::invalid_argument("byte width mismatch");
+    }
+    std::uint64_t bits = 0;
+    for (std::size_t idx = 0; idx < BYTE_COUNT; ++idx) {
+      bits = (bits << 8U) | bytes[idx];
+    }
+    value = static_cast<value_type>(bits) & {{ view.data_mask_literal }};
+  }
+
+  {{ view.class_name }} clone() const {
+    {{ view.class_name }} cloned;
+    cloned.value = value;
+    return cloned;
+  }
+
+  bool operator==(const {{ view.class_name }}& other) const {
+    return (value & {{ view.data_mask_literal }}) == (other.value & {{ view.data_mask_literal }});
+  }
+};
+{%- endmacro %}
+
+
+{# Inline scalar helpers for one struct field. Renders encode_<name>, decode_<name>, validate_<name>. #}
+{% macro inline_scalar_helpers(field) -%}
+{% if field.is_narrow_scalar and field.signed %}
+  static std::vector<std::uint8_t> encode_{{ field.name }}({{ field.field_type_str }} v) {
+    validate_{{ field.name }}(v);
+    constexpr std::uint64_t MASK = {{ field.mask_literal }};
+    std::uint64_t bits = static_cast<std::uint64_t>(v) & MASK;
+{% if field.has_signed_padding %}
+    if (v < 0) {
+      bits |= ~MASK;
+    }
+{% endif %}
+    std::vector<std::uint8_t> b({{ field.byte_count }}, 0U);
+    for (std::size_t i = 0; i < {{ field.byte_count }}; ++i) {
+      b[{{ field.byte_count }} - 1 - i] = static_cast<std::uint8_t>((bits >> (8U * i)) & 0xFFU);
+    }
+    return b;
+  }
+
+  static {{ field.field_type_str }} decode_{{ field.name }}(const std::vector<std::uint8_t>& bytes, std::size_t offset) {
+    std::uint64_t bits = 0;
+    for (std::size_t i = 0; i < {{ field.byte_count }}; ++i) {
+      bits = (bits << 8U) | bytes[offset + i];
+    }
+{% if field.has_signed_padding %}
+    constexpr std::uint64_t MASK = {{ field.mask_literal }};
+    std::uint64_t data_bits = bits & MASK;
+    bool sign_bit = ((data_bits >> ({{ field.width - 1 }}U)) & 1U) != 0U;
+    std::uint64_t expected_pad = sign_bit ? (~MASK & {{ field.byte_total_mask_literal }}) : 0ULL;
+    if ((bits & ~MASK & {{ field.byte_total_mask_literal }}) != expected_pad) {
+      throw std::invalid_argument("signed padding mismatch");
+    }
+    bits = data_bits;
+{% else %}
+    constexpr std::uint64_t MASK = {{ field.mask_literal }};
+    bits &= MASK;
+{% endif %}
+    std::int64_t signed_value = static_cast<std::int64_t>(bits);
+{% if field.has_signed_short_width %}
+    if ((bits & {{ field.sign_bit_literal }}) != 0U) {
+      signed_value -= static_cast<std::int64_t>({{ field.full_range_literal }});
+    }
+{% endif %}
+    return validate_{{ field.name }}(static_cast<{{ field.field_type_str }}>(signed_value));
+  }
+
+  static {{ field.field_type_str }} validate_{{ field.name }}({{ field.field_type_str }} value_in) {
+    constexpr {{ field.field_type_str }} MIN_VALUE = static_cast<{{ field.field_type_str }}>({{ field.min_value_literal }});
+    constexpr {{ field.field_type_str }} MAX_VALUE = static_cast<{{ field.field_type_str }}>({{ field.max_value_literal }});
+    if (value_in < MIN_VALUE || value_in > MAX_VALUE) {
+      throw std::out_of_range("value out of range");
+    }
+    return value_in;
+  }
+{%- elif field.is_narrow_scalar %}
+  static std::vector<std::uint8_t> encode_{{ field.name }}({{ field.field_type_str }} v) {
+    validate_{{ field.name }}(v);
+    std::vector<std::uint8_t> b({{ field.byte_count }}, 0U);
+    std::uint64_t bits = static_cast<std::uint64_t>(v);
+    for (std::size_t i = 0; i < {{ field.byte_count }}; ++i) {
+      b[{{ field.byte_count }} - 1 - i] = static_cast<std::uint8_t>((bits >> (8U * i)) & 0xFFU);
+    }
+    return b;
+  }
+
+  static {{ field.field_type_str }} decode_{{ field.name }}(const std::vector<std::uint8_t>& bytes, std::size_t offset) {
+    std::uint64_t bits = 0;
+    for (std::size_t i = 0; i < {{ field.byte_count }}; ++i) {
+      bits = (bits << 8U) | bytes[offset + i];
+    }
+{% if field.pack_bits != field.width %}
+    bits &= {{ field.mask_literal }};
+{% endif %}
+    return validate_{{ field.name }}(static_cast<{{ field.field_type_str }}>(bits));
+  }
+
+  static {{ field.field_type_str }} validate_{{ field.name }}({{ field.field_type_str }} value_in) {
+    constexpr {{ field.field_type_str }} MAX_VALUE = static_cast<{{ field.field_type_str }}>({{ field.max_value_literal }});
+    if (value_in > MAX_VALUE) {
+      throw std::out_of_range("value out of range");
+    }
+    return value_in;
+  }
+{%- elif field.is_wide_scalar %}
+  static std::vector<std::uint8_t> encode_{{ field.name }}(const std::vector<std::uint8_t>& value_in) {
+    if (value_in.size() != {{ field.byte_count }}U) {
+      throw std::invalid_argument("byte width mismatch");
+    }
+    std::vector<std::uint8_t> normalized = value_in;
+    normalized[0] &= {{ field.msb_byte_mask_literal }};
+    return normalized;
+  }
+
+  static std::vector<std::uint8_t> decode_{{ field.name }}(const std::vector<std::uint8_t>& bytes, std::size_t offset) {
+    std::vector<std::uint8_t> result(bytes.begin() + static_cast<std::ptrdiff_t>(offset), bytes.begin() + static_cast<std::ptrdiff_t>(offset + {{ field.byte_count }}));
+{% if field.msb_byte_mask_literal != "0xFFU" %}
+    result[0] &= {{ field.msb_byte_mask_literal }};
+{% endif %}
+    return result;
+  }
+{%- endif %}
+{%- endmacro %}
+
+
+{% macro struct(view) -%}
+class {{ view.class_name }} {
+ public:
+  static constexpr std::size_t WIDTH = {{ view.width }};
+  static constexpr std::size_t BYTE_COUNT = {{ view.byte_count }};
+{% for f in view.fields %}
+  {{ f.field_type_str }} {{ f.name }}{% if f.is_struct_ref or f.is_flags_ref or f.is_enum_ref or f.is_scalar_ref %}{}{% elif f.is_narrow_scalar %} = 0{% else %}{std::vector<std::uint8_t>({{ f.byte_count }}, 0U)}{% endif %};
+{% endfor %}
+
+  {{ view.class_name }}() = default;
+
+  std::vector<std::uint8_t> to_bytes() const {
+    std::vector<std::uint8_t> bytes;
+    bytes.reserve(BYTE_COUNT);
+{% for f in view.fields %}
+{% if f.is_struct_ref or f.is_flags_ref or f.is_enum_ref or f.is_scalar_ref %}
+    {
+      auto field_bytes = {{ f.name }}.to_bytes();
+      bytes.insert(bytes.end(), field_bytes.begin(), field_bytes.end());
+    }
+{% else %}
+    {
+      auto field_bytes = encode_{{ f.name }}({{ f.name }});
+      bytes.insert(bytes.end(), field_bytes.begin(), field_bytes.end());
+    }
+{% endif %}
+{% endfor %}
+{% if view.alignment_bytes > 0 %}
+    for (std::size_t i = 0; i < {{ view.alignment_bytes }}; ++i) bytes.push_back(0);
+{% endif %}
+    return bytes;
+  }
+
+  void from_bytes(const std::vector<std::uint8_t>& bytes) {
+    if (bytes.size() != BYTE_COUNT) {
+      throw std::invalid_argument("byte width mismatch");
+    }
+    std::size_t offset = 0;
+{% for f in view.fields %}
+{% if f.is_struct_ref or f.is_flags_ref or f.is_enum_ref or f.is_scalar_ref %}
+    {
+      std::vector<std::uint8_t> field_bytes(bytes.begin() + static_cast<std::ptrdiff_t>(offset), bytes.begin() + static_cast<std::ptrdiff_t>(offset + {{ f.byte_count }}));
+      {{ f.name }}.from_bytes(field_bytes);
+      offset += {{ f.byte_count }};
+    }
+{% else %}
+    {{ f.name }} = decode_{{ f.name }}(bytes, offset);
+    offset += {{ f.byte_count }};
+{% endif %}
+{% endfor %}
+  }
+
+  {{ view.class_name }} clone() const {
+    {{ view.class_name }} cloned;
+{% for f in view.fields %}
+{% if f.is_struct_ref or f.is_flags_ref or f.is_enum_ref or f.is_scalar_ref %}
+    cloned.{{ f.name }} = {{ f.name }}.clone();
+{% else %}
+    cloned.{{ f.name }} = {{ f.name }};
+{% endif %}
+{% endfor %}
+    return cloned;
+  }
+
+  bool operator==(const {{ view.class_name }}& other) const = default;
+{% if view.has_inline_helpers %}
+
+ private:
+{% set first = namespace(value=true) %}
+{% for f in view.fields %}
+{% if f.is_narrow_scalar or f.is_wide_scalar %}
+{% if not first.value %}
+
+{% endif %}
+{% set first.value = false %}
+{{ inline_scalar_helpers(f) }}
+{% endif %}
+{% endfor %}
+{% endif %}
+};
+{%- endmacro %}
