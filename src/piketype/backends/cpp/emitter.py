@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 from piketype.backends.common.headers import render_header
+from piketype.backends.common.render import make_environment, render
 from piketype.errors import ValidationError
 from piketype.ir.nodes import (
     BinaryExprIR,
@@ -31,66 +33,26 @@ from piketype.paths import cpp_header_output_path
 
 def emit_cpp(repo: RepoIR, *, namespace: str | None = None) -> list[Path]:
     """Emit C++ outputs."""
+    from piketype.backends.cpp.view import build_module_view_cpp
+
     written_paths: list[Path] = []
     repo_root = Path(repo.repo_root)
+    env = make_environment(package="piketype.backends.cpp")
     for module in repo.modules:
         output_path = cpp_header_output_path(
             repo_root=repo_root,
             module_path=repo_root / module.ref.repo_relative_path,
         )
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.write_text(render_module_hpp(module, namespace=namespace), encoding="utf-8")
+        header = render_header(source_paths=(module.ref.repo_relative_path,))
+        view = build_module_view_cpp(module=module, namespace=namespace)
+        view = replace(view, header=header)
+        output_path.write_text(
+            render(env=env, template_name="module.j2", context=view),
+            encoding="utf-8",
+        )
         written_paths.append(output_path)
     return written_paths
-
-
-def render_module_hpp(module: ModuleIR, *, namespace: str | None = None) -> str:
-    """Render a C++ header."""
-    header = render_header(source_paths=(module.ref.repo_relative_path,))
-    if namespace is not None:
-        guard = f"{namespace.replace('::', '_')}_{module.ref.basename}_types_hpp".upper()
-        ns = f"{namespace}::{module.ref.basename}"
-    else:
-        guard = "_".join((*module.ref.namespace_parts, "types_hpp")).upper().replace(".", "_")
-        ns = "::".join(part for part in module.ref.namespace_parts if part != "piketype")
-    type_index = {type_ir.name: type_ir for type_ir in module.types}
-    has_types = bool(module.types)
-    body_lines = [f"#ifndef {guard}", f"#define {guard}", "", "#include <cstdint>"]
-    if has_types:
-        body_lines.extend(["#include <cstddef>", "#include <stdexcept>", "#include <vector>"])
-    body_lines.append("")
-    if ns:
-        body_lines.append(f"namespace {ns} {{")
-        body_lines.append("")
-    for const in module.constants:
-        cpp_type, cpp_literal = _render_cpp_const(
-            value=const.resolved_value,
-            signed=const.resolved_signed,
-            width=const.resolved_width,
-        )
-        if isinstance(const.expr, IntLiteralExprIR):
-            cpp_expr = cpp_literal
-        else:
-            cpp_expr = _render_cpp_expr(expr=const.expr)
-        body_lines.append(f"constexpr {cpp_type} {const.name} = {cpp_expr};")
-    if module.constants and module.types:
-        body_lines.append("")
-    for index, type_ir in enumerate(module.types):
-        if index > 0:
-            body_lines.append("")
-        if isinstance(type_ir, ScalarAliasIR):
-            body_lines.extend(_render_cpp_scalar_alias(type_ir=type_ir))
-        elif isinstance(type_ir, StructIR):
-            body_lines.extend(_render_cpp_struct(type_ir=type_ir, type_index=type_index))
-        elif isinstance(type_ir, FlagsIR):
-            body_lines.extend(_render_cpp_flags(type_ir=type_ir))
-        elif isinstance(type_ir, EnumIR):
-            body_lines.extend(_render_cpp_enum(type_ir=type_ir))
-    if ns:
-        body_lines.append("")
-        body_lines.append(f"}}  // namespace {ns}")
-    body_lines.extend(["", f"#endif  // {guard}"])
-    return f"{header}\n" + "\n".join(body_lines) + "\n"
 
 
 def _render_cpp_const(*, value: int, signed: bool, width: int) -> tuple[str, str]:
