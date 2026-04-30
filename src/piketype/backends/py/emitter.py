@@ -5,6 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 
 from piketype.backends.common.headers import render_header
+from piketype.backends.common.render import make_environment, render
+from piketype.backends.py.view import ModuleView, build_module_view_py
 from piketype.ir.nodes import (
     BinaryExprIR,
     ConstRefExprIR,
@@ -33,6 +35,7 @@ def emit_py(repo: RepoIR) -> list[Path]:
     repo_root = Path(repo.repo_root)
     py_root = repo_root / "gen" / "py"
     _ensure_package_init(py_root, written_paths)
+    env = make_environment(package="piketype.backends.py")
     for module in repo.modules:
         output_path = py_module_output_path(
             repo_root=repo_root,
@@ -40,14 +43,47 @@ def emit_py(repo: RepoIR) -> list[Path]:
         )
         output_path.parent.mkdir(parents=True, exist_ok=True)
         _ensure_package_chain(output_path.parent, py_root, written_paths)
-        output_path.write_text(render_module_py(module), encoding="utf-8")
+        output_path.write_text(render_module_py(module=module, env=env), encoding="utf-8")
         written_paths.append(output_path)
     return written_paths
 
 
-def render_module_py(module: ModuleIR) -> str:
-    """Render a Python module."""
+def render_module_py(*, module: ModuleIR, env: object | None = None) -> str:
+    """Render a Python module via the module.j2 Jinja template.
+
+    During the FR-6 sub-step migration (T-08..T-11) the not-yet-templated
+    portion of the body is passed through as ``body_lines`` on the view
+    model. T-08 (this commit) lands the module-level skeleton: header,
+    import block, and body passthrough. Class scaffolding, helper-method
+    skeletons, and expression fragments are migrated in T-09..T-11.
+    """
     header = render_header(source_paths=(module.ref.repo_relative_path,)).replace("//", "#")
+    body_lines = _legacy_render_py_body_lines(module)
+    view = build_module_view_py(module=module, header=header)
+    view = ModuleView(
+        header=view.header,
+        has_types=view.has_types,
+        has_structs=view.has_structs,
+        has_enums=view.has_enums,
+        has_flags=view.has_flags,
+        constants=view.constants,
+        types=view.types,
+        body_lines=tuple(body_lines),
+        has_body_lines=bool(body_lines),
+    )
+    if env is None:
+        env = make_environment(package="piketype.backends.py")
+    return render(env=env, template_name="module.j2", context=view)
+
+
+def _legacy_render_py_body_lines(module: ModuleIR) -> list[str]:
+    """Compute the post-header body lines exactly as the legacy emitter did.
+
+    This is the transitional helper that drives the InlineFragmentView
+    passthrough (FR-7 byte parity) during T-08..T-11. Each subsequent
+    migration commit replaces a slice of this output with structured
+    template rendering until ``body_lines`` is empty in T-12.
+    """
     type_index = {type_ir.name: type_ir for type_ir in module.types}
     has_types = bool(module.types)
     has_structs = any(isinstance(type_ir, StructIR) for type_ir in module.types)
@@ -76,7 +112,7 @@ def render_module_py(module: ModuleIR) -> str:
             body_lines.extend(_render_py_flags(type_ir=type_ir))
         elif isinstance(type_ir, EnumIR):
             body_lines.extend(_render_py_enum(type_ir=type_ir))
-    return f"{header}\n" + "\n".join(body_lines) + "\n"
+    return body_lines
 
 
 def _ensure_package_init(package_dir: Path, written_paths: list[Path]) -> None:
