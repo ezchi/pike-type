@@ -148,6 +148,14 @@ type TypeView = ScalarAliasView | StructView | EnumView | FlagsView
 
 
 @dataclass(frozen=True, slots=True)
+class PyCrossModuleImportView:
+    """A single cross-module wrapper-class import."""
+
+    target_types_module: str
+    wrapper_class_name: str
+
+
+@dataclass(frozen=True, slots=True)
 class ModuleView:
     """Top-level Python module view."""
 
@@ -158,6 +166,7 @@ class ModuleView:
     has_flags: bool
     constants: tuple[ConstantView, ...]
     types: tuple[TypeView, ...]
+    cross_module_imports: tuple[PyCrossModuleImportView, ...]
 
 
 # ---------------------------------------------------------------------------
@@ -185,7 +194,7 @@ def _render_py_expr(expr: ExprIR) -> str:
             return f"({_render_py_expr(lhs)} {op} {_render_py_expr(rhs)})"
 
 
-def _resolved_type_width(*, type_ir: TypeDefIR, type_index: dict[str, TypeDefIR]) -> int:
+def _resolved_type_width(*, type_ir: TypeDefIR, repo_type_index: dict[tuple[str, str], TypeDefIR]) -> int:
     if isinstance(type_ir, ScalarAliasIR):
         return type_ir.resolved_width
     if isinstance(type_ir, FlagsIR):
@@ -193,18 +202,19 @@ def _resolved_type_width(*, type_ir: TypeDefIR, type_index: dict[str, TypeDefIR]
     if isinstance(type_ir, EnumIR):
         return type_ir.resolved_width
     return sum(
-        _resolved_field_width(field_type=field.type_ir, type_index=type_index)
+        _resolved_field_width(field_type=field.type_ir, repo_type_index=repo_type_index)
         for field in type_ir.fields
     )
 
 
-def _resolved_field_width(*, field_type: ScalarTypeSpecIR | TypeRefIR, type_index: dict[str, TypeDefIR]) -> int:
+def _resolved_field_width(*, field_type: ScalarTypeSpecIR | TypeRefIR, repo_type_index: dict[tuple[str, str], TypeDefIR]) -> int:
     if isinstance(field_type, ScalarTypeSpecIR):
         return field_type.resolved_width
-    return _resolved_type_width(type_ir=type_index[field_type.name], type_index=type_index)
+    target = repo_type_index[(field_type.module.python_module_name, field_type.name)]
+    return _resolved_type_width(type_ir=target, repo_type_index=repo_type_index)
 
 
-def _type_byte_count(*, type_ir: TypeDefIR, type_index: dict[str, TypeDefIR]) -> int:
+def _type_byte_count(*, type_ir: TypeDefIR, repo_type_index: dict[tuple[str, str], TypeDefIR]) -> int:
     if isinstance(type_ir, ScalarAliasIR):
         return byte_count(type_ir.resolved_width)
     if isinstance(type_ir, FlagsIR):
@@ -212,17 +222,18 @@ def _type_byte_count(*, type_ir: TypeDefIR, type_index: dict[str, TypeDefIR]) ->
     if isinstance(type_ir, EnumIR):
         return byte_count(type_ir.resolved_width)
     field_bytes = sum(
-        _field_byte_count(field_ir=f, type_index=type_index) for f in type_ir.fields
+        _field_byte_count(field_ir=f, repo_type_index=repo_type_index) for f in type_ir.fields
     )
     return field_bytes + type_ir.alignment_bits // 8
 
 
-def _field_byte_count(*, field_ir: StructFieldIR, type_index: dict[str, TypeDefIR]) -> int:
+def _field_byte_count(*, field_ir: StructFieldIR, repo_type_index: dict[tuple[str, str], TypeDefIR]) -> int:
     match field_ir.type_ir:
         case ScalarTypeSpecIR(resolved_width=resolved_width):
             return byte_count(resolved_width)
-        case TypeRefIR(name=name):
-            return _type_byte_count(type_ir=type_index[name], type_index=type_index)
+        case TypeRefIR(module=mod_ref, name=name):
+            target = repo_type_index[(mod_ref.python_module_name, name)]
+            return _type_byte_count(type_ir=target, repo_type_index=repo_type_index)
 
 
 # ---------------------------------------------------------------------------
@@ -336,9 +347,9 @@ def build_flags_view(*, type_ir: FlagsIR) -> FlagsView:
 
 
 def _build_struct_field_view(
-    *, field_ir: StructFieldIR, type_index: dict[str, TypeDefIR]
+    *, field_ir: StructFieldIR, repo_type_index: dict[tuple[str, str], TypeDefIR]
 ) -> StructFieldView:
-    fbc = _field_byte_count(field_ir=field_ir, type_index=type_index)
+    fbc = _field_byte_count(field_ir=field_ir, repo_type_index=repo_type_index)
     pack_bits = fbc * 8
 
     # Defaults — overwritten by branches below.
@@ -359,8 +370,8 @@ def _build_struct_field_view(
     full_range = 0
 
     match field_ir.type_ir:
-        case TypeRefIR(name=ref_name):
-            target = type_index[ref_name]
+        case TypeRefIR(module=ref_module, name=ref_name):
+            target = repo_type_index[(ref_module.python_module_name, ref_name)]
             target_class = _type_class_name(target.name)
             if isinstance(target, StructIR):
                 is_struct_ref = True
@@ -429,13 +440,13 @@ def _build_struct_field_view(
     )
 
 
-def build_struct_view(*, type_ir: StructIR, type_index: dict[str, TypeDefIR]) -> StructView:
-    width = _resolved_type_width(type_ir=type_ir, type_index=type_index)
+def build_struct_view(*, type_ir: StructIR, repo_type_index: dict[tuple[str, str], TypeDefIR]) -> StructView:
+    width = _resolved_type_width(type_ir=type_ir, repo_type_index=repo_type_index)
     fields = tuple(
-        _build_struct_field_view(field_ir=f, type_index=type_index) for f in type_ir.fields
+        _build_struct_field_view(field_ir=f, repo_type_index=repo_type_index) for f in type_ir.fields
     )
     struct_byte_count = (
-        sum(_field_byte_count(field_ir=f, type_index=type_index) for f in type_ir.fields)
+        sum(_field_byte_count(field_ir=f, repo_type_index=repo_type_index) for f in type_ir.fields)
         + type_ir.alignment_bits // 8
     )
     return StructView(
@@ -449,14 +460,17 @@ def build_struct_view(*, type_ir: StructIR, type_index: dict[str, TypeDefIR]) ->
     )
 
 
-def build_module_view_py(*, module: ModuleIR, header: str) -> ModuleView:
+def build_module_view_py(
+    *, module: ModuleIR, header: str, repo_type_index: dict[tuple[str, str], TypeDefIR] | None = None,
+) -> ModuleView:
     """Build the top-level ``ModuleView`` for one module.
 
     The ``header`` argument is the pre-rendered comment header
     (already converted to ``#``-prefixed Python comments by the caller
     via ``backends/common/headers.py``). Templates emit it verbatim.
     """
-    type_index: dict[str, TypeDefIR] = {t.name: t for t in module.types}
+    if repo_type_index is None:
+        repo_type_index = {(module.ref.python_module_name, t.name): t for t in module.types}
     has_types = bool(module.types)
     has_structs = any(isinstance(t, StructIR) for t in module.types)
     has_enums = any(isinstance(t, EnumIR) for t in module.types)
@@ -469,11 +483,13 @@ def build_module_view_py(*, module: ModuleIR, header: str) -> ModuleView:
         if isinstance(t, ScalarAliasIR):
             types.append(build_scalar_alias_view(type_ir=t))
         elif isinstance(t, StructIR):
-            types.append(build_struct_view(type_ir=t, type_index=type_index))
+            types.append(build_struct_view(type_ir=t, repo_type_index=repo_type_index))
         elif isinstance(t, FlagsIR):
             types.append(build_flags_view(type_ir=t))
         else:
             types.append(build_enum_view(type_ir=t))
+
+    cross_module_imports = _collect_py_cross_module_imports(module=module, repo_type_index=repo_type_index)
 
     return ModuleView(
         header=header,
@@ -483,4 +499,38 @@ def build_module_view_py(*, module: ModuleIR, header: str) -> ModuleView:
         has_flags=has_flags,
         constants=constants,
         types=tuple(types),
+        cross_module_imports=cross_module_imports,
     )
+
+
+def _collect_py_cross_module_imports(
+    *, module: ModuleIR, repo_type_index: dict[tuple[str, str], TypeDefIR],
+) -> tuple[PyCrossModuleImportView, ...]:
+    """Build PyCrossModuleImportView entries for every direct cross-module type ref.
+
+    Sorted by `(target_types_module, wrapper_class_name)`. Deduplicated.
+    """
+    seen: set[tuple[str, str]] = set()
+    entries: list[PyCrossModuleImportView] = []
+    for type_ir in module.types:
+        if isinstance(type_ir, StructIR):
+            for field in type_ir.fields:
+                if isinstance(field.type_ir, TypeRefIR):
+                    target_module = field.type_ir.module
+                    if target_module.python_module_name == module.ref.python_module_name:
+                        continue
+                    target = repo_type_index[(target_module.python_module_name, field.type_ir.name)]
+                    target_types_module = f"{target_module.python_module_name}_types"
+                    wrapper = _type_class_name(target.name)
+                    key = (target_types_module, wrapper)
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    entries.append(
+                        PyCrossModuleImportView(
+                            target_types_module=target_types_module,
+                            wrapper_class_name=wrapper,
+                        )
+                    )
+    entries.sort(key=lambda e: (e.target_types_module, e.wrapper_class_name))
+    return tuple(entries)

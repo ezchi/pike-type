@@ -9,6 +9,9 @@
 #include <stdexcept>
 #include <vector>
 {% endif %}
+{% for p in cross_module_include_paths %}
+#include "{{ p }}"
+{% endfor %}
 
 {% if namespace.has_namespace %}
 {{ namespace.open_line }}

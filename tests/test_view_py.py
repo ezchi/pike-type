@@ -27,7 +27,7 @@ from piketype.dsl.freeze import (
     freeze_repo,
 )
 from piketype.ir.nodes import ModuleIR
-from piketype.loader.python_loader import load_module_from_path
+from piketype.loader.python_loader import load_or_get_module, prepare_run
 
 _FIXTURES = Path(__file__).resolve().parent / "fixtures"
 
@@ -36,31 +36,32 @@ def _load_fixture_module(fixture_name: str) -> ModuleIR:
     """Load and freeze the alpha/piketype/types.py module of a fixture."""
     repo_root = _FIXTURES / fixture_name / "project"
     module_paths = find_piketype_modules(repo_root)
-    loaded_modules = [
-        build_loaded_module(
-            module=load_module_from_path(p, repo_root=repo_root),
-            module_path=p,
+    with prepare_run(repo_root=repo_root, module_paths=module_paths):
+        loaded_modules = [
+            build_loaded_module(
+                module=load_or_get_module(p, repo_root=repo_root),
+                module_path=p,
+                repo_root=repo_root,
+            )
+            for p in module_paths
+        ]
+        const_map = build_const_definition_map(loaded_modules=loaded_modules)
+        type_map = build_type_definition_map(loaded_modules=loaded_modules)
+        frozen_modules = [
+            freeze_module(
+                loaded_module=lm,
+                definition_map=const_map,
+                type_definition_map=type_map,
+            )
+            for lm in loaded_modules
+        ]
+        repo = freeze_repo(
             repo_root=repo_root,
+            frozen_modules=frozen_modules,
+            tool_version=__version__,
         )
-        for p in module_paths
-    ]
-    const_map = build_const_definition_map(loaded_modules=loaded_modules)
-    type_map = build_type_definition_map(loaded_modules=loaded_modules)
-    frozen_modules = [
-        freeze_module(
-            loaded_module=lm,
-            definition_map=const_map,
-            type_definition_map=type_map,
-        )
-        for lm in loaded_modules
-    ]
-    repo = freeze_repo(
-        repo_root=repo_root,
-        frozen_modules=frozen_modules,
-        tool_version=__version__,
-    )
-    # Return the only module in single-module fixtures.
-    return repo.modules[0]
+        # Return the only module in single-module fixtures.
+        return repo.modules[0]
 
 
 class StructPaddedFixtureTests(unittest.TestCase):

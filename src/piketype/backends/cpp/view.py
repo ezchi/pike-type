@@ -23,6 +23,7 @@ from piketype.ir.nodes import (
     FlagsIR,
     IntLiteralExprIR,
     ModuleIR,
+    ModuleRefIR,
     ScalarAliasIR,
     StructFieldIR,
     StructIR,
@@ -176,6 +177,9 @@ class CppModuleView:
     standard_includes: tuple[str, ...]
     constants: tuple[CppConstantView, ...]
     types: tuple[CppTypeView, ...]
+    # Cross-module include paths (e.g., "alpha/piketype/foo_types.hpp"); template
+    # renders `#include "{p}"`. Sorted ascending, deduplicated.
+    cross_module_include_paths: tuple[str, ...]
 
 
 # ---------------------------------------------------------------------------
@@ -236,6 +240,18 @@ def _build_guard_view(*, module: ModuleIR, namespace: str | None) -> CppGuardVie
     else:
         macro = "_".join((*module.ref.namespace_parts, "types_hpp")).upper().replace(".", "_")
     return CppGuardView(macro=macro)
+
+
+def _module_ref_namespace(*, module_ref: ModuleRefIR, namespace: str | None) -> str:
+    """Compute the C++ namespace string for a module given by ModuleRefIR.
+
+    Same rule as ``_build_namespace_view``: under ``--namespace=N``, returns
+    ``N::{basename}``; otherwise filters out the literal ``"piketype"`` segment
+    from ``module_ref.namespace_parts``.
+    """
+    if namespace is not None:
+        return f"{namespace}::{module_ref.basename}"
+    return "::".join(p for p in module_ref.namespace_parts if p != "piketype")
 
 
 def _build_namespace_view(*, module: ModuleIR, namespace: str | None) -> CppNamespaceView:
@@ -431,7 +447,7 @@ def _build_flags_view(*, type_ir: FlagsIR) -> CppFlagsView:
     )
 
 
-def _resolved_type_width(*, type_ir: TypeDefIR, type_index: dict[str, TypeDefIR]) -> int:
+def _resolved_type_width(*, type_ir: TypeDefIR, repo_type_index: dict[tuple[str, str], TypeDefIR]) -> int:
     """Resolve the data-width-only (no alignment padding) for use in struct field aggregation."""
     if isinstance(type_ir, ScalarAliasIR):
         return type_ir.resolved_width
@@ -439,42 +455,52 @@ def _resolved_type_width(*, type_ir: TypeDefIR, type_index: dict[str, TypeDefIR]
         return len(type_ir.fields)  # data width only — alignment_bits NOT included
     if isinstance(type_ir, EnumIR):
         return type_ir.resolved_width
-    return sum(
-        f.type_ir.resolved_width
-        if not isinstance(f.type_ir, TypeRefIR)
-        else _resolved_type_width(type_ir=type_index[f.type_ir.name], type_index=type_index)
-        for f in type_ir.fields
-    )
+    total = 0
+    for f in type_ir.fields:
+        if isinstance(f.type_ir, TypeRefIR):
+            target = repo_type_index[(f.type_ir.module.python_module_name, f.type_ir.name)]
+            total += _resolved_type_width(type_ir=target, repo_type_index=repo_type_index)
+        else:
+            total += f.type_ir.resolved_width
+    return total
 
 
-def _type_byte_count(*, type_ir: TypeDefIR, type_index: dict[str, TypeDefIR]) -> int:
+def _type_byte_count(*, type_ir: TypeDefIR, repo_type_index: dict[tuple[str, str], TypeDefIR]) -> int:
     if isinstance(type_ir, ScalarAliasIR):
         return byte_count(type_ir.resolved_width)
     if isinstance(type_ir, FlagsIR):
         return (len(type_ir.fields) + type_ir.alignment_bits) // 8
     if isinstance(type_ir, EnumIR):
         return byte_count(type_ir.resolved_width)
-    field_bytes = sum(_field_byte_count(field_ir=f, type_index=type_index) for f in type_ir.fields)
+    field_bytes = sum(_field_byte_count(field_ir=f, repo_type_index=repo_type_index) for f in type_ir.fields)
     return field_bytes + type_ir.alignment_bits // 8
 
 
-def _field_byte_count(*, field_ir: StructFieldIR, type_index: dict[str, TypeDefIR]) -> int:
+def _field_byte_count(*, field_ir: StructFieldIR, repo_type_index: dict[tuple[str, str], TypeDefIR]) -> int:
     if isinstance(field_ir.type_ir, TypeRefIR):
-        return _type_byte_count(type_ir=type_index[field_ir.type_ir.name], type_index=type_index)
+        target = repo_type_index[(field_ir.type_ir.module.python_module_name, field_ir.type_ir.name)]
+        return _type_byte_count(type_ir=target, repo_type_index=repo_type_index)
     return byte_count(field_ir.type_ir.resolved_width)
 
 
 def _build_struct_field_view(
-    *, field_ir: StructFieldIR, type_index: dict[str, TypeDefIR]
+    *, field_ir: StructFieldIR, repo_type_index: dict[tuple[str, str], TypeDefIR],
+    current_module: ModuleIR, emit_namespace: str | None,
 ) -> CppStructFieldView:
     """Build a struct-field view from frozen IR. All primitives precomputed
     in pure Python; templates consume them via macros, no legacy helper calls."""
-    fbc = _field_byte_count(field_ir=field_ir, type_index=type_index)
+    fbc = _field_byte_count(field_ir=field_ir, repo_type_index=repo_type_index)
     pack_bits = fbc * 8
 
     # Field type string — derived from the IR directly.
     if isinstance(field_ir.type_ir, TypeRefIR):
-        field_type_str = _type_class_name(type_index[field_ir.type_ir.name].name)
+        target_for_name = repo_type_index[(field_ir.type_ir.module.python_module_name, field_ir.type_ir.name)]
+        is_cross_module = field_ir.type_ir.module.python_module_name != current_module.ref.python_module_name
+        if is_cross_module:
+            qualifier = _module_ref_namespace(module_ref=field_ir.type_ir.module, namespace=emit_namespace)
+            field_type_str = f"::{qualifier}::{_type_class_name(target_for_name.name)}"
+        else:
+            field_type_str = _type_class_name(target_for_name.name)
     else:
         spec_w = field_ir.type_ir.resolved_width
         if spec_w <= 64:
@@ -498,7 +524,7 @@ def _build_struct_field_view(
     msb_byte_mask_literal = ""
 
     if isinstance(field_ir.type_ir, TypeRefIR):
-        target = type_index[field_ir.type_ir.name]
+        target = repo_type_index[(field_ir.type_ir.module.python_module_name, field_ir.type_ir.name)]
         target_class = _type_class_name(target.name)
         if isinstance(target, StructIR):
             is_struct_ref = True
@@ -566,23 +592,25 @@ def _build_struct_field_view(
 
 
 def _build_struct_view(
-    *, type_ir: StructIR, type_index: dict[str, TypeDefIR]
+    *, type_ir: StructIR, repo_type_index: dict[tuple[str, str], TypeDefIR],
+    current_module: ModuleIR, emit_namespace: str | None,
 ) -> CppStructView:
-    width = sum(
-        _field_byte_count(field_ir=f, type_index=type_index) * 8
-        for f in type_ir.fields
-    )  # placeholder; refined below for accurate data width
     # Compute data width matching legacy: sum of field data widths, ignoring per-field padding.
     data_width = 0
     for f in type_ir.fields:
         if isinstance(f.type_ir, TypeRefIR):
-            data_width += _resolved_type_width(type_ir=type_index[f.type_ir.name], type_index=type_index)
+            target = repo_type_index[(f.type_ir.module.python_module_name, f.type_ir.name)]
+            data_width += _resolved_type_width(type_ir=target, repo_type_index=repo_type_index)
         else:
             data_width += f.type_ir.resolved_width
     width = data_width
-    bc_total = sum(_field_byte_count(field_ir=f, type_index=type_index) for f in type_ir.fields) + type_ir.alignment_bits // 8
+    bc_total = sum(_field_byte_count(field_ir=f, repo_type_index=repo_type_index) for f in type_ir.fields) + type_ir.alignment_bits // 8
     field_views = tuple(
-        _build_struct_field_view(field_ir=f, type_index=type_index) for f in type_ir.fields
+        _build_struct_field_view(
+            field_ir=f, repo_type_index=repo_type_index,
+            current_module=current_module, emit_namespace=emit_namespace,
+        )
+        for f in type_ir.fields
     )
     has_inline_helpers = any(f.is_narrow_scalar or f.is_wide_scalar for f in field_views)
     return CppStructView(
@@ -601,8 +629,12 @@ def _build_struct_view(
 # ---------------------------------------------------------------------------
 
 
-def build_module_view_cpp(*, module: ModuleIR, namespace: str | None = None) -> CppModuleView:
-    type_index = {t.name: t for t in module.types}
+def build_module_view_cpp(
+    *, module: ModuleIR, namespace: str | None = None,
+    repo_type_index: dict[tuple[str, str], TypeDefIR] | None = None,
+) -> CppModuleView:
+    if repo_type_index is None:
+        repo_type_index = {(module.ref.python_module_name, t.name): t for t in module.types}
     has_types = bool(module.types)
 
     types_list: list[CppTypeView] = []
@@ -614,7 +646,12 @@ def build_module_view_cpp(*, module: ModuleIR, namespace: str | None = None) -> 
         elif isinstance(t, FlagsIR):
             types_list.append(_build_flags_view(type_ir=t))
         else:
-            types_list.append(_build_struct_view(type_ir=t, type_index=type_index))
+            types_list.append(
+                _build_struct_view(
+                    type_ir=t, repo_type_index=repo_type_index,
+                    current_module=module, emit_namespace=namespace,
+                )
+            )
 
     return CppModuleView(
         header="",  # caller supplies via dataclasses.replace
@@ -624,4 +661,29 @@ def build_module_view_cpp(*, module: ModuleIR, namespace: str | None = None) -> 
         standard_includes=_standard_includes(has_types=has_types),
         constants=tuple(_build_constant_view(const_ir=c) for c in module.constants),
         types=tuple(types_list),
+        cross_module_include_paths=_collect_cpp_cross_module_includes(module=module),
     )
+
+
+def _collect_cpp_cross_module_includes(*, module: ModuleIR) -> tuple[str, ...]:
+    """Collect include paths for direct cross-module type refs.
+
+    Path format: `{namespace_parts joined by /}/{basename}_types.hpp` where
+    `namespace_parts` is from the target's `ModuleRefIR`.
+
+    Sorted ascending and deduplicated.
+    """
+    seen: set[str] = set()
+    for type_ir in module.types:
+        if isinstance(type_ir, StructIR):
+            for field in type_ir.fields:
+                if isinstance(field.type_ir, TypeRefIR):
+                    target_module = field.type_ir.module
+                    if target_module.python_module_name == module.ref.python_module_name:
+                        continue
+                    # Path under gen/cpp/: {namespace_parts joined}/<basename>_types.hpp.
+                    # namespace_parts ends with the basename, so drop the last and append `_types.hpp`.
+                    parts = target_module.namespace_parts
+                    path = "/".join(parts[:-1]) + f"/{target_module.basename}_types.hpp"
+                    seen.add(path)
+    return tuple(sorted(seen))

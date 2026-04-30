@@ -107,7 +107,11 @@ docs/                -- RFC, product spec, architecture docs
 1. **Python >= 3.12 required.** The codebase uses `type` statement aliases, pattern matching, and `X | Y` union syntax that require 3.12+.
 2. **No UVM dependency.** Verification helpers in generated SystemVerilog are standalone classes, not UVM components.
 3. **Packed types only.** All generated SystemVerilog types must be packed (`typedef struct packed`). Unpacked types are out of scope for v1.
-4. **No cross-module type references (current milestone).** Struct fields referencing types from other modules are rejected by validation. This constraint will be relaxed in a future milestone.
+4. **Cross-module type references.** Struct fields may reference named types defined in other DSL modules. Cross-module references:
+   - Must not form cycles across modules. Cross-module struct cycles are rejected at validation time.
+   - Must not produce local-vs-imported, imported-vs-imported, or imported-vs-local enum literal name collisions. Such collisions are rejected at validation time.
+   - Produce explicit `import {target}_pkg::*;` lines in SystemVerilog synth packages, dual `_pkg` + `_test_pkg` imports in test packages, fully-qualified field types in C++ headers with the corresponding `#include`, and `from <target>_types import <wrapper>` lines in Python.
+   - Require unique module basenames across the repo (this validation runs unconditionally for every `piketype gen` invocation).
 5. **Constant widths restricted to 32/64 bits.** Arbitrary-width constants are not supported; the validation layer rejects other widths.
 6. **Minimal runtime dependencies.** Only Jinja2 at runtime. No heavy frameworks, no network dependencies.
 7. **Stable, reproducible output.** Ordering is by dependency-first then declaration order. No randomness or environment-dependent output.

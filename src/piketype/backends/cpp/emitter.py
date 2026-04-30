@@ -16,6 +16,7 @@ from piketype.backends.common.headers import render_header
 from piketype.backends.common.render import make_environment, render
 from piketype.backends.cpp.view import build_module_view_cpp
 from piketype.ir.nodes import RepoIR
+from piketype.ir.repo_index import build_repo_type_index
 from piketype.paths import cpp_header_output_path
 
 
@@ -24,6 +25,7 @@ def emit_cpp(repo: RepoIR, *, namespace: str | None = None) -> list[Path]:
     written_paths: list[Path] = []
     repo_root = Path(repo.repo_root)
     env = make_environment(package="piketype.backends.cpp")
+    repo_type_index = build_repo_type_index(repo)
     for module in repo.modules:
         output_path = cpp_header_output_path(
             repo_root=repo_root,
@@ -31,7 +33,9 @@ def emit_cpp(repo: RepoIR, *, namespace: str | None = None) -> list[Path]:
         )
         output_path.parent.mkdir(parents=True, exist_ok=True)
         header = render_header(source_paths=(module.ref.repo_relative_path,))
-        view = build_module_view_cpp(module=module, namespace=namespace)
+        view = build_module_view_cpp(
+            module=module, namespace=namespace, repo_type_index=repo_type_index,
+        )
         view = replace(view, header=header)
         output_path.write_text(
             render(env=env, template_name="module.j2", context=view),

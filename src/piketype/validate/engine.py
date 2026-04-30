@@ -66,21 +66,16 @@ def validate_repo(repo: RepoIR) -> None:
                             )
                         continue
                     if isinstance(field.type_ir, TypeRefIR):
-                        if field.type_ir.module.python_module_name != module.ref.python_module_name:
-                            raise ValidationError(
-                                f"{module.ref.repo_relative_path}: struct {type_ir.name} field {field.name} "
-                                "cross-module type references are not supported in this milestone"
-                            )
                         target = type_index.get((field.type_ir.module.python_module_name, field.type_ir.name))
                         if target is None:
                             raise ValidationError(
                                 f"{module.ref.repo_relative_path}: struct {type_ir.name} field {field.name} "
-                                f"references unknown type {field.type_ir.name}"
+                                f"references unknown type {field.type_ir.module.python_module_name}::{field.type_ir.name}"
                             )
                         if not isinstance(target, (ScalarAliasIR, StructIR, FlagsIR, EnumIR)):
                             raise ValidationError(
                                 f"{module.ref.repo_relative_path}: struct {type_ir.name} field {field.name} "
-                                "must reference a scalar alias, struct, flags, or enum in this milestone"
+                                "must reference a scalar alias, struct, flags, or enum"
                             )
                         continue
                 continue
@@ -163,6 +158,8 @@ def validate_repo(repo: RepoIR) -> None:
         _validate_generated_identifier_collision(module=module)
         _validate_alignment_bits(module=module)
         _validate_enum_literal_collision(module=module)
+    _validate_repo_struct_cycles(repo=repo, type_index=type_index)
+    _validate_cross_module_name_conflicts(repo=repo, type_index=type_index)
 
 
 def _validate_const_storage(*, value: int, signed: bool, width: int, module_path: str, const_name: str) -> None:
@@ -183,7 +180,12 @@ def _validate_const_storage(*, value: int, signed: bool, width: int, module_path
 
 
 def _validate_struct_cycles(*, module, type_index: dict[tuple[str, str], object]) -> None:
-    """Reject direct or indirect same-module struct cycles."""
+    """Reject same-module struct cycles (preserves existing wording for golden compat).
+
+    Cross-module struct cycles are detected by `_validate_repo_struct_cycles`
+    over the full repo graph; this per-module pass keeps the existing single-
+    module error wording for the existing negative-test golden.
+    """
     struct_graph: dict[str, set[str]] = {}
     for type_ir in module.types:
         if not isinstance(type_ir, StructIR):
@@ -191,6 +193,9 @@ def _validate_struct_cycles(*, module, type_index: dict[tuple[str, str], object]
         deps: set[str] = set()
         for field in type_ir.fields:
             if not isinstance(field.type_ir, TypeRefIR):
+                continue
+            # Same-module cycle detection only — cross-module cycles handled at repo level.
+            if field.type_ir.module.python_module_name != module.ref.python_module_name:
                 continue
             target = type_index.get((field.type_ir.module.python_module_name, field.type_ir.name))
             if isinstance(target, StructIR):
@@ -313,3 +318,143 @@ def _validate_enum_literal_collision(*, module: ModuleIR) -> None:
                     f"value '{enum_val.name}' collides with value in enum {all_enum_value_names[enum_val.name]}"
                 )
             all_enum_value_names[enum_val.name] = type_ir.name
+
+
+def _validate_repo_struct_cycles(*, repo: RepoIR, type_index: dict[tuple[str, str], object]) -> None:
+    """FR-6: Reject cross-module struct cycles using a repo-level dependency graph.
+
+    Same-module cycles are caught first by `_validate_struct_cycles` per module
+    (preserving existing wording). This pass detects cycles whose path crosses
+    a module boundary at least once.
+    """
+    Node = tuple[str, str]  # (module_python_name, struct_name)
+    graph: dict[Node, set[Node]] = {}
+    for module in repo.modules:
+        for type_ir in module.types:
+            if not isinstance(type_ir, StructIR):
+                continue
+            node: Node = (module.ref.python_module_name, type_ir.name)
+            edges: set[Node] = set()
+            for field in type_ir.fields:
+                if not isinstance(field.type_ir, TypeRefIR):
+                    continue
+                target_key = (field.type_ir.module.python_module_name, field.type_ir.name)
+                target = type_index.get(target_key)
+                if isinstance(target, StructIR):
+                    edges.add(target_key)
+            graph[node] = edges
+
+    visiting: list[Node] = []
+    visited: set[Node] = set()
+
+    def visit(node: Node) -> None:
+        if node in visited:
+            return
+        if node in visiting:
+            cycle_start = visiting.index(node)
+            cycle = visiting[cycle_start:] + [node]
+            # Same-module cycles already raised; skip those here.
+            modules_on_cycle = {n[0] for n in cycle}
+            if len(modules_on_cycle) >= 2:
+                # Rotate so lex-smallest node is first.
+                lex_min_idx = cycle.index(min(cycle))
+                rotated = cycle[lex_min_idx:-1] + cycle[:lex_min_idx]
+                rotated_with_close = rotated + [rotated[0]]
+                path_str = " -> ".join(f"{m}::{n}" for (m, n) in rotated_with_close)
+                raise ValidationError(
+                    f"recursive cross-module struct dependency detected: {path_str}"
+                )
+            return
+        visiting.append(node)
+        for dep in graph.get(node, set()):
+            visit(dep)
+        visiting.pop()
+        visited.add(node)
+
+    for node in sorted(graph.keys()):
+        visit(node)
+
+
+def _validate_cross_module_name_conflicts(*, repo: RepoIR, type_index: dict[tuple[str, str], object]) -> None:
+    """FR-8: Reject local-vs-imported, imported-vs-imported type-name and enum-literal collisions."""
+    for module in repo.modules:
+        # Direct cross-module targets (one entry per distinct target module).
+        cross_targets: dict[str, set[str]] = {}  # target_module -> set of imported type names
+        for type_ir in module.types:
+            if not isinstance(type_ir, StructIR):
+                continue
+            for field in type_ir.fields:
+                if isinstance(field.type_ir, TypeRefIR):
+                    target_module = field.type_ir.module.python_module_name
+                    if target_module == module.ref.python_module_name:
+                        continue
+                    cross_targets.setdefault(target_module, set()).add(field.type_ir.name)
+
+        if not cross_targets:
+            continue
+
+        local_type_names = {t.name for t in module.types}
+
+        # Local-vs-imported type-name conflict.
+        for target_module, names in cross_targets.items():
+            for n in names:
+                if n in local_type_names:
+                    raise ValidationError(
+                        f"module {module.ref.python_module_name}: "
+                        f"local type {n} shadows cross-module reference to {target_module}::{n}"
+                    )
+
+        # Imported-vs-imported type-name conflict.
+        # Each cross-module target's wildcard import brings ALL of its types into scope, so
+        # we need to consider all types defined in those target modules, not just the ones
+        # the current module references.
+        wildcard_type_owners: dict[str, list[str]] = {}  # type_name -> [target_modules]
+        for target_module in cross_targets:
+            target_module_ir = next(
+                (m for m in repo.modules if m.ref.python_module_name == target_module),
+                None,
+            )
+            if target_module_ir is None:
+                continue
+            for t in target_module_ir.types:
+                wildcard_type_owners.setdefault(t.name, []).append(target_module)
+        for type_name, owners in wildcard_type_owners.items():
+            if len(owners) >= 2:
+                raise ValidationError(
+                    f"module {module.ref.python_module_name}: cross-module references to "
+                    f"{owners[0]}::{type_name} and {owners[1]}::{type_name} create an ambiguous import"
+                )
+
+        # Enum literal collisions across wildcard imports.
+        wildcard_enum_literals: dict[str, list[str]] = {}  # literal_name -> [target_modules]
+        for target_module in cross_targets:
+            target_module_ir = next(
+                (m for m in repo.modules if m.ref.python_module_name == target_module),
+                None,
+            )
+            if target_module_ir is None:
+                continue
+            for t in target_module_ir.types:
+                if isinstance(t, EnumIR):
+                    for v in t.values:
+                        wildcard_enum_literals.setdefault(v.name, []).append(target_module)
+        # Imported-vs-imported enum literal collision.
+        for lit, owners in wildcard_enum_literals.items():
+            if len(owners) >= 2:
+                raise ValidationError(
+                    f"module {module.ref.python_module_name}: wildcard import of "
+                    f"{owners[0]} and {owners[1]} creates ambiguous enum literal {lit}"
+                )
+        # Local-vs-imported enum literal collision.
+        local_enum_literals = {
+            v.name
+            for t in module.types
+            if isinstance(t, EnumIR)
+            for v in t.values
+        }
+        for lit, owners in wildcard_enum_literals.items():
+            if lit in local_enum_literals:
+                raise ValidationError(
+                    f"module {module.ref.python_module_name}: local enum literal {lit} "
+                    f"collides with wildcard import from {owners[0]}"
+                )

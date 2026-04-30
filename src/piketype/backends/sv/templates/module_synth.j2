@@ -1,6 +1,9 @@
 {% import "_macros.j2" as macros %}
 {{ header }}
 package {{ package_name }};
+{% for b in synth_cross_module_target_basenames %}
+  import {{ b }}_pkg::*;
+{% endfor %}
 {% if has_constants or has_types %}
 
 {% endif %}

@@ -22,6 +22,7 @@ from piketype.ir.nodes import (
     FlagFieldIR,
     FlagsIR,
     IntLiteralExprIR,
+    ModuleDependencyIR,
     ModuleIR,
     ModuleRefIR,
     RepoIR,
@@ -275,6 +276,14 @@ def freeze_module(
         types=tuple(local_types),
         dependencies=(),
     )
+    # Re-create with populated dependencies (frozen dataclasses cannot be mutated).
+    module_ir = ModuleIR(
+        ref=module_ir.ref,
+        source=module_ir.source,
+        constants=module_ir.constants,
+        types=module_ir.types,
+        dependencies=_collect_module_dependencies(module_ir),
+    )
     return FrozenModule(module_ir=module_ir, has_local_definitions=bool(local_constants or local_types))
 
 
@@ -282,6 +291,72 @@ def freeze_repo(*, repo_root: Path, frozen_modules: list[FrozenModule], tool_ver
     """Assemble repository IR from frozen modules."""
     modules = tuple(frozen_module.module_ir for frozen_module in frozen_modules)
     return RepoIR(repo_root=str(repo_root), modules=modules, tool_version=tool_version)
+
+
+def _collect_module_dependencies(module_ir: ModuleIR) -> tuple[ModuleDependencyIR, ...]:
+    """Walk module IR and collect cross-module type/const reference dependencies.
+
+    Returns a deterministically-ordered tuple of `ModuleDependencyIR` entries,
+    one per distinct (target_python_module_name, kind) pair.
+
+    Sources of cross-module references:
+    - Every `TypeRefIR` reachable from struct fields, scalar alias `width_expr`,
+      struct field `width_expr`, enum value `expr`, constant `expr`. Cross-module
+      means `type_ref.module.python_module_name != module_ir.ref.python_module_name`.
+    - Every `ConstRefExprIR` reachable from any `ExprIR` traversal.
+
+    Note (R8 invariant): cross-module `TypeRefIR` always points to a top-level
+    named DSL type, never `ScalarTypeSpecIR`. Only named bindings are importable
+    across modules, and `_freeze_field_type` only emits `TypeRefIR` for objects
+    in `type_definition_map`.
+    """
+    self_module = module_ir.ref.python_module_name
+    targets: set[tuple[str, str]] = set()  # (target_python_module_name, kind)
+    target_refs: dict[tuple[str, str], ModuleRefIR] = {}
+
+    def visit_expr(expr: object) -> None:
+        if isinstance(expr, ConstRefExprIR):
+            if expr.module.python_module_name != self_module:
+                key = (expr.module.python_module_name, "const_ref")
+                targets.add(key)
+                target_refs[key] = expr.module
+        elif isinstance(expr, UnaryExprIR):
+            visit_expr(expr.operand)
+        elif isinstance(expr, BinaryExprIR):
+            visit_expr(expr.lhs)
+            visit_expr(expr.rhs)
+        # IntLiteralExprIR has no children.
+
+    def add_type_ref(ref: TypeRefIR) -> None:
+        if ref.module.python_module_name != self_module:
+            key = (ref.module.python_module_name, "type_ref")
+            targets.add(key)
+            target_refs[key] = ref.module
+
+    # Constants.
+    for const in module_ir.constants:
+        visit_expr(const.expr)
+
+    # Types.
+    for type_ir in module_ir.types:
+        if isinstance(type_ir, ScalarAliasIR):
+            visit_expr(type_ir.width_expr)
+        elif isinstance(type_ir, StructIR):
+            for field in type_ir.fields:
+                if isinstance(field.type_ir, TypeRefIR):
+                    add_type_ref(field.type_ir)
+                elif isinstance(field.type_ir, ScalarTypeSpecIR):
+                    visit_expr(field.type_ir.width_expr)
+        elif isinstance(type_ir, EnumIR):
+            visit_expr(type_ir.width_expr)
+            for value in type_ir.values:
+                visit_expr(value.expr)
+        # FlagsIR has no expressions or type refs.
+
+    return tuple(
+        ModuleDependencyIR(target=target_refs[key], kind=key[1])
+        for key in sorted(targets)
+    )
 
 
 def _serialized_width_from_dsl(struct_type: StructType) -> int:

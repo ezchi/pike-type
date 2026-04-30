@@ -1,7 +1,13 @@
 {% import "_macros.j2" as macros %}
 {{ header }}
 package {{ package_name }};
-{{ synth_package_import }}
+  import {{ same_module_synth_basename }}_pkg::*;
+{% for b in cross_module_synth_target_basenames %}
+  import {{ b }}_pkg::*;
+{% endfor %}
+{% for b in cross_module_test_target_basenames %}
+  import {{ b }}_test_pkg::*;
+{% endfor %}
 {% for h in helpers %}
 
 {% if h.kind == "scalar_alias" %}

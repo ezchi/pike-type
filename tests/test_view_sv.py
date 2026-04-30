@@ -21,7 +21,7 @@ from piketype.dsl.freeze import (
     freeze_repo,
 )
 from piketype.ir.nodes import ModuleIR
-from piketype.loader.python_loader import load_module_from_path
+from piketype.loader.python_loader import load_or_get_module, prepare_run
 
 _FIXTURES = Path(__file__).resolve().parent / "fixtures"
 
@@ -29,22 +29,23 @@ _FIXTURES = Path(__file__).resolve().parent / "fixtures"
 def _load_fixture_module(fixture_name: str) -> ModuleIR:
     repo_root = _FIXTURES / fixture_name / "project"
     module_paths = find_piketype_modules(repo_root)
-    loaded_modules = [
-        build_loaded_module(
-            module=load_module_from_path(p, repo_root=repo_root),
-            module_path=p,
-            repo_root=repo_root,
-        )
-        for p in module_paths
-    ]
-    const_map = build_const_definition_map(loaded_modules=loaded_modules)
-    type_map = build_type_definition_map(loaded_modules=loaded_modules)
-    frozen = [
-        freeze_module(loaded_module=lm, definition_map=const_map, type_definition_map=type_map)
-        for lm in loaded_modules
-    ]
-    repo = freeze_repo(repo_root=repo_root, frozen_modules=frozen, tool_version=__version__)
-    return repo.modules[0]
+    with prepare_run(repo_root=repo_root, module_paths=module_paths):
+        loaded_modules = [
+            build_loaded_module(
+                module=load_or_get_module(p, repo_root=repo_root),
+                module_path=p,
+                repo_root=repo_root,
+            )
+            for p in module_paths
+        ]
+        const_map = build_const_definition_map(loaded_modules=loaded_modules)
+        type_map = build_type_definition_map(loaded_modules=loaded_modules)
+        frozen = [
+            freeze_module(loaded_module=lm, definition_map=const_map, type_definition_map=type_map)
+            for lm in loaded_modules
+        ]
+        repo = freeze_repo(repo_root=repo_root, frozen_modules=frozen, tool_version=__version__)
+        return repo.modules[0]
 
 
 class SynthViewTests(unittest.TestCase):
@@ -74,11 +75,12 @@ class TestPackageViewTests(unittest.TestCase):
         self.assertIsInstance(view, SvTestModuleView)
         self.assertTrue(view.package_name.endswith("_test_pkg"))
 
-    def test_synth_package_import_present(self) -> None:
+    def test_synth_package_import_basename_set(self) -> None:
         module = _load_fixture_module("scalar_sv_basic")
         view = build_test_module_view_sv(module=module)
-        self.assertIn("import", view.synth_package_import)
-        self.assertIn("_pkg::*", view.synth_package_import)
+        # Template-first refactor: view carries basename only; the literal
+        # `import {b}_pkg::*;` line is rendered by module_test.j2.
+        self.assertEqual(view.same_module_synth_basename, "types")
 
 
 class CombinedFixtureTests(unittest.TestCase):

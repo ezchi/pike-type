@@ -19,6 +19,7 @@ from piketype.backends.common.headers import render_header
 from piketype.backends.common.render import make_environment, render
 from piketype.backends.sv.view import build_synth_module_view_sv, build_test_module_view_sv
 from piketype.ir.nodes import RepoIR
+from piketype.ir.repo_index import build_repo_type_index
 from piketype.paths import sv_module_output_path, sv_test_module_output_path
 
 
@@ -27,6 +28,7 @@ def emit_sv(repo: RepoIR) -> list[Path]:
     written_paths: list[Path] = []
     repo_root = Path(repo.repo_root)
     env = make_environment(package="piketype.backends.sv")
+    repo_type_index = build_repo_type_index(repo)
     for module in repo.modules:
         header = render_header(source_paths=(module.ref.repo_relative_path,))
         synth_output_path = sv_module_output_path(
@@ -34,7 +36,10 @@ def emit_sv(repo: RepoIR) -> list[Path]:
             module_path=repo_root / module.ref.repo_relative_path,
         )
         synth_output_path.parent.mkdir(parents=True, exist_ok=True)
-        synth_view = replace(build_synth_module_view_sv(module=module), header=header)
+        synth_view = replace(
+            build_synth_module_view_sv(module=module, repo_type_index=repo_type_index),
+            header=header,
+        )
         synth_output_path.write_text(
             render(env=env, template_name="module_synth.j2", context=synth_view),
             encoding="utf-8",
@@ -46,7 +51,10 @@ def emit_sv(repo: RepoIR) -> list[Path]:
                 module_path=repo_root / module.ref.repo_relative_path,
             )
             test_output_path.parent.mkdir(parents=True, exist_ok=True)
-            test_view = replace(build_test_module_view_sv(module=module), header=header)
+            test_view = replace(
+                build_test_module_view_sv(module=module, repo_type_index=repo_type_index),
+                header=header,
+            )
             test_output_path.write_text(
                 render(env=env, template_name="module_test.j2", context=test_view),
                 encoding="utf-8",

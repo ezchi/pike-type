@@ -164,6 +164,9 @@ class SvSynthModuleView:
     types: tuple[SvSynthTypeView, ...]
     # Pack/unpack data parallel to types[]; only populated for struct kind.
     pack_unpack: tuple[SvSynthStructPackUnpackView | None, ...]
+    # Cross-module synth-package wildcard imports (basenames only); template
+    # renders `import {b}_pkg::*;`. Sorted by target.python_module_name.
+    synth_cross_module_target_basenames: tuple[str, ...]
 
 
 # ---------------------------------------------------------------------------
@@ -260,7 +263,9 @@ type SvTestHelperView = (
 class SvTestModuleView:
     header: str
     package_name: str
-    synth_package_import: str
+    same_module_synth_basename: str
+    cross_module_synth_target_basenames: tuple[str, ...]
+    cross_module_test_target_basenames: tuple[str, ...]
     helpers: tuple[SvTestHelperView, ...]
 
 
@@ -309,51 +314,53 @@ def _render_sv_const(*, value: int, signed: bool, width: int) -> tuple[str, str]
     raise ValueError(f"unsupported SV constant storage: signed={signed}, width={width}")
 
 
-def _data_width(*, type_ir: TypeDefIR, type_index: dict[str, TypeDefIR]) -> int:
+def _data_width(*, type_ir: TypeDefIR, repo_type_index: dict[tuple[str, str], TypeDefIR]) -> int:
     if isinstance(type_ir, ScalarAliasIR):
         return type_ir.resolved_width
     if isinstance(type_ir, FlagsIR):
         return len(type_ir.fields)
     if isinstance(type_ir, EnumIR):
         return type_ir.resolved_width
-    return sum(_field_data_width(field=f, type_index=type_index) for f in type_ir.fields)
+    return sum(_field_data_width(field=f, repo_type_index=repo_type_index) for f in type_ir.fields)
 
 
-def _field_data_width(*, field: StructFieldIR, type_index: dict[str, TypeDefIR]) -> int:
+def _field_data_width(*, field: StructFieldIR, repo_type_index: dict[tuple[str, str], TypeDefIR]) -> int:
     if isinstance(field.type_ir, ScalarTypeSpecIR):
         return field.type_ir.resolved_width
-    return _data_width(type_ir=type_index[field.type_ir.name], type_index=type_index)
+    target = repo_type_index[(field.type_ir.module.python_module_name, field.type_ir.name)]
+    return _data_width(type_ir=target, repo_type_index=repo_type_index)
 
 
-def _type_byte_count(*, type_ir: TypeDefIR, type_index: dict[str, TypeDefIR]) -> int:
+def _type_byte_count(*, type_ir: TypeDefIR, repo_type_index: dict[tuple[str, str], TypeDefIR]) -> int:
     if isinstance(type_ir, ScalarAliasIR):
         return byte_count(type_ir.resolved_width)
     if isinstance(type_ir, FlagsIR):
         return byte_count(len(type_ir.fields))
     if isinstance(type_ir, EnumIR):
         return byte_count(type_ir.resolved_width)
-    field_bytes = sum(_field_byte_count(field=f, type_index=type_index) for f in type_ir.fields)
+    field_bytes = sum(_field_byte_count(field=f, repo_type_index=repo_type_index) for f in type_ir.fields)
     return field_bytes + type_ir.alignment_bits // 8
 
 
-def _field_byte_count(*, field: StructFieldIR, type_index: dict[str, TypeDefIR]) -> int:
+def _field_byte_count(*, field: StructFieldIR, repo_type_index: dict[tuple[str, str], TypeDefIR]) -> int:
     if isinstance(field.type_ir, ScalarTypeSpecIR):
         return byte_count(field.type_ir.resolved_width)
-    return _type_byte_count(type_ir=type_index[field.type_ir.name], type_index=type_index)
+    target = repo_type_index[(field.type_ir.module.python_module_name, field.type_ir.name)]
+    return _type_byte_count(type_ir=target, repo_type_index=repo_type_index)
 
 
-def _is_field_signed(*, field: StructFieldIR, type_index: dict[str, TypeDefIR]) -> bool:
+def _is_field_signed(*, field: StructFieldIR, repo_type_index: dict[tuple[str, str], TypeDefIR]) -> bool:
     if isinstance(field.type_ir, ScalarTypeSpecIR):
         return field.type_ir.signed
-    target = type_index.get(field.type_ir.name)
+    target = repo_type_index.get((field.type_ir.module.python_module_name, field.type_ir.name))
     if isinstance(target, ScalarAliasIR):
         return target.signed
     return False
 
 
-def _is_sv_composite_ref(*, field_type, type_index: dict[str, TypeDefIR]) -> bool:  # type: ignore[no-untyped-def]
+def _is_sv_composite_ref(*, field_type, repo_type_index: dict[tuple[str, str], TypeDefIR]) -> bool:  # type: ignore[no-untyped-def]
     return isinstance(field_type, TypeRefIR) and isinstance(
-        type_index[field_type.name], (StructIR, FlagsIR, EnumIR)
+        repo_type_index[(field_type.module.python_module_name, field_type.name)], (StructIR, FlagsIR, EnumIR)
     )
 
 
@@ -367,9 +374,9 @@ def _render_sv_struct_field_type(field_type) -> str:  # type: ignore[no-untyped-
     return f"{base_type}{signed_kw} [{field_type.resolved_width - 1}:0]"
 
 
-def _render_sv_helper_field_decl(*, field: StructFieldIR, type_index: dict[str, TypeDefIR]) -> str:
+def _render_sv_helper_field_decl(*, field: StructFieldIR, repo_type_index: dict[tuple[str, str], TypeDefIR]) -> str:
     if isinstance(field.type_ir, TypeRefIR):
-        target = type_index[field.type_ir.name]
+        target = repo_type_index[(field.type_ir.module.python_module_name, field.type_ir.name)]
         if isinstance(target, (StructIR, FlagsIR, EnumIR)):
             return f"{_helper_class_name(target.name)} {field.name};"
         rand_kw = "rand " if field.rand else ""
@@ -414,7 +421,7 @@ def _build_synth_scalar_alias(*, type_ir: ScalarAliasIR) -> SvScalarAliasView:
     )
 
 
-def _build_synth_struct(*, type_ir: StructIR, type_index: dict[str, TypeDefIR]) -> SvSynthStructView:
+def _build_synth_struct(*, type_ir: StructIR, repo_type_index: dict[tuple[str, str], TypeDefIR]) -> SvSynthStructView:
     base = _type_base_name(type_ir.name)
     fields = tuple(
         SvSynthStructFieldView(
@@ -431,8 +438,8 @@ def _build_synth_struct(*, type_ir: StructIR, type_index: dict[str, TypeDefIR]) 
         name=type_ir.name,
         base=base,
         upper_base=base.upper(),
-        width=_data_width(type_ir=type_ir, type_index=type_index),
-        byte_count=_type_byte_count(type_ir=type_ir, type_index=type_index),
+        width=_data_width(type_ir=type_ir, repo_type_index=repo_type_index),
+        byte_count=_type_byte_count(type_ir=type_ir, repo_type_index=repo_type_index),
         alignment_bits=type_ir.alignment_bits,
         has_alignment=type_ir.alignment_bits > 0,
         is_alignment_one_bit=type_ir.alignment_bits == 1,
@@ -480,23 +487,25 @@ def _build_synth_enum(*, type_ir: EnumIR) -> SvSynthEnumView:
 
 
 def _build_struct_pack_unpack(
-    *, type_ir: StructIR, type_index: dict[str, TypeDefIR]
+    *, type_ir: StructIR, repo_type_index: dict[tuple[str, str], TypeDefIR]
 ) -> SvSynthStructPackUnpackView:
     pack_parts: list[SvSynthStructPackPartView] = []
     for field in type_ir.fields:
         if isinstance(field.type_ir, TypeRefIR):
-            inner_base = _type_base_name(type_index[field.type_ir.name].name)
+            inner_target = repo_type_index[(field.type_ir.module.python_module_name, field.type_ir.name)]
+            inner_base = _type_base_name(inner_target.name)
             pack_parts.append(SvSynthStructPackPartView(expr=f"pack_{inner_base}(a.{field.name})"))
         else:
             pack_parts.append(SvSynthStructPackPartView(expr=f"a.{field.name}"))
 
     unpack_fields: list[SvSynthStructUnpackFieldView] = []
     for field in reversed(type_ir.fields):
-        fw = _field_data_width(field=field, type_index=type_index)
-        is_signed = _is_field_signed(field=field, type_index=type_index)
+        fw = _field_data_width(field=field, repo_type_index=repo_type_index)
+        is_signed = _is_field_signed(field=field, repo_type_index=repo_type_index)
         has_signed_padding = field.padding_bits > 0 and is_signed
         if isinstance(field.type_ir, TypeRefIR):
-            inner_base = _type_base_name(type_index[field.type_ir.name].name)
+            inner_target = repo_type_index[(field.type_ir.module.python_module_name, field.type_ir.name)]
+            inner_base = _type_base_name(inner_target.name)
             unpack_fields.append(
                 SvSynthStructUnpackFieldView(
                     name=field.name,
@@ -552,7 +561,7 @@ def _build_test_scalar_helper(*, type_ir: ScalarAliasIR) -> SvTestScalarHelperVi
 
 
 def _build_test_struct_helper(
-    *, type_ir: StructIR, type_index: dict[str, TypeDefIR]
+    *, type_ir: StructIR, repo_type_index: dict[tuple[str, str], TypeDefIR]
 ) -> SvTestStructHelperView:
     base = _type_base_name(type_ir.name)
     helper_name = _helper_class_name(type_ir.name)
@@ -563,21 +572,22 @@ def _build_test_struct_helper(
     arg_parts: list[str] = []
 
     for field in type_ir.fields:
-        is_composite = _is_sv_composite_ref(field_type=field.type_ir, type_index=type_index)
+        is_composite = _is_sv_composite_ref(field_type=field.type_ir, repo_type_index=repo_type_index)
         target_helper = ""
-        if is_composite:
-            target_helper = _helper_class_name(type_index[field.type_ir.name].name)
+        if is_composite and isinstance(field.type_ir, TypeRefIR):
+            inner_target = repo_type_index[(field.type_ir.module.python_module_name, field.type_ir.name)]
+            target_helper = _helper_class_name(inner_target.name)
         decls.append(
             SvTestStructFieldDeclView(
                 name=field.name,
-                decl=_render_sv_helper_field_decl(field=field, type_index=type_index),
+                decl=_render_sv_helper_field_decl(field=field, repo_type_index=repo_type_index),
                 is_composite_ref=is_composite,
                 target_helper_class=target_helper,
             )
         )
-        fbc = _field_byte_count(field=field, type_index=type_index)
-        fw = _field_data_width(field=field, type_index=type_index)
-        is_signed = _is_field_signed(field=field, type_index=type_index)
+        fbc = _field_byte_count(field=field, repo_type_index=repo_type_index)
+        fw = _field_data_width(field=field, repo_type_index=repo_type_index)
+        is_signed = _is_field_signed(field=field, repo_type_index=repo_type_index)
         steps.append(
             SvTestStructFieldStepView(
                 name=field.name,
@@ -658,8 +668,13 @@ def _build_test_enum_helper(*, type_ir: EnumIR) -> SvTestEnumHelperView:
 # ---------------------------------------------------------------------------
 
 
-def build_synth_module_view_sv(*, module: ModuleIR) -> SvSynthModuleView:
-    type_index = {t.name: t for t in module.types}
+def build_synth_module_view_sv(
+    *, module: ModuleIR, repo_type_index: dict[tuple[str, str], TypeDefIR] | None = None,
+) -> SvSynthModuleView:
+    if repo_type_index is None:
+        # Same-module-only fallback for callers (e.g., legacy tests) that haven't been
+        # migrated yet. Builds a single-module index from the input module's types.
+        repo_type_index = {(module.ref.python_module_name, t.name): t for t in module.types}
     types_list: list[SvSynthTypeView] = []
     pack_unpack_list: list[SvSynthStructPackUnpackView | None] = []
     for t in module.types:
@@ -667,8 +682,8 @@ def build_synth_module_view_sv(*, module: ModuleIR) -> SvSynthModuleView:
             types_list.append(_build_synth_scalar_alias(type_ir=t))
             pack_unpack_list.append(None)
         elif isinstance(t, StructIR):
-            types_list.append(_build_synth_struct(type_ir=t, type_index=type_index))
-            pack_unpack_list.append(_build_struct_pack_unpack(type_ir=t, type_index=type_index))
+            types_list.append(_build_synth_struct(type_ir=t, repo_type_index=repo_type_index))
+            pack_unpack_list.append(_build_struct_pack_unpack(type_ir=t, repo_type_index=repo_type_index))
         elif isinstance(t, FlagsIR):
             types_list.append(_build_synth_flags(type_ir=t))
             pack_unpack_list.append(None)
@@ -683,24 +698,47 @@ def build_synth_module_view_sv(*, module: ModuleIR) -> SvSynthModuleView:
         constants=tuple(_build_constant_view(const_ir=c) for c in module.constants),
         types=tuple(types_list),
         pack_unpack=tuple(pack_unpack_list),
+        synth_cross_module_target_basenames=_collect_cross_module_target_basenames(module=module),
     )
 
 
-def build_test_module_view_sv(*, module: ModuleIR) -> SvTestModuleView:
-    type_index = {t.name: t for t in module.types}
+def build_test_module_view_sv(
+    *, module: ModuleIR, repo_type_index: dict[tuple[str, str], TypeDefIR] | None = None,
+) -> SvTestModuleView:
+    if repo_type_index is None:
+        repo_type_index = {(module.ref.python_module_name, t.name): t for t in module.types}
     helpers: list[SvTestHelperView] = []
     for t in module.types:
         if isinstance(t, ScalarAliasIR):
             helpers.append(_build_test_scalar_helper(type_ir=t))
         elif isinstance(t, StructIR):
-            helpers.append(_build_test_struct_helper(type_ir=t, type_index=type_index))
+            helpers.append(_build_test_struct_helper(type_ir=t, repo_type_index=repo_type_index))
         elif isinstance(t, FlagsIR):
             helpers.append(_build_test_flags_helper(type_ir=t))
         else:
             helpers.append(_build_test_enum_helper(type_ir=t))
+    cross_basenames = _collect_cross_module_target_basenames(module=module)
     return SvTestModuleView(
         header="",
         package_name=f"{module.ref.basename}_test_pkg",
-        synth_package_import=f"  import {module.ref.basename}_pkg::*;",
+        same_module_synth_basename=module.ref.basename,
+        cross_module_synth_target_basenames=cross_basenames,
+        cross_module_test_target_basenames=cross_basenames,
         helpers=tuple(helpers),
     )
+
+
+def _collect_cross_module_target_basenames(*, module: ModuleIR) -> tuple[str, ...]:
+    """Return target package basenames for direct cross-module type refs in this module's types.
+
+    Sorted ascending by `target.python_module_name`. Deduplicated.
+    """
+    seen: dict[str, str] = {}  # python_module_name -> basename
+    for type_ir in module.types:
+        if isinstance(type_ir, StructIR):
+            for field in type_ir.fields:
+                if isinstance(field.type_ir, TypeRefIR):
+                    target_module = field.type_ir.module
+                    if target_module.python_module_name != module.ref.python_module_name:
+                        seen[target_module.python_module_name] = target_module.basename
+    return tuple(seen[k] for k in sorted(seen.keys()))

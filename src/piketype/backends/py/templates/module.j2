@@ -10,6 +10,12 @@ from dataclasses import dataclass, field
 
 from enum import IntEnum
 {% endif %}
+{% if cross_module_imports %}
+
+{% for imp in cross_module_imports %}
+from {{ imp.target_types_module }} import {{ imp.wrapper_class_name }}
+{% endfor %}
+{% endif %}
 
 {% endif %}
 {% for c in constants %}

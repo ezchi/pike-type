@@ -14,7 +14,8 @@ from pathlib import Path
 from piketype.backends.common.headers import render_header
 from piketype.backends.common.render import make_environment, render
 from piketype.backends.py.view import build_module_view_py
-from piketype.ir.nodes import ModuleIR, RepoIR
+from piketype.ir.nodes import ModuleIR, RepoIR, TypeDefIR
+from piketype.ir.repo_index import build_repo_type_index
 from piketype.paths import py_module_output_path
 
 
@@ -25,6 +26,7 @@ def emit_py(repo: RepoIR) -> list[Path]:
     py_root = repo_root / "gen" / "py"
     _ensure_package_init(py_root, written_paths)
     env = make_environment(package="piketype.backends.py")
+    repo_type_index = build_repo_type_index(repo)
     for module in repo.modules:
         output_path = py_module_output_path(
             repo_root=repo_root,
@@ -32,15 +34,18 @@ def emit_py(repo: RepoIR) -> list[Path]:
         )
         output_path.parent.mkdir(parents=True, exist_ok=True)
         _ensure_package_chain(output_path.parent, py_root, written_paths)
-        output_path.write_text(_render_module(module=module, env=env), encoding="utf-8")
+        output_path.write_text(
+            _render_module(module=module, env=env, repo_type_index=repo_type_index),
+            encoding="utf-8",
+        )
         written_paths.append(output_path)
     return written_paths
 
 
-def _render_module(*, module: ModuleIR, env: object) -> str:
+def _render_module(*, module: ModuleIR, env: object, repo_type_index: dict[tuple[str, str], TypeDefIR]) -> str:
     """Build the view model and render module.j2."""
     header = render_header(source_paths=(module.ref.repo_relative_path,)).replace("//", "#")
-    view = build_module_view_py(module=module, header=header)
+    view = build_module_view_py(module=module, header=header, repo_type_index=repo_type_index)
     return render(env=env, template_name="module.j2", context=view)
 
 
