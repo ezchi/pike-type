@@ -12,7 +12,7 @@ rejected so all production rendering goes through typed view models.
 
 from __future__ import annotations
 
-from dataclasses import asdict, is_dataclass
+from dataclasses import fields, is_dataclass
 
 import jinja2
 
@@ -48,6 +48,12 @@ def render(*, env: jinja2.Environment, template_name: str, context: object) -> s
     ``jinja2.Environment(loader=DictLoader(...))`` rather than going
     through this helper.
 
+    The dataclass is passed to Jinja as a shallow kwargs dict (one key
+    per top-level field). Nested dataclasses inside the view stay as
+    dataclass instances and are accessed via attribute syntax in
+    templates (Jinja supports both ``obj.attr`` and ``obj['attr']``).
+    This avoids the deep-copy overhead of ``dataclasses.asdict``.
+
     The returned string is guaranteed to end in ``"\\n"`` (FR-3),
     matching the contract of the legacy inline emitters.
     """
@@ -55,7 +61,8 @@ def render(*, env: jinja2.Environment, template_name: str, context: object) -> s
         raise TypeError(
             f"render context must be a dataclass instance, got {type(context).__name__}"
         )
-    output = env.get_template(template_name).render(**asdict(context))
+    kwargs = {f.name: getattr(context, f.name) for f in fields(context)}
+    output = env.get_template(template_name).render(**kwargs)
     if not output.endswith("\n"):
         output += "\n"
     return output
