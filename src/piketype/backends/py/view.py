@@ -67,6 +67,9 @@ class ScalarAliasView:
     sign_bit: int  # 0 if not signed
     pad_bits: int  # byte_count*8 - width (only meaningful for narrow signed)
     msb_byte_mask: int  # for wide unsigned tail mask
+    # Transitional passthrough during T-09. Removed when the type's body
+    # rendering moves fully into templates.
+    body_text: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -84,6 +87,7 @@ class EnumView:
     mask: int  # (1 << width) - 1
     first_member_name: str
     members: tuple[EnumMemberView, ...]
+    body_text: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -100,6 +104,7 @@ class FlagsView:
     total_bits: int  # byte_count * 8
     data_mask: int  # ((1 << num_flags) - 1) << alignment_bits
     fields: tuple[FlagFieldView, ...]
+    body_text: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -135,6 +140,7 @@ class StructView:
     alignment_bytes: int
     fields: tuple[StructFieldView, ...]
     has_struct_field: bool  # at least one field.is_struct_ref
+    body_text: str = ""
 
 
 type TypeView = ScalarAliasView | StructView | EnumView | FlagsView

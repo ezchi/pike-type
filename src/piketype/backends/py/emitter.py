@@ -51,68 +51,59 @@ def emit_py(repo: RepoIR) -> list[Path]:
 def render_module_py(*, module: ModuleIR, env: object | None = None) -> str:
     """Render a Python module via the module.j2 Jinja template.
 
-    During the FR-6 sub-step migration (T-08..T-11) the not-yet-templated
-    portion of the body is passed through as ``body_lines`` on the view
-    model. T-08 (this commit) lands the module-level skeleton: header,
-    import block, and body passthrough. Class scaffolding, helper-method
-    skeletons, and expression fragments are migrated in T-09..T-11.
+    T-09 (this commit): the template now owns module-level iteration
+    (imports, constants, type loop with separator handling). Each
+    type's body is still rendered by legacy ``_render_py_*`` helpers
+    and passed through as a transitional ``body_text`` field on the
+    relevant TypeView. T-10/T-11 will replace those passthrough
+    strings with structured macros driven by view-model primitives.
     """
     header = render_header(source_paths=(module.ref.repo_relative_path,)).replace("//", "#")
-    body_lines = _legacy_render_py_body_lines(module)
-    view = build_module_view_py(module=module, header=header)
+    base_view = build_module_view_py(module=module, header=header)
+    types_with_bodies = tuple(
+        _attach_legacy_body(type_ir=t_ir, type_view=t_view, type_index={t.name: t for t in module.types})
+        for t_ir, t_view in zip(module.types, base_view.types, strict=True)
+    )
     view = ModuleView(
-        header=view.header,
-        has_types=view.has_types,
-        has_structs=view.has_structs,
-        has_enums=view.has_enums,
-        has_flags=view.has_flags,
-        constants=view.constants,
-        types=view.types,
-        body_lines=tuple(body_lines),
-        has_body_lines=bool(body_lines),
+        header=base_view.header,
+        has_types=base_view.has_types,
+        has_structs=base_view.has_structs,
+        has_enums=base_view.has_enums,
+        has_flags=base_view.has_flags,
+        constants=base_view.constants,
+        types=types_with_bodies,
+        body_lines=(),
+        has_body_lines=False,
     )
     if env is None:
         env = make_environment(package="piketype.backends.py")
     return render(env=env, template_name="module.j2", context=view)
 
 
-def _legacy_render_py_body_lines(module: ModuleIR) -> list[str]:
-    """Compute the post-header body lines exactly as the legacy emitter did.
+def _attach_legacy_body(
+    *, type_ir: TypeDefIR, type_view: object, type_index: dict[str, TypeDefIR]
+) -> object:
+    """Render one type via legacy helpers and stash on the view as body_text."""
+    if isinstance(type_ir, ScalarAliasIR):
+        body_text = "\n".join(_render_py_scalar_alias(type_ir=type_ir))
+        return _replace_body_text(view=type_view, body_text=body_text)
+    if isinstance(type_ir, StructIR):
+        body_text = "\n".join(_render_py_struct(type_ir=type_ir, type_index=type_index))
+        return _replace_body_text(view=type_view, body_text=body_text)
+    if isinstance(type_ir, FlagsIR):
+        body_text = "\n".join(_render_py_flags(type_ir=type_ir))
+        return _replace_body_text(view=type_view, body_text=body_text)
+    if isinstance(type_ir, EnumIR):
+        body_text = "\n".join(_render_py_enum(type_ir=type_ir))
+        return _replace_body_text(view=type_view, body_text=body_text)
+    raise ValueError(f"unsupported type IR {type(type_ir).__name__}")
 
-    This is the transitional helper that drives the InlineFragmentView
-    passthrough (FR-7 byte parity) during T-08..T-11. Each subsequent
-    migration commit replaces a slice of this output with structured
-    template rendering until ``body_lines`` is empty in T-12.
-    """
-    type_index = {type_ir.name: type_ir for type_ir in module.types}
-    has_types = bool(module.types)
-    has_structs = any(isinstance(type_ir, StructIR) for type_ir in module.types)
-    has_enums = any(isinstance(type_ir, EnumIR) for type_ir in module.types)
-    body_lines: list[str] = []
-    if has_types:
-        body_lines.append("from __future__ import annotations")
-        if has_structs:
-            body_lines.append("")
-            body_lines.append("from dataclasses import dataclass, field")
-        if has_enums:
-            body_lines.append("")
-            body_lines.append("from enum import IntEnum")
-        body_lines.append("")
-    body_lines.extend(f"{const.name} = {_render_py_expr(expr=const.expr)}" for const in module.constants)
-    if module.constants and module.types:
-        body_lines.append("")
-    for index, type_ir in enumerate(module.types):
-        if index > 0:
-            body_lines.append("")
-        if isinstance(type_ir, ScalarAliasIR):
-            body_lines.extend(_render_py_scalar_alias(type_ir=type_ir))
-        elif isinstance(type_ir, StructIR):
-            body_lines.extend(_render_py_struct(type_ir=type_ir, type_index=type_index))
-        elif isinstance(type_ir, FlagsIR):
-            body_lines.extend(_render_py_flags(type_ir=type_ir))
-        elif isinstance(type_ir, EnumIR):
-            body_lines.extend(_render_py_enum(type_ir=type_ir))
-    return body_lines
+
+def _replace_body_text(*, view: object, body_text: str) -> object:
+    """Return a new frozen view with body_text set."""
+    from dataclasses import replace
+
+    return replace(view, body_text=body_text)  # pyright: ignore[reportArgumentType]
 
 
 def _ensure_package_init(package_dir: Path, written_paths: list[Path]) -> None:

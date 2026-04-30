@@ -1,3 +1,25 @@
 {{ header }}
-{% if has_body_lines %}{{ body_lines | join('\n') }}
+{% if has_types %}
+from __future__ import annotations
+{% if has_structs %}
+
+from dataclasses import dataclass, field
 {% endif %}
+{% if has_enums %}
+
+from enum import IntEnum
+{% endif %}
+
+{% endif %}
+{% for c in constants %}
+{{ c.name }} = {{ c.value_expr }}
+{% endfor %}
+{% if constants and types %}
+
+{% endif %}
+{% for t in types %}
+{% if not loop.first %}
+
+{% endif %}
+{{ t.body_text }}
+{% endfor %}
