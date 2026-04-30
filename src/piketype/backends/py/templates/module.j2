@@ -26,6 +26,8 @@ from enum import IntEnum
 {{ macros.scalar_alias(t) }}
 {% elif t.kind == "enum" %}
 {{ macros.enum(t) }}
+{% elif t.kind == "flags" %}
+{{ macros.flags(t) }}
 {% else %}
 {{ t.body_text }}
 {% endif %}

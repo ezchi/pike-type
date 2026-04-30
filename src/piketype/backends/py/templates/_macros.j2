@@ -221,3 +221,50 @@ class {{ view.class_name }}:
     def __repr__(self) -> str:
         return f"{{ view.class_name }}(value={% raw %}{self.value!r}{% endraw %})"
 {%- endmacro %}
+
+
+{% macro flags(view) -%}
+class {{ view.class_name }}:
+    WIDTH: int = {{ view.num_flags }}
+    BYTE_COUNT: int = {{ view.byte_count }}
+
+    def __init__(self) -> None:
+        self._value: int = 0
+
+{% for f in view.fields %}
+    @property
+    def {{ f.name }}(self) -> bool:
+        return (self._value & {{ f.bit_mask }}) != 0
+
+    @{{ f.name }}.setter
+    def {{ f.name }}(self, v: bool) -> None:
+        if v:
+            self._value |= {{ f.bit_mask }}
+        else:
+            self._value &= ~{{ f.bit_mask }}
+
+{% endfor %}
+    def to_bytes(self) -> bytes:
+        return (self._value & {{ view.data_mask }}).to_bytes({{ view.byte_count }}, "big")
+
+    @classmethod
+    def from_bytes(cls, data: bytes | bytearray) -> "{{ view.class_name }}":
+        if not isinstance(data, (bytes, bytearray)):
+            raise TypeError("{{ view.class_name }}.from_bytes expects bytes or bytearray")
+        raw = bytes(data)
+        if len(raw) != {{ view.byte_count }}:
+            raise ValueError("{{ view.class_name }}.from_bytes size mismatch")
+        obj = cls()
+        obj._value = int.from_bytes(raw, "big") & {{ view.data_mask }}
+        return obj
+
+    def clone(self) -> "{{ view.class_name }}":
+        obj = self.__class__()
+        obj._value = self._value & {{ view.data_mask }}
+        return obj
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, {{ view.class_name }}):
+            return NotImplemented
+        return (self._value & {{ view.data_mask }}) == (other._value & {{ view.data_mask }})
+{%- endmacro %}
