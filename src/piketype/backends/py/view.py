@@ -56,6 +56,7 @@ class ConstantView:
 class ScalarAliasView:
     """One scalar alias type."""
 
+    kind: str  # always "scalar_alias" — discriminator for template dispatch
     class_name: str
     width: int
     byte_count: int
@@ -80,6 +81,7 @@ class EnumMemberView:
 
 @dataclass(frozen=True, slots=True)
 class EnumView:
+    kind: str  # always "enum"
     class_name: str
     enum_class_name: str
     width: int
@@ -98,6 +100,7 @@ class FlagFieldView:
 
 @dataclass(frozen=True, slots=True)
 class FlagsView:
+    kind: str  # always "flags"
     class_name: str
     num_flags: int
     byte_count: int
@@ -134,6 +137,7 @@ class StructFieldView:
 
 @dataclass(frozen=True, slots=True)
 class StructView:
+    kind: str  # always "struct"
     class_name: str
     width: int  # data width
     byte_count: int  # includes alignment bytes
@@ -250,6 +254,7 @@ def build_scalar_alias_view(*, type_ir: ScalarAliasIR) -> ScalarAliasView:
         max_value = 2**width - 1
         msb_byte_mask = (1 << (width % 8)) - 1 if width % 8 else 0xFF
         return ScalarAliasView(
+            kind="scalar_alias",
             class_name=_type_class_name(type_ir.name),
             width=width,
             byte_count=bc,
@@ -270,6 +275,7 @@ def build_scalar_alias_view(*, type_ir: ScalarAliasIR) -> ScalarAliasView:
         sign_bit = 1 << (width - 1)
         pad_bits = bc * 8 - width
         return ScalarAliasView(
+            kind="scalar_alias",
             class_name=_type_class_name(type_ir.name),
             width=width,
             byte_count=bc,
@@ -285,6 +291,7 @@ def build_scalar_alias_view(*, type_ir: ScalarAliasIR) -> ScalarAliasView:
 
     # Narrow unsigned.
     return ScalarAliasView(
+        kind="scalar_alias",
         class_name=_type_class_name(type_ir.name),
         width=width,
         byte_count=bc,
@@ -307,6 +314,7 @@ def build_enum_view(*, type_ir: EnumIR) -> EnumView:
     )
     width = type_ir.resolved_width
     return EnumView(
+        kind="enum",
         class_name=_type_class_name(type_ir.name),
         enum_class_name=f"{base}_enum_t",
         width=width,
@@ -327,6 +335,7 @@ def build_flags_view(*, type_ir: FlagsIR) -> FlagsView:
         for i, flag in enumerate(type_ir.fields)
     )
     return FlagsView(
+        kind="flags",
         class_name=_type_class_name(type_ir.name),
         num_flags=num_flags,
         byte_count=bc,
@@ -434,6 +443,7 @@ def build_struct_view(*, type_ir: StructIR, type_index: dict[str, TypeDefIR]) ->
         + type_ir.alignment_bits // 8
     )
     return StructView(
+        kind="struct",
         class_name=_type_class_name(type_ir.name),
         width=width,
         byte_count=struct_byte_count,

@@ -1,3 +1,4 @@
+{% import "_macros.j2" as macros %}
 {{ header }}
 {% if has_types %}
 from __future__ import annotations
@@ -21,5 +22,9 @@ from enum import IntEnum
 {% if not loop.first %}
 
 {% endif %}
+{% if t.kind == "scalar_alias" %}
+{{ macros.scalar_alias(t) }}
+{% else %}
 {{ t.body_text }}
+{% endif %}
 {% endfor %}
