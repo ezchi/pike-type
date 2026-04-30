@@ -1,0 +1,627 @@
+"""View-model dataclasses and builders for the C++ backend.
+
+Implements FR-1, FR-8, FR-9, FR-18 of spec 010-jinja-template-migration.
+This module provides per-kind frozen dataclasses (CppScalarAliasView,
+CppEnumView, CppFlagsView, CppStructView) with all numeric primitives
+and pre-rendered C++ literals precomputed. Templates in
+``backends/cpp/templates/`` consume these primitives directly via
+dedicated Jinja macros (one per type kind) — there is no body_text
+passthrough in the final state.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+from piketype.ir.nodes import (
+    BinaryExprIR,
+    ConstIR,
+    ConstRefExprIR,
+    EnumIR,
+    EnumValueIR,
+    ExprIR,
+    FlagsIR,
+    IntLiteralExprIR,
+    ModuleIR,
+    ScalarAliasIR,
+    StructFieldIR,
+    StructIR,
+    TypeDefIR,
+    TypeRefIR,
+    UnaryExprIR,
+    byte_count,
+)
+
+
+# ---------------------------------------------------------------------------
+# Module-level views
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class CppGuardView:
+    macro: str  # exact include-guard symbol
+
+
+@dataclass(frozen=True, slots=True)
+class CppNamespaceView:
+    qualified: str  # "" if no namespace
+    has_namespace: bool
+    open_line: str
+    close_line: str
+
+
+@dataclass(frozen=True, slots=True)
+class CppConstantView:
+    cpp_type: str
+    name: str
+    value_expr: str  # pre-rendered C++ literal or expression
+
+
+# ---------------------------------------------------------------------------
+# Per-kind type views
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class CppScalarAliasView:
+    kind: str  # "scalar_alias"
+    class_name: str
+    width: int
+    byte_count: int
+    signed: bool
+    storage_type: str  # _cpp_scalar_value_type result
+    # Mutually-exclusive discriminators
+    is_narrow_signed: bool
+    is_narrow_unsigned: bool
+    is_wide: bool
+    # Branch-control booleans for the signed narrow path.
+    has_signed_padding: bool  # is_narrow_signed and (byte_count*8 - width) > 0
+    has_signed_short_width: bool  # is_narrow_signed and width < 64
+    # Literals (empty string when the active branch does not consume them).
+    min_value_literal: str
+    max_value_literal: str
+    mask_literal: str  # narrow only; "" for wide
+    sign_bit_literal: str  # signed-narrow only
+    full_range_literal: str  # signed-short-width only
+    byte_total_mask_literal: str  # signed-padding only
+    msb_byte_mask_literal: str  # wide only
+
+
+@dataclass(frozen=True, slots=True)
+class CppEnumMemberView:
+    name: str
+    value_literal: str  # _cpp_unsigned_literal(resolved_value)
+
+
+@dataclass(frozen=True, slots=True)
+class CppEnumView:
+    kind: str  # "enum"
+    class_name: str  # wrapper class (e.g. "color_ct")
+    enum_class_name: str  # underlying enum class (e.g. "color_enum_t")
+    width: int
+    byte_count: int
+    underlying_uint_type: str  # _cpp_scalar_value_type(width=W, signed=False)
+    first_member_name: str
+    mask_literal: str
+    members: tuple[CppEnumMemberView, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class CppFlagFieldView:
+    name: str
+    name_upper: str  # name.upper()
+    bit_mask_literal: str  # 0x..U or 0x..ULL
+
+
+@dataclass(frozen=True, slots=True)
+class CppFlagsView:
+    kind: str  # "flags"
+    class_name: str
+    num_flags: int
+    byte_count: int
+    storage_bits: int
+    storage_type: str
+    data_mask_literal: str
+    fields: tuple[CppFlagFieldView, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class CppStructFieldView:
+    name: str
+    field_type_str: str  # bare type, e.g. "std::uint32_t"
+    byte_count: int
+    pack_bits: int  # byte_count * 8
+    # Type discriminators (exactly one is True).
+    is_struct_ref: bool
+    is_flags_ref: bool
+    is_enum_ref: bool
+    is_scalar_ref: bool
+    is_narrow_scalar: bool
+    is_wide_scalar: bool
+    target_class: str  # "" if scalar spec
+    width: int
+    signed: bool
+    has_signed_padding: bool  # is_narrow_scalar and signed and pad_bits > 0
+    has_signed_short_width: bool  # is_narrow_scalar and signed and width < 64
+    min_value_literal: str
+    max_value_literal: str
+    mask_literal: str
+    sign_bit_literal: str
+    full_range_literal: str
+    byte_total_mask_literal: str
+    msb_byte_mask_literal: str
+
+
+@dataclass(frozen=True, slots=True)
+class CppStructView:
+    kind: str  # "struct"
+    class_name: str
+    width: int
+    byte_count: int
+    alignment_bytes: int
+    has_inline_helpers: bool  # at least one field is a narrow or wide inline scalar
+    fields: tuple[CppStructFieldView, ...]
+
+
+type CppTypeView = CppScalarAliasView | CppStructView | CppEnumView | CppFlagsView
+
+
+@dataclass(frozen=True, slots=True)
+class CppModuleView:
+    header: str
+    guard: CppGuardView
+    namespace: CppNamespaceView
+    has_types: bool
+    standard_includes: tuple[str, ...]
+    constants: tuple[CppConstantView, ...]
+    types: tuple[CppTypeView, ...]
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _render_cpp_expr(expr: ExprIR) -> str:
+    match expr:
+        case IntLiteralExprIR(value=value):
+            return str(value)
+        case ConstRefExprIR(name=name):
+            return name
+        case UnaryExprIR(op=op, operand=operand):
+            return f"({op}{_render_cpp_expr(operand)})"
+        case BinaryExprIR(op=op, lhs=lhs, rhs=rhs):
+            return f"({_render_cpp_expr(lhs)} {op} {_render_cpp_expr(rhs)})"
+
+
+def _type_class_name(type_name: str) -> str:
+    if type_name.endswith("_t"):
+        return f"{type_name[:-2]}_ct"
+    return f"{type_name}_ct"
+
+
+def _cpp_scalar_value_type(*, width: int, signed: bool) -> str:
+    if width <= 8:
+        return "std::int8_t" if signed else "std::uint8_t"
+    if width <= 16:
+        return "std::int16_t" if signed else "std::uint16_t"
+    if width <= 32:
+        return "std::int32_t" if signed else "std::uint32_t"
+    return "std::int64_t" if signed else "std::uint64_t"
+
+
+def _cpp_unsigned_literal(value: int) -> str:
+    """Render an unsigned integer literal for C++ (decimal form)."""
+    if value <= 0xFFFFFFFF:
+        return f"{value}U"
+    return f"{value}ULL"
+
+
+def _cpp_hex_literal(value: int, *, is_64: bool) -> str:
+    """Render an unsigned integer literal for C++ (hex form, used by flags masks)."""
+    if is_64:
+        return f"0x{value:02X}ULL"
+    return f"0x{value:02X}U"
+
+
+# ---------------------------------------------------------------------------
+# Module-level builders
+# ---------------------------------------------------------------------------
+
+
+def _build_guard_view(*, module: ModuleIR, namespace: str | None) -> CppGuardView:
+    if namespace is not None:
+        macro = f"{namespace.replace('::', '_')}_{module.ref.basename}_types_hpp".upper()
+    else:
+        macro = "_".join((*module.ref.namespace_parts, "types_hpp")).upper().replace(".", "_")
+    return CppGuardView(macro=macro)
+
+
+def _build_namespace_view(*, module: ModuleIR, namespace: str | None) -> CppNamespaceView:
+    if namespace is not None:
+        qualified = f"{namespace}::{module.ref.basename}"
+    else:
+        qualified = "::".join(p for p in module.ref.namespace_parts if p != "piketype")
+    if not qualified:
+        return CppNamespaceView(qualified="", has_namespace=False, open_line="", close_line="")
+    return CppNamespaceView(
+        qualified=qualified,
+        has_namespace=True,
+        open_line=f"namespace {qualified} {{",
+        close_line=f"}}  // namespace {qualified}",
+    )
+
+
+def _standard_includes(*, has_types: bool) -> tuple[str, ...]:
+    base = ("<cstdint>",)
+    if has_types:
+        return base + ("<cstddef>", "<stdexcept>", "<vector>")
+    return base
+
+
+def _build_constant_view(*, const_ir: ConstIR) -> CppConstantView:
+    # Local copy of _render_cpp_const to avoid emitter dependency.
+    cpp_type, cpp_literal = _render_cpp_const(
+        value=const_ir.resolved_value,
+        signed=const_ir.resolved_signed,
+        width=const_ir.resolved_width,
+    )
+    if isinstance(const_ir.expr, IntLiteralExprIR):
+        value_expr = cpp_literal
+    else:
+        value_expr = _render_cpp_expr(const_ir.expr)
+    return CppConstantView(cpp_type=cpp_type, name=const_ir.name, value_expr=value_expr)
+
+
+def _render_cpp_const(*, value: int, signed: bool, width: int) -> tuple[str, str]:
+    """Choose a safe C++ constant type and literal spelling."""
+    if width == 32 and signed:
+        return ("std::int32_t", str(value))
+    if width == 32 and not signed:
+        return ("std::uint32_t", f"{value}U")
+    if width == 64 and signed:
+        return ("std::int64_t", f"{value}LL")
+    if width == 64 and not signed:
+        return ("std::uint64_t", f"{value}ULL")
+    raise ValueError(f"unsupported C++ constant storage: signed={signed}, width={width}")
+
+
+# ---------------------------------------------------------------------------
+# Per-kind builders
+# ---------------------------------------------------------------------------
+
+
+def _build_scalar_alias_view(*, type_ir: ScalarAliasIR) -> CppScalarAliasView:
+    width = type_ir.resolved_width
+    bc = byte_count(width)
+    signed = type_ir.signed
+    is_wide = width > 64
+    storage_type = _cpp_scalar_value_type(width=width, signed=signed)
+
+    if is_wide:
+        # Wide unsigned only (per current emitter contract).
+        pad = bc * 8 - width
+        msb_mask = _cpp_unsigned_literal((1 << (8 - pad)) - 1) if pad > 0 else "0xFFU"
+        return CppScalarAliasView(
+            kind="scalar_alias",
+            class_name=_type_class_name(type_ir.name),
+            width=width,
+            byte_count=bc,
+            signed=signed,
+            storage_type="std::vector<std::uint8_t>",
+            is_narrow_signed=False,
+            is_narrow_unsigned=False,
+            is_wide=True,
+            has_signed_padding=False,
+            has_signed_short_width=False,
+            min_value_literal="",
+            max_value_literal="",
+            mask_literal="",
+            sign_bit_literal="",
+            full_range_literal="",
+            byte_total_mask_literal="",
+            msb_byte_mask_literal=msb_mask,
+        )
+
+    # Narrow path — width <= 64.
+    mask = (1 << width) - 1 if width < 64 else 2**64 - 1
+    mask_literal = _cpp_unsigned_literal(mask)
+    pad_bits = bc * 8 - width
+
+    if signed:
+        minimum = -(2 ** (width - 1))
+        maximum = 2 ** (width - 1) - 1
+        has_signed_padding = pad_bits > 0
+        has_signed_short_width = width < 64
+        return CppScalarAliasView(
+            kind="scalar_alias",
+            class_name=_type_class_name(type_ir.name),
+            width=width,
+            byte_count=bc,
+            signed=True,
+            storage_type=storage_type,
+            is_narrow_signed=True,
+            is_narrow_unsigned=False,
+            is_wide=False,
+            has_signed_padding=has_signed_padding,
+            has_signed_short_width=has_signed_short_width,
+            min_value_literal=str(minimum),
+            max_value_literal=str(maximum),
+            mask_literal=mask_literal,
+            sign_bit_literal=_cpp_unsigned_literal(1 << (width - 1)) if has_signed_short_width else "",
+            full_range_literal=_cpp_unsigned_literal(1 << width) if has_signed_short_width else "",
+            byte_total_mask_literal=(
+                _cpp_unsigned_literal((1 << (bc * 8)) - 1 if bc * 8 < 64 else 2**64 - 1)
+                if has_signed_padding
+                else ""
+            ),
+            msb_byte_mask_literal="",
+        )
+
+    # Narrow unsigned.
+    maximum = 2**width - 1 if width < 64 else 2**64 - 1
+    return CppScalarAliasView(
+        kind="scalar_alias",
+        class_name=_type_class_name(type_ir.name),
+        width=width,
+        byte_count=bc,
+        signed=False,
+        storage_type=storage_type,
+        is_narrow_signed=False,
+        is_narrow_unsigned=True,
+        is_wide=False,
+        has_signed_padding=False,
+        has_signed_short_width=False,
+        min_value_literal="",
+        max_value_literal=_cpp_unsigned_literal(maximum),
+        mask_literal=mask_literal,
+        sign_bit_literal="",
+        full_range_literal="",
+        byte_total_mask_literal="",
+        msb_byte_mask_literal="",
+    )
+
+
+def _build_enum_view(*, type_ir: EnumIR) -> CppEnumView:
+    base = type_ir.name[:-2] if type_ir.name.endswith("_t") else type_ir.name
+    width = type_ir.resolved_width
+    members = tuple(
+        CppEnumMemberView(name=v.name, value_literal=_cpp_unsigned_literal(v.resolved_value))
+        for v in type_ir.values
+    )
+    return CppEnumView(
+        kind="enum",
+        class_name=_type_class_name(type_ir.name),
+        enum_class_name=f"{base}_enum_t",
+        width=width,
+        byte_count=byte_count(width),
+        underlying_uint_type=_cpp_scalar_value_type(width=width, signed=False),
+        first_member_name=type_ir.values[0].name if type_ir.values else "0",
+        mask_literal=_cpp_unsigned_literal((1 << width) - 1 if width < 64 else 2**64 - 1),
+        members=members,
+    )
+
+
+def _build_flags_view(*, type_ir: FlagsIR) -> CppFlagsView:
+    num_flags = len(type_ir.fields)
+    total_width = num_flags + type_ir.alignment_bits
+    bc = byte_count(total_width)
+    storage_bits = bc * 8
+    storage_type = _cpp_scalar_value_type(width=storage_bits, signed=False)
+    data_mask_val = ((1 << num_flags) - 1) << (storage_bits - num_flags)
+    is_64 = storage_bits > 32
+    fields = tuple(
+        CppFlagFieldView(
+            name=field.name,
+            name_upper=field.name.upper(),
+            bit_mask_literal=_cpp_hex_literal(1 << (storage_bits - 1 - i), is_64=is_64),
+        )
+        for i, field in enumerate(type_ir.fields)
+    )
+    return CppFlagsView(
+        kind="flags",
+        class_name=_type_class_name(type_ir.name),
+        num_flags=num_flags,
+        byte_count=bc,
+        storage_bits=storage_bits,
+        storage_type=storage_type,
+        data_mask_literal=_cpp_hex_literal(data_mask_val, is_64=is_64),
+        fields=fields,
+    )
+
+
+def _resolved_type_width(*, type_ir: TypeDefIR, type_index: dict[str, TypeDefIR]) -> int:
+    """Resolve the data-width-only (no alignment padding) for use in struct field aggregation."""
+    if isinstance(type_ir, ScalarAliasIR):
+        return type_ir.resolved_width
+    if isinstance(type_ir, FlagsIR):
+        return len(type_ir.fields)  # data width only — alignment_bits NOT included
+    if isinstance(type_ir, EnumIR):
+        return type_ir.resolved_width
+    return sum(
+        f.type_ir.resolved_width
+        if not isinstance(f.type_ir, TypeRefIR)
+        else _resolved_type_width(type_ir=type_index[f.type_ir.name], type_index=type_index)
+        for f in type_ir.fields
+    )
+
+
+def _type_byte_count(*, type_ir: TypeDefIR, type_index: dict[str, TypeDefIR]) -> int:
+    if isinstance(type_ir, ScalarAliasIR):
+        return byte_count(type_ir.resolved_width)
+    if isinstance(type_ir, FlagsIR):
+        return (len(type_ir.fields) + type_ir.alignment_bits) // 8
+    if isinstance(type_ir, EnumIR):
+        return byte_count(type_ir.resolved_width)
+    field_bytes = sum(_field_byte_count(field_ir=f, type_index=type_index) for f in type_ir.fields)
+    return field_bytes + type_ir.alignment_bits // 8
+
+
+def _field_byte_count(*, field_ir: StructFieldIR, type_index: dict[str, TypeDefIR]) -> int:
+    if isinstance(field_ir.type_ir, TypeRefIR):
+        return _type_byte_count(type_ir=type_index[field_ir.type_ir.name], type_index=type_index)
+    return byte_count(field_ir.type_ir.resolved_width)
+
+
+def _build_struct_field_view(
+    *, field_ir: StructFieldIR, type_index: dict[str, TypeDefIR]
+) -> CppStructFieldView:
+    """Build a struct-field view from frozen IR. All primitives precomputed
+    in pure Python; templates consume them via macros, no legacy helper calls."""
+    fbc = _field_byte_count(field_ir=field_ir, type_index=type_index)
+    pack_bits = fbc * 8
+
+    # Field type string — derived from the IR directly.
+    if isinstance(field_ir.type_ir, TypeRefIR):
+        field_type_str = _type_class_name(type_index[field_ir.type_ir.name].name)
+    else:
+        spec_w = field_ir.type_ir.resolved_width
+        if spec_w <= 64:
+            field_type_str = _cpp_scalar_value_type(width=spec_w, signed=field_ir.type_ir.signed)
+        else:
+            field_type_str = "std::vector<std::uint8_t>"
+
+    # Defaults
+    is_struct_ref = is_flags_ref = is_enum_ref = is_scalar_ref = False
+    is_narrow_scalar = is_wide_scalar = False
+    target_class = ""
+    width = 0
+    signed = False
+    has_signed_padding = has_signed_short_width = False
+    min_value_literal = ""
+    max_value_literal = ""
+    mask_literal = ""
+    sign_bit_literal = ""
+    full_range_literal = ""
+    byte_total_mask_literal = ""
+    msb_byte_mask_literal = ""
+
+    if isinstance(field_ir.type_ir, TypeRefIR):
+        target = type_index[field_ir.type_ir.name]
+        target_class = _type_class_name(target.name)
+        if isinstance(target, StructIR):
+            is_struct_ref = True
+        elif isinstance(target, FlagsIR):
+            is_flags_ref = True
+        elif isinstance(target, EnumIR):
+            is_enum_ref = True
+        else:
+            is_scalar_ref = True
+    else:
+        # ScalarTypeSpecIR
+        spec = field_ir.type_ir
+        width = spec.resolved_width
+        signed = spec.signed
+        if width <= 64:
+            is_narrow_scalar = True
+            mask = (1 << width) - 1 if width < 64 else 2**64 - 1
+            mask_literal = _cpp_unsigned_literal(mask)
+            pad_bits = pack_bits - width
+            if signed:
+                minimum = -(2 ** (width - 1))
+                maximum = 2 ** (width - 1) - 1
+                has_signed_padding = pad_bits > 0
+                has_signed_short_width = width < 64
+                min_value_literal = str(minimum)
+                max_value_literal = str(maximum)
+                if has_signed_short_width:
+                    sign_bit_literal = _cpp_unsigned_literal(1 << (width - 1))
+                    full_range_literal = _cpp_unsigned_literal(1 << width)
+                if has_signed_padding:
+                    bt = (1 << pack_bits) - 1 if pack_bits < 64 else 2**64 - 1
+                    byte_total_mask_literal = _cpp_unsigned_literal(bt)
+            else:
+                maximum = 2**width - 1 if width < 64 else 2**64 - 1
+                max_value_literal = _cpp_unsigned_literal(maximum)
+        else:
+            is_wide_scalar = True
+            pad = pack_bits - width
+            msb_byte_mask_literal = _cpp_unsigned_literal((1 << (8 - pad)) - 1) if pad > 0 else "0xFFU"
+
+    return CppStructFieldView(
+        name=field_ir.name,
+        field_type_str=field_type_str,
+        byte_count=fbc,
+        pack_bits=pack_bits,
+        is_struct_ref=is_struct_ref,
+        is_flags_ref=is_flags_ref,
+        is_enum_ref=is_enum_ref,
+        is_scalar_ref=is_scalar_ref,
+        is_narrow_scalar=is_narrow_scalar,
+        is_wide_scalar=is_wide_scalar,
+        target_class=target_class,
+        width=width,
+        signed=signed,
+        has_signed_padding=has_signed_padding,
+        has_signed_short_width=has_signed_short_width,
+        min_value_literal=min_value_literal,
+        max_value_literal=max_value_literal,
+        mask_literal=mask_literal,
+        sign_bit_literal=sign_bit_literal,
+        full_range_literal=full_range_literal,
+        byte_total_mask_literal=byte_total_mask_literal,
+        msb_byte_mask_literal=msb_byte_mask_literal,
+    )
+
+
+def _build_struct_view(
+    *, type_ir: StructIR, type_index: dict[str, TypeDefIR]
+) -> CppStructView:
+    width = sum(
+        _field_byte_count(field_ir=f, type_index=type_index) * 8
+        for f in type_ir.fields
+    )  # placeholder; refined below for accurate data width
+    # Compute data width matching legacy: sum of field data widths, ignoring per-field padding.
+    data_width = 0
+    for f in type_ir.fields:
+        if isinstance(f.type_ir, TypeRefIR):
+            data_width += _resolved_type_width(type_ir=type_index[f.type_ir.name], type_index=type_index)
+        else:
+            data_width += f.type_ir.resolved_width
+    width = data_width
+    bc_total = sum(_field_byte_count(field_ir=f, type_index=type_index) for f in type_ir.fields) + type_ir.alignment_bits // 8
+    field_views = tuple(
+        _build_struct_field_view(field_ir=f, type_index=type_index) for f in type_ir.fields
+    )
+    has_inline_helpers = any(f.is_narrow_scalar or f.is_wide_scalar for f in field_views)
+    return CppStructView(
+        kind="struct",
+        class_name=_type_class_name(type_ir.name),
+        width=width,
+        byte_count=bc_total,
+        alignment_bytes=type_ir.alignment_bits // 8,
+        has_inline_helpers=has_inline_helpers,
+        fields=field_views,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Public entry point
+# ---------------------------------------------------------------------------
+
+
+def build_module_view_cpp(*, module: ModuleIR, namespace: str | None = None) -> CppModuleView:
+    type_index = {t.name: t for t in module.types}
+    has_types = bool(module.types)
+
+    types_list: list[CppTypeView] = []
+    for t in module.types:
+        if isinstance(t, ScalarAliasIR):
+            types_list.append(_build_scalar_alias_view(type_ir=t))
+        elif isinstance(t, EnumIR):
+            types_list.append(_build_enum_view(type_ir=t))
+        elif isinstance(t, FlagsIR):
+            types_list.append(_build_flags_view(type_ir=t))
+        else:
+            types_list.append(_build_struct_view(type_ir=t, type_index=type_index))
+
+    return CppModuleView(
+        header="",  # caller supplies via dataclasses.replace
+        guard=_build_guard_view(module=module, namespace=namespace),
+        namespace=_build_namespace_view(module=module, namespace=namespace),
+        has_types=has_types,
+        standard_includes=_standard_includes(has_types=has_types),
+        constants=tuple(_build_constant_view(const_ir=c) for c in module.constants),
+        types=tuple(types_list),
+    )

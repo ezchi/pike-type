@@ -1,0 +1,386 @@
+{% macro scalar_alias(view) -%}
+class {{ view.class_name }}:
+    WIDTH = {{ view.width }}
+    SIGNED = {{ "True" if view.signed else "False" }}
+    BYTE_COUNT = {{ view.byte_count }}
+{% if view.is_wide %}
+    MAX_VALUE = {{ view.max_value }}
+
+    def __init__(self, value: bytes | bytearray | int = b'') -> None:
+        if isinstance(value, int):
+            if value < 0 or value > self.MAX_VALUE:
+                raise ValueError("{{ view.class_name }} value out of range")
+            self.value = value.to_bytes(self.BYTE_COUNT, "big", signed=False)
+            return
+        if not isinstance(value, (bytes, bytearray)):
+            raise TypeError("{{ view.class_name }} value must be bytes, bytearray, or int")
+        raw = bytes(value)
+        if len(raw) == 0:
+            raw = b"\x00" * self.BYTE_COUNT
+        if len(raw) != self.BYTE_COUNT:
+            raise ValueError("{{ view.class_name }} value size mismatch")
+        self.value = raw
+
+    def _to_packed_int(self) -> int:
+        return int.from_bytes(self.value, "big", signed=False)
+
+    @classmethod
+    def _from_packed_int(cls, packed: int) -> "{{ view.class_name }}":
+        return cls(packed.to_bytes(cls.BYTE_COUNT, "big", signed=False))
+
+    def to_bytes(self) -> bytes:
+        return self.value
+
+    @classmethod
+    def from_bytes(cls, data: bytes | bytearray) -> "{{ view.class_name }}":
+        if not isinstance(data, (bytes, bytearray)):
+            raise TypeError("{{ view.class_name }}.from_bytes expects bytes or bytearray")
+        raw = bytes(data)
+        if len(raw) != cls.BYTE_COUNT:
+            raise ValueError("{{ view.class_name }}.from_bytes size mismatch")
+        # Mask padding bits in MSB byte
+        masked = bytes([raw[0] & {{ view.msb_byte_mask }}]) + raw[1:]
+        return cls(masked)
+
+    def clone(self) -> "{{ view.class_name }}":
+        return type(self)(self.value)
+
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, type(self)):
+            return self.value == other.value
+        if isinstance(other, (bytes, bytearray)):
+            return self.value == bytes(other)
+        return NotImplemented
+
+    def __repr__(self) -> str:
+        return f"{{ view.class_name }}(value={% raw %}{self.value!r}{% endraw %})"
+{%- elif view.signed %}
+    MIN_VALUE = {{ view.min_value }}
+    MAX_VALUE = {{ view.max_value }}
+    MASK = {{ view.mask }}
+    SIGN_BIT = {{ view.sign_bit }}
+
+    def __init__(self, value: int = 0) -> None:
+        if not isinstance(value, int):
+            raise TypeError("{{ view.class_name }} value must be int")
+        if value < self.MIN_VALUE or value > self.MAX_VALUE:
+            raise ValueError("{{ view.class_name }} value out of range")
+        self.value = value
+
+    def _to_packed_int(self) -> int:
+        return self.value & self.MASK
+
+    @classmethod
+    def _from_packed_int(cls, packed: int) -> "{{ view.class_name }}":
+        value = packed & cls.MASK
+        signed_value = value - (1 << cls.WIDTH) if (value & cls.SIGN_BIT) else value
+        return cls(signed_value)
+
+    def to_bytes(self) -> bytes:
+        mask = self.MASK
+        packed = self.value & mask
+        if self.value < 0:
+            packed |= ((1 << (self.BYTE_COUNT * 8)) - 1) ^ mask
+        return packed.to_bytes(self.BYTE_COUNT, "big", signed=False)
+
+    @classmethod
+    def from_bytes(cls, data: bytes | bytearray) -> "{{ view.class_name }}":
+        if not isinstance(data, (bytes, bytearray)):
+            raise TypeError("{{ view.class_name }}.from_bytes expects bytes or bytearray")
+        raw = bytes(data)
+        if len(raw) != cls.BYTE_COUNT:
+            raise ValueError("{{ view.class_name }}.from_bytes size mismatch")
+        raw_int = int.from_bytes(raw, "big", signed=False)
+        data_bits = raw_int & cls.MASK
+        padding = raw_int >> cls.WIDTH
+        sign_bit = (data_bits >> (cls.WIDTH - 1)) & 1
+        expected_padding = ((1 << {{ view.pad_bits }}) - 1) if sign_bit else 0
+        if padding != expected_padding:
+            raise ValueError("{{ view.class_name }}.from_bytes signed padding mismatch")
+        return cls._from_packed_int(data_bits)
+
+    def clone(self) -> "{{ view.class_name }}":
+        return type(self)(self.value)
+
+    def __int__(self) -> int:
+        return self.value
+
+    def __index__(self) -> int:
+        return self.value
+
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, type(self)):
+            return self.value == other.value
+        if isinstance(other, int):
+            return self.value == other
+        return NotImplemented
+
+    def __repr__(self) -> str:
+        return f"{{ view.class_name }}(value={% raw %}{self.value!r}{% endraw %})"
+{%- else %}
+    MIN_VALUE = 0
+    MAX_VALUE = {{ view.max_value }}
+
+    def __init__(self, value: int = 0) -> None:
+        if not isinstance(value, int):
+            raise TypeError("{{ view.class_name }} value must be int")
+        if value < self.MIN_VALUE or value > self.MAX_VALUE:
+            raise ValueError("{{ view.class_name }} value out of range")
+        self.value = value
+
+    def _to_packed_int(self) -> int:
+        return self.value
+
+    @classmethod
+    def _from_packed_int(cls, packed: int) -> "{{ view.class_name }}":
+        return cls(packed)
+
+    def to_bytes(self) -> bytes:
+        return self.value.to_bytes(self.BYTE_COUNT, "big", signed=False)
+
+    @classmethod
+    def from_bytes(cls, data: bytes | bytearray) -> "{{ view.class_name }}":
+        if not isinstance(data, (bytes, bytearray)):
+            raise TypeError("{{ view.class_name }}.from_bytes expects bytes or bytearray")
+        raw = bytes(data)
+        if len(raw) != cls.BYTE_COUNT:
+            raise ValueError("{{ view.class_name }}.from_bytes size mismatch")
+        value = int.from_bytes(raw, "big", signed=False) & cls.MAX_VALUE
+        return cls(value)
+
+    def clone(self) -> "{{ view.class_name }}":
+        return type(self)(self.value)
+
+    def __int__(self) -> int:
+        return self.value
+
+    def __index__(self) -> int:
+        return self.value
+
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, type(self)):
+            return self.value == other.value
+        if isinstance(other, int):
+            return self.value == other
+        return NotImplemented
+
+    def __repr__(self) -> str:
+        return f"{{ view.class_name }}(value={% raw %}{self.value!r}{% endraw %})"
+{%- endif %}
+{%- endmacro %}
+
+
+{% macro enum(view) -%}
+class {{ view.enum_class_name }}(IntEnum):
+{% for m in view.members %}
+    {{ m.name }} = {{ m.resolved_value_expr }}
+{% endfor %}
+
+class {{ view.class_name }}:
+    WIDTH = {{ view.width }}
+    BYTE_COUNT = {{ view.byte_count }}
+
+    def __init__(self, value: {{ view.enum_class_name }} = {{ view.enum_class_name }}.{{ view.first_member_name }}) -> None:
+        if not isinstance(value, {{ view.enum_class_name }}):
+            raise TypeError("{{ view.class_name }} value must be {{ view.enum_class_name }}")
+        self.value = value
+
+    def to_bytes(self) -> bytes:
+        return int(self.value).to_bytes({{ view.byte_count }}, "big", signed=False)
+
+    @classmethod
+    def from_bytes(cls, data: bytes | bytearray) -> "{{ view.class_name }}":
+        if not isinstance(data, (bytes, bytearray)):
+            raise TypeError("{{ view.class_name }}.from_bytes expects bytes or bytearray")
+        raw = bytes(data)
+        if len(raw) != {{ view.byte_count }}:
+            raise ValueError("{{ view.class_name }}.from_bytes size mismatch")
+        raw_int = int.from_bytes(raw, "big", signed=False) & {{ view.mask }}
+        try:
+            enum_val = {{ view.enum_class_name }}(raw_int)
+        except ValueError:
+            raise ValueError("{{ view.class_name }}.from_bytes unknown enum value")
+        return cls(enum_val)
+
+    def clone(self) -> "{{ view.class_name }}":
+        return type(self)(self.value)
+
+    def __int__(self) -> int:
+        return int(self.value)
+
+    def __index__(self) -> int:
+        return int(self.value)
+
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, type(self)):
+            return self.value == other.value
+        if isinstance(other, int):
+            return int(self.value) == other
+        return NotImplemented
+
+    def __repr__(self) -> str:
+        return f"{{ view.class_name }}(value={% raw %}{self.value!r}{% endraw %})"
+{%- endmacro %}
+
+
+{% macro flags(view) -%}
+class {{ view.class_name }}:
+    WIDTH: int = {{ view.num_flags }}
+    BYTE_COUNT: int = {{ view.byte_count }}
+
+    def __init__(self) -> None:
+        self._value: int = 0
+
+{% for f in view.fields %}
+    @property
+    def {{ f.name }}(self) -> bool:
+        return (self._value & {{ f.bit_mask }}) != 0
+
+    @{{ f.name }}.setter
+    def {{ f.name }}(self, v: bool) -> None:
+        if v:
+            self._value |= {{ f.bit_mask }}
+        else:
+            self._value &= ~{{ f.bit_mask }}
+
+{% endfor %}
+    def to_bytes(self) -> bytes:
+        return (self._value & {{ view.data_mask }}).to_bytes({{ view.byte_count }}, "big")
+
+    @classmethod
+    def from_bytes(cls, data: bytes | bytearray) -> "{{ view.class_name }}":
+        if not isinstance(data, (bytes, bytearray)):
+            raise TypeError("{{ view.class_name }}.from_bytes expects bytes or bytearray")
+        raw = bytes(data)
+        if len(raw) != {{ view.byte_count }}:
+            raise ValueError("{{ view.class_name }}.from_bytes size mismatch")
+        obj = cls()
+        obj._value = int.from_bytes(raw, "big") & {{ view.data_mask }}
+        return obj
+
+    def clone(self) -> "{{ view.class_name }}":
+        obj = self.__class__()
+        obj._value = self._value & {{ view.data_mask }}
+        return obj
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, {{ view.class_name }}):
+            return NotImplemented
+        return (self._value & {{ view.data_mask }}) == (other._value & {{ view.data_mask }})
+{%- endmacro %}
+
+
+{% macro struct(view) -%}
+@dataclass
+class {{ view.class_name }}:
+    WIDTH = {{ view.width }}
+    BYTE_COUNT = {{ view.byte_count }}
+{% for f in view.fields %}
+    {{ f.name }}: {{ f.annotation }} = {{ f.default_expr }}
+{% endfor %}
+
+    def __setattr__(self, name: str, value: object) -> None:
+{% for f in view.fields %}
+        {{ "if" if loop.first else "elif" }} name == "{{ f.name }}":
+            value = self._coerce_{{ f.name }}(value)
+{% endfor %}
+        super().__setattr__(name, value)
+
+{% for f in view.fields %}
+    @staticmethod
+    def _coerce_{{ f.name }}(value: object) -> {{ f.annotation }}:
+{% if f.is_struct_ref %}
+        if value is None:
+            return None
+        if isinstance(value, {{ f.target_class }}):
+            return value
+        raise TypeError("{{ view.class_name }}.{{ f.name }} must be {{ f.target_class }} or None")
+{% elif f.is_flags_ref or f.is_enum_ref %}
+        if isinstance(value, {{ f.target_class }}):
+            return value
+        raise TypeError("{{ view.class_name }}.{{ f.name }} must be {{ f.target_class }}")
+{% elif f.is_scalar_ref %}
+        if isinstance(value, {{ f.target_class }}):
+            return value
+        return {{ f.target_class }}(value)
+{% elif f.is_narrow_scalar %}
+        if not isinstance(value, int):
+            raise TypeError("{{ view.class_name }}.{{ f.name }} must be int")
+        if value < {{ f.min_value }} or value > {{ f.max_value }}:
+            raise ValueError("{{ view.class_name }}.{{ f.name }} value out of range")
+        return value
+{% elif f.is_wide_scalar %}
+        if isinstance(value, bytearray):
+            value = bytes(value)
+        if not isinstance(value, bytes):
+            raise TypeError("{{ view.class_name }}.{{ f.name }} must be bytes")
+        if len(value) != {{ f.byte_count }}:
+            raise ValueError("{{ view.class_name }}.{{ f.name }} size mismatch")
+        return value
+{% endif %}
+
+{% endfor %}
+    def to_bytes(self) -> bytes:
+        result = bytearray()
+{% for f in view.fields %}
+{% if f.is_struct_ref %}
+        if self.{{ f.name }} is None:
+            raise ValueError("{{ f.name }} cannot be None during packing")
+        result.extend(self.{{ f.name }}.to_bytes())
+{% elif f.is_flags_ref or f.is_enum_ref or f.is_scalar_ref %}
+        result.extend(self.{{ f.name }}.to_bytes())
+{% elif f.is_narrow_scalar and f.signed %}
+        _mask_{{ f.name }} = {{ f.mask }}
+        _packed_{{ f.name }} = self.{{ f.name }} & _mask_{{ f.name }}
+        if self.{{ f.name }} < 0:
+            _packed_{{ f.name }} |= ((1 << {{ f.pack_bits }}) - 1) ^ _mask_{{ f.name }}
+        result.extend(_packed_{{ f.name }}.to_bytes({{ f.byte_count }}, "big", signed=False))
+{% elif f.is_narrow_scalar %}
+        _packed_{{ f.name }} = self.{{ f.name }} & {{ f.mask }}
+        result.extend(_packed_{{ f.name }}.to_bytes({{ f.byte_count }}, "big", signed=False))
+{% elif f.is_wide_scalar %}
+        result.extend(self.{{ f.name }})
+{% endif %}
+{% endfor %}
+{% if view.alignment_bytes > 0 %}
+        result.extend(b'\x00' * {{ view.alignment_bytes }})
+{% endif %}
+        return bytes(result)
+
+    @classmethod
+    def from_bytes(cls, data: bytes | bytearray) -> "{{ view.class_name }}":
+        if not isinstance(data, (bytes, bytearray)):
+            raise TypeError("{{ view.class_name }}.from_bytes expects bytes or bytearray")
+        raw = bytes(data)
+        if len(raw) != cls.BYTE_COUNT:
+            raise ValueError("{{ view.class_name }}.from_bytes size mismatch")
+        obj = cls()
+        offset = 0
+{% for f in view.fields %}
+{% if f.is_struct_ref or f.is_flags_ref or f.is_enum_ref or f.is_scalar_ref %}
+        obj.{{ f.name }} = {{ f.target_class }}.from_bytes(raw[offset:offset + {{ f.byte_count }}])
+        offset += {{ f.byte_count }}
+{% elif f.is_narrow_scalar and f.signed %}
+        _raw_int_{{ f.name }} = int.from_bytes(raw[offset:offset + {{ f.byte_count }}], "big", signed=False)
+        _data_{{ f.name }} = _raw_int_{{ f.name }} & {{ f.mask }}
+        _padding_{{ f.name }} = _raw_int_{{ f.name }} >> {{ f.width }}
+        _sign_bit_{{ f.name }} = (_data_{{ f.name }} >> {{ f.sign_bit_index }}) & 1
+        _expected_padding_{{ f.name }} = ((1 << {{ f.pad_bits }}) - 1) if _sign_bit_{{ f.name }} else 0
+        if _padding_{{ f.name }} != _expected_padding_{{ f.name }}:
+            raise ValueError("{{ view.class_name }}.from_bytes signed padding mismatch for {{ f.name }}")
+        obj.{{ f.name }} = _data_{{ f.name }} - {{ f.full_range }} if (_data_{{ f.name }} & {{ f.sign_bit_value }}) else _data_{{ f.name }}
+        offset += {{ f.byte_count }}
+{% elif f.is_narrow_scalar %}
+        obj.{{ f.name }} = int.from_bytes(raw[offset:offset + {{ f.byte_count }}], "big", signed=False) & {{ f.mask }}
+        offset += {{ f.byte_count }}
+{% elif f.is_wide_scalar %}
+        _wide_raw_{{ f.name }} = raw[offset:offset + {{ f.byte_count }}]
+        obj.{{ f.name }} = bytes([_wide_raw_{{ f.name }}[0] & {{ f.msb_byte_mask }}]) + _wide_raw_{{ f.name }}[1:]
+        offset += {{ f.byte_count }}
+{% endif %}
+{% endfor %}
+        return obj
+
+    def clone(self) -> "{{ view.class_name }}":
+        return type(self).from_bytes(self.to_bytes())
+{%- endmacro %}

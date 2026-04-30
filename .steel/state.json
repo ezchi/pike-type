@@ -1,8 +1,8 @@
 {
   "currentStage": "retrospect",
-  "specId": "009-struct-enum-member",
-  "branch": "feature/009-struct-enum-member",
-  "description": "Update Struct() to accept Enum() member",
+  "specId": "010-jinja-template-migration",
+  "branch": "feature/010-jinja-template-migration",
+  "description": "Migrate code emitters to Jinja2 templates with backend-built view models",
   "iteration": 1,
   "stages": {
     "specification": {

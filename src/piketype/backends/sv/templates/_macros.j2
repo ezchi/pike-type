@@ -1,0 +1,515 @@
+{# ============================================================ #}
+{# Synth-package per-type block: localparams + typedef + pack + unpack #}
+{# ============================================================ #}
+
+{% macro synth_type_block(view, pack_unpack) %}
+  localparam int LP_{{ view.upper_base }}_WIDTH = {{ synth_width_value(view) }};
+  localparam int LP_{{ view.upper_base }}_BYTE_COUNT = {{ view.byte_count }};
+
+{% if view.kind == "scalar_alias" %}
+{{ synth_scalar_alias_typedef(view) }}
+{% elif view.kind == "struct" %}
+{{ synth_struct_typedef(view) }}
+{% elif view.kind == "flags" %}
+{{ synth_flags_typedef(view) }}
+{% elif view.kind == "enum" %}
+{{ synth_enum_typedef(view) }}
+{% endif %}
+
+{{ synth_pack_fn(view, pack_unpack) }}
+
+{{ synth_unpack_fn(view, pack_unpack) }}
+{%- endmacro %}
+
+
+{% macro synth_width_value(view) -%}
+{% if view.kind == "scalar_alias" %}{{ view.width_expr }}{% else %}{{ view.width }}{% endif %}
+{%- endmacro %}
+
+
+{# --- typedef macros (4 variants) --- #}
+
+{% macro synth_scalar_alias_typedef(view) %}
+{% if view.is_one_bit %}
+  typedef {{ view.base_type }}{% if view.signed %} signed{% endif %} {{ view.name }};
+{%- else %}
+  typedef {{ view.base_type }}{% if view.signed %} signed{% endif %} [LP_{{ view.upper_base }}_WIDTH-1:0] {{ view.name }};
+{%- endif %}
+{%- endmacro %}
+
+
+{% macro synth_struct_typedef(view) %}
+  typedef struct packed {
+{% for f in view.fields %}
+{% if f.has_pre_padding %}
+{% if f.is_pre_padding_one_bit %}
+    logic {{ f.name }}_pad;
+{% else %}
+    logic [{{ f.pre_padding_bits - 1 }}:0] {{ f.name }}_pad;
+{% endif %}
+{% endif %}
+    {{ f.field_type_text }} {{ f.name }};
+{% endfor %}
+{% if view.has_alignment %}
+{% if view.is_alignment_one_bit %}
+    logic _align_pad;
+{% else %}
+    logic [{{ view.alignment_bits - 1 }}:0] _align_pad;
+{% endif %}
+{% endif %}
+  } {{ view.name }};
+{%- endmacro %}
+
+
+{% macro synth_flags_typedef(view) %}
+  typedef struct packed {
+{% for name in view.field_names %}
+    logic {{ name }};
+{% endfor %}
+{% if view.has_alignment %}
+{% if view.is_alignment_one_bit %}
+    logic _align_pad;
+{% else %}
+    logic [{{ view.alignment_bits - 1 }}:0] _align_pad;
+{% endif %}
+{% endif %}
+  } {{ view.name }};
+{%- endmacro %}
+
+
+{% macro synth_enum_typedef(view) %}
+{% if view.is_one_bit %}
+  typedef enum logic {{ '{' }}{% for m in view.members %}{{ m.name }} = {{ m.value_expr }}{% if not loop.last %}, {% endif %}{% endfor %}{{ '}' }} {{ view.name }};
+{%- else %}
+  typedef enum logic [LP_{{ view.upper_base }}_WIDTH-1:0] {{ '{' }}{% for m in view.members %}{{ m.name }} = {{ m.value_expr }}{% if not loop.last %}, {% endif %}{% endfor %}{{ '}' }} {{ view.name }};
+{%- endif %}
+{%- endmacro %}
+
+
+{# --- pack function macros (4 variants dispatched by kind) --- #}
+
+{% macro synth_pack_fn(view, pack_unpack) %}
+  function automatic logic [LP_{{ view.upper_base }}_WIDTH-1:0] pack_{{ view.base }}({{ view.name }} a);
+{% if view.kind == "scalar_alias" %}
+    return a;
+{% elif view.kind == "flags" %}
+    return {{ '{' }}{% for n in view.field_names %}a.{{ n }}{% if not loop.last %}, {% endif %}{% endfor %}{{ '}' }};
+{% elif view.kind == "enum" %}
+    return logic'(a);
+{% elif view.kind == "struct" %}
+    return {{ '{' }}{% for p in pack_unpack.pack_parts %}{{ p.expr }}{% if not loop.last %}, {% endif %}{% endfor %}{{ '}' }};
+{% endif %}
+  endfunction
+{%- endmacro %}
+
+
+{# --- unpack function macros (4 variants) --- #}
+
+{% macro synth_unpack_fn(view, pack_unpack) %}
+  function automatic {{ view.name }} unpack_{{ view.base }}(logic [LP_{{ view.upper_base }}_WIDTH-1:0] a);
+{% if view.kind == "scalar_alias" %}
+    return a;
+{% elif view.kind == "flags" %}
+    {{ view.name }} result;
+    result = '0;
+{% for asgn in view.unpack_bit_assignments %}
+    result.{{ asgn[0] }} = a[{{ asgn[1] }}];
+{% endfor %}
+    return result;
+{% elif view.kind == "enum" %}
+    return {{ view.name }}'(a);
+{% elif view.kind == "struct" %}
+    {{ view.name }} result;
+    int unsigned offset;
+    result = '0;
+    offset = 0;
+{% for f in pack_unpack.unpack_fields %}
+{% if f.is_type_ref %}
+    result.{{ f.name }} = unpack_{{ f.inner_base }}(a[offset +: LP_{{ f.inner_upper }}_WIDTH]);
+    offset += LP_{{ f.inner_upper }}_WIDTH;
+{% else %}
+    result.{{ f.name }} = a[offset +: {{ f.width }}];
+    offset += {{ f.width }};
+{% endif %}
+{% if f.has_signed_padding %}
+    result.{{ f.name }}_pad = {{ '{' }}{{ f.padding_bits }}{{ '{result.' }}{{ f.name }}[{{ f.sign_bit_index }}]{{ '}' }}{{ '}' }};
+{% endif %}
+{% endfor %}
+    return result;
+{% endif %}
+  endfunction
+{%- endmacro %}
+
+
+{# ============================================================ #}
+{# Test-package helper class — one macro per kind                #}
+{# ============================================================ #}
+
+{% macro test_scalar_helper(view) -%}
+class {{ view.helper_class_name }};
+  localparam int WIDTH = LP_{{ view.upper_base }}_WIDTH;
+  localparam int BYTE_COUNT = LP_{{ view.upper_base }}_BYTE_COUNT;
+  rand {{ view.underlying_typedef }} value;
+
+  function new({{ view.underlying_typedef }} value_in = '0);
+    value = value_in;
+  endfunction
+
+  function automatic {{ view.underlying_typedef }} to_slv();
+    return value;
+  endfunction
+
+  function void from_slv({{ view.underlying_typedef }} value_in);
+    value = value_in;
+  endfunction
+
+  task automatic to_bytes(output byte unsigned bytes[]);
+    logic [{{ view.total_bits - 1 }}:0] padded;
+    bytes = new[BYTE_COUNT];
+    padded = '0;
+    padded[WIDTH-1:0] = value;
+{% if view.has_signed_padding %}
+    for (int i = WIDTH; i < BYTE_COUNT*8; i++) padded[i] = value[WIDTH-1];
+{% endif %}
+    for (int idx = 0; idx < BYTE_COUNT; idx++) begin
+      bytes[idx] = padded[(BYTE_COUNT - 1 - idx)*8 +: 8];
+    end
+  endtask
+
+  function void from_bytes(input byte unsigned bytes[]);
+    logic [{{ view.total_bits - 1 }}:0] padded;
+    if (bytes.size() != BYTE_COUNT) begin
+      $fatal(1, "{{ view.helper_class_name }}.from_bytes size mismatch: expected %0d got %0d", BYTE_COUNT, bytes.size());
+    end
+    padded = '0;
+    for (int idx = 0; idx < BYTE_COUNT; idx++) begin
+      padded[(BYTE_COUNT - 1 - idx)*8 +: 8] = bytes[idx];
+    end
+{% if view.has_signed_padding %}
+    for (int i = WIDTH; i < BYTE_COUNT*8; i++) begin
+      if (padded[i] !== padded[WIDTH-1]) begin
+        $fatal(1, "{{ view.helper_class_name }}.from_bytes signed padding mismatch");
+      end
+    end
+{% endif %}
+    value = {{ view.underlying_typedef }}'(padded[WIDTH-1:0]);
+  endfunction
+
+  function void copy(input {{ view.helper_class_name }} rhs);
+    value = rhs.value;
+  endfunction
+
+  function automatic {{ view.helper_class_name }} clone();
+    {{ view.helper_class_name }} cloned = new();
+    cloned.value = value;
+    return cloned;
+  endfunction
+
+  function automatic bit compare(input {{ view.helper_class_name }} rhs);
+    return value === rhs.value;
+  endfunction
+
+  function automatic string sprint();
+    return $sformatf("{{ view.helper_class_name }}(value=0x%0h)", value);
+  endfunction
+endclass : {{ view.helper_class_name }}
+{%- endmacro %}
+
+
+{% macro test_struct_helper(view) -%}
+class {{ view.helper_class_name }};
+  localparam int WIDTH = LP_{{ view.upper_base }}_WIDTH;
+  localparam int BYTE_COUNT = LP_{{ view.upper_base }}_BYTE_COUNT;
+{% for d in view.field_decls %}
+  {{ d.decl }}
+{% endfor %}
+
+  function new();
+{% for d in view.field_decls %}
+{% if d.is_composite_ref %}
+    {{ d.name }} = new();
+{% else %}
+    {{ d.name }} = '0;
+{% endif %}
+{% endfor %}
+  endfunction
+
+  function automatic {{ view.underlying_typedef }} to_slv();
+    {{ view.underlying_typedef }} packed_value;
+{% for s in view.field_steps %}
+{% if s.is_composite_ref %}
+    packed_value.{{ s.name }} = {{ s.name }}.to_slv();
+{% else %}
+    packed_value.{{ s.name }} = {{ s.name }};
+{% endif %}
+{% if s.has_signed_padding %}
+    packed_value.{{ s.name }}_pad = {{ '{' }}{{ s.pad_bits }}{{ '{packed_value.' }}{{ s.name }}[{{ s.width - 1 }}]{{ '}' }}{{ '}' }};
+{% elif s.pad_bits > 0 %}
+    packed_value.{{ s.name }}_pad = '0;
+{% endif %}
+{% endfor %}
+{% if view.has_alignment %}
+    packed_value._align_pad = '0;
+{% endif %}
+    return packed_value;
+  endfunction
+
+  function void from_slv({{ view.underlying_typedef }} value_in);
+{% for s in view.field_steps %}
+{% if s.is_composite_ref %}
+    {{ s.name }}.from_slv(value_in.{{ s.name }});
+{% else %}
+    {{ s.name }} = value_in.{{ s.name }};
+{% endif %}
+{% endfor %}
+  endfunction
+
+  task automatic to_bytes(output byte unsigned bytes[]);
+    int byte_idx;
+    bytes = new[BYTE_COUNT];
+    byte_idx = 0;
+{% for s in view.field_steps %}
+{% if s.is_composite_ref %}
+    begin
+      byte unsigned field_bytes[];
+      {{ s.name }}.to_bytes(field_bytes);
+      for (int i = 0; i < {{ s.byte_count }}; i++) bytes[byte_idx + i] = field_bytes[i];
+      byte_idx += {{ s.byte_count }};
+    end
+{% else %}
+    begin
+      logic [{{ s.total_bits - 1 }}:0] fb;
+      fb = '0;
+      fb[{{ s.width - 1 }}:0] = {{ s.name }};
+{% if s.has_signed_padding %}
+      for (int i = {{ s.width }}; i < {{ s.total_bits }}; i++) fb[i] = {{ s.name }}[{{ s.width - 1 }}];
+{% endif %}
+      for (int i = 0; i < {{ s.byte_count }}; i++) bytes[byte_idx + i] = fb[({{ s.byte_count }} - 1 - i)*8 +: 8];
+      byte_idx += {{ s.byte_count }};
+    end
+{% endif %}
+{% endfor %}
+{% if view.has_alignment %}
+    begin
+      for (int i = 0; i < {{ view.alignment_bytes }}; i++) bytes[byte_idx + i] = 8'h00;
+      byte_idx += {{ view.alignment_bytes }};
+    end
+{% endif %}
+  endtask
+
+  function void from_bytes(input byte unsigned bytes[]);
+    int byte_idx;
+    if (bytes.size() != BYTE_COUNT) begin
+      $fatal(1, "{{ view.helper_class_name }}.from_bytes size mismatch: expected %0d got %0d", BYTE_COUNT, bytes.size());
+    end
+    byte_idx = 0;
+{% for s in view.field_steps %}
+{% if s.is_composite_ref %}
+    begin
+      byte unsigned field_bytes[] = new[{{ s.byte_count }}];
+      for (int i = 0; i < {{ s.byte_count }}; i++) field_bytes[i] = bytes[byte_idx + i];
+      {{ s.name }}.from_bytes(field_bytes);
+      byte_idx += {{ s.byte_count }};
+    end
+{% else %}
+    begin
+      logic [{{ s.total_bits - 1 }}:0] fb;
+      fb = '0;
+      for (int i = 0; i < {{ s.byte_count }}; i++) fb[({{ s.byte_count }} - 1 - i)*8 +: 8] = bytes[byte_idx + i];
+{% if s.has_signed_padding %}
+      for (int i = {{ s.width }}; i < {{ s.total_bits }}; i++) begin
+        if (fb[i] !== fb[{{ s.width - 1 }}]) begin
+          $fatal(1, "{{ view.helper_class_name }}.from_bytes signed padding mismatch for field {{ s.name }}");
+        end
+      end
+{% endif %}
+      {{ s.name }} = fb[{{ s.width - 1 }}:0];
+      byte_idx += {{ s.byte_count }};
+    end
+{% endif %}
+{% endfor %}
+{% if view.has_alignment %}
+    byte_idx += {{ view.alignment_bytes }};
+{% endif %}
+  endfunction
+
+  function void copy(input {{ view.helper_class_name }} rhs);
+{% for s in view.field_steps %}
+{% if s.is_composite_ref %}
+    {{ s.name }}.copy(rhs.{{ s.name }});
+{% else %}
+    {{ s.name }} = rhs.{{ s.name }};
+{% endif %}
+{% endfor %}
+  endfunction
+
+  function automatic {{ view.helper_class_name }} clone();
+    {{ view.helper_class_name }} cloned = new();
+    cloned.copy(this);
+    return cloned;
+  endfunction
+
+  function automatic bit compare(input {{ view.helper_class_name }} rhs);
+    bit match;
+    match = 1'b1;
+{% for s in view.field_steps %}
+{% if s.is_composite_ref %}
+    match &= {{ s.name }}.compare(rhs.{{ s.name }});
+{% else %}
+    match &= ({{ s.name }} === rhs.{{ s.name }});
+{% endif %}
+{% endfor %}
+    return match;
+  endfunction
+
+  function automatic string sprint();
+    return $sformatf("{{ view.helper_class_name }}({{ view.sprint_format }})", {{ view.sprint_args }});
+  endfunction
+endclass : {{ view.helper_class_name }}
+{%- endmacro %}
+
+
+{% macro test_flags_helper(view) -%}
+class {{ view.helper_class_name }};
+  localparam int WIDTH = {{ view.num_flags }};
+  localparam int BYTE_COUNT = {{ view.byte_count }};
+{% for n in view.field_names %}
+  rand logic {{ n }};
+{% endfor %}
+
+  function new();
+{% for n in view.field_names %}
+    {{ n }} = '0;
+{% endfor %}
+  endfunction
+
+  function automatic {{ view.underlying_typedef }} to_slv();
+    {{ view.underlying_typedef }} packed_value;
+{% for n in view.field_names %}
+    packed_value.{{ n }} = {{ n }};
+{% endfor %}
+{% if view.has_alignment %}
+    packed_value._align_pad = '0;
+{% endif %}
+    return packed_value;
+  endfunction
+
+  function void from_slv({{ view.underlying_typedef }} value_in);
+{% for n in view.field_names %}
+    {{ n }} = value_in.{{ n }};
+{% endfor %}
+  endfunction
+
+  task automatic to_bytes(output byte unsigned bytes[]);
+    logic [{{ view.total_bits - 1 }}:0] bv;
+    bytes = new[BYTE_COUNT];
+    bv = '0;
+{% for fb in view.flag_bit_positions %}
+    bv[{{ fb[1] }}] = {{ fb[0] }};
+{% endfor %}
+    for (int idx = 0; idx < BYTE_COUNT; idx++) begin
+      bytes[idx] = bv[(BYTE_COUNT - 1 - idx)*8 +: 8];
+    end
+  endtask
+
+  function void from_bytes(input byte unsigned bytes[]);
+    logic [{{ view.total_bits - 1 }}:0] bv;
+    if (bytes.size() != BYTE_COUNT) begin
+      $fatal(1, "{{ view.helper_class_name }}.from_bytes size mismatch: expected %0d got %0d", BYTE_COUNT, bytes.size());
+    end
+    bv = '0;
+    for (int idx = 0; idx < BYTE_COUNT; idx++) begin
+      bv[(BYTE_COUNT - 1 - idx)*8 +: 8] = bytes[idx];
+    end
+{% for fb in view.flag_bit_positions %}
+    {{ fb[0] }} = bv[{{ fb[1] }}];
+{% endfor %}
+  endfunction
+
+  function void copy(input {{ view.helper_class_name }} rhs);
+{% for n in view.field_names %}
+    {{ n }} = rhs.{{ n }};
+{% endfor %}
+  endfunction
+
+  function automatic {{ view.helper_class_name }} clone();
+    {{ view.helper_class_name }} cloned = new();
+    cloned.copy(this);
+    return cloned;
+  endfunction
+
+  function automatic bit compare(input {{ view.helper_class_name }} rhs);
+    bit match;
+    match = 1'b1;
+{% for n in view.field_names %}
+    match &= ({{ n }} === rhs.{{ n }});
+{% endfor %}
+    return match;
+  endfunction
+
+  function automatic string sprint();
+    return $sformatf("{{ view.helper_class_name }}({{ view.sprint_format }})", {{ view.sprint_args }});
+  endfunction
+endclass : {{ view.helper_class_name }}
+{%- endmacro %}
+
+
+{% macro test_enum_helper(view) -%}
+class {{ view.helper_class_name }};
+  localparam int WIDTH = LP_{{ view.upper_base }}_WIDTH;
+  localparam int BYTE_COUNT = LP_{{ view.upper_base }}_BYTE_COUNT;
+  rand {{ view.underlying_typedef }} value;
+
+  function new({{ view.underlying_typedef }} value_in = {{ view.first_value_name }});
+    value = value_in;
+  endfunction
+
+  function automatic {{ view.underlying_typedef }} to_slv();
+    return value;
+  endfunction
+
+  function void from_slv({{ view.underlying_typedef }} value_in);
+    value = value_in;
+  endfunction
+
+  task automatic to_bytes(output byte unsigned bytes[]);
+    logic [{{ view.total_bits - 1 }}:0] padded;
+    bytes = new[BYTE_COUNT];
+    padded = '0;
+    padded[WIDTH-1:0] = value;
+    for (int idx = 0; idx < BYTE_COUNT; idx++) begin
+      bytes[idx] = padded[(BYTE_COUNT - 1 - idx)*8 +: 8];
+    end
+  endtask
+
+  function void from_bytes(input byte unsigned bytes[]);
+    logic [{{ view.total_bits - 1 }}:0] padded;
+    if (bytes.size() != BYTE_COUNT) begin
+      $fatal(1, "{{ view.helper_class_name }}.from_bytes size mismatch: expected %0d got %0d", BYTE_COUNT, bytes.size());
+    end
+    padded = '0;
+    for (int idx = 0; idx < BYTE_COUNT; idx++) begin
+      padded[(BYTE_COUNT - 1 - idx)*8 +: 8] = bytes[idx];
+    end
+    value = {{ view.underlying_typedef }}'(padded[WIDTH-1:0]);
+  endfunction
+
+  function void copy(input {{ view.helper_class_name }} rhs);
+    value = rhs.value;
+  endfunction
+
+  function automatic {{ view.helper_class_name }} clone();
+    {{ view.helper_class_name }} cloned = new();
+    cloned.value = value;
+    return cloned;
+  endfunction
+
+  function automatic bit compare(input {{ view.helper_class_name }} rhs);
+    return value === rhs.value;
+  endfunction
+
+  function automatic string sprint();
+    return $sformatf("{{ view.helper_class_name }}(value=0x%0h)", value);
+  endfunction
+endclass : {{ view.helper_class_name }}
+{%- endmacro %}

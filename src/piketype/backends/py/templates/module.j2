@@ -1,0 +1,34 @@
+{% import "_macros.j2" as macros %}
+{{ header }}
+{% if has_types %}
+from __future__ import annotations
+{% if has_structs %}
+
+from dataclasses import dataclass, field
+{% endif %}
+{% if has_enums %}
+
+from enum import IntEnum
+{% endif %}
+
+{% endif %}
+{% for c in constants %}
+{{ c.name }} = {{ c.value_expr }}
+{% endfor %}
+{% if constants and types %}
+
+{% endif %}
+{% for t in types %}
+{% if not loop.first %}
+
+{% endif %}
+{% if t.kind == "scalar_alias" %}
+{{ macros.scalar_alias(t) }}
+{% elif t.kind == "enum" %}
+{{ macros.enum(t) }}
+{% elif t.kind == "flags" %}
+{{ macros.flags(t) }}
+{% elif t.kind == "struct" %}
+{{ macros.struct(t) }}
+{% endif %}
+{% endfor %}

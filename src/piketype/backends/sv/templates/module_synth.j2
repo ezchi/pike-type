@@ -1,0 +1,19 @@
+{% import "_macros.j2" as macros %}
+{{ header }}
+package {{ package_name }};
+{% if has_constants or has_types %}
+
+{% endif %}
+{% for c in constants %}
+  localparam {{ c.sv_type }} {{ c.name }} = {{ c.sv_expr }};
+{% endfor %}
+{% if has_constants and has_types %}
+
+{% endif %}
+{% for t in types %}
+{% if not loop.first %}
+
+{% endif %}
+{{ macros.synth_type_block(t, pack_unpack[loop.index0]) }}
+{% endfor %}
+endpackage
