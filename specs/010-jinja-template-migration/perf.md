@@ -16,6 +16,8 @@ builders, so this number reflects pre-migration timing per CL-4.
 | cpp-complete   | cpp     | 12.885    | 12.833 | 13.312 |
 | sv-complete    | sv      | 14.862    | 13.573 | 15.143 |
 | feature-final  | all     | 13.861    | 13.708 | 14.153 |
+| post-cpp-macros | all    | ~13.0     | -      | -      |
+| post-sv-macros  | all    | 38.177    | 38.018 | 38.795 |
 
 Subsequent rows are appended at:
 

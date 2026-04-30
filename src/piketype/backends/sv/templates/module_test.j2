@@ -1,8 +1,17 @@
+{% import "_macros.j2" as macros %}
 {{ header }}
 package {{ package_name }};
 {{ synth_package_import }}
-{% for t in types %}
+{% for h in helpers %}
 
-{{ t.body_text }}
+{% if h.kind == "scalar_alias" %}
+  {{ macros.test_scalar_helper(h) | indent(2, false, true) }}
+{% elif h.kind == "struct" %}
+  {{ macros.test_struct_helper(h) | indent(2, false, true) }}
+{% elif h.kind == "flags" %}
+  {{ macros.test_flags_helper(h) | indent(2, false, true) }}
+{% elif h.kind == "enum" %}
+  {{ macros.test_enum_helper(h) | indent(2, false, true) }}
+{% endif %}
 {% endfor %}
 endpackage

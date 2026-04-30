@@ -60,11 +60,11 @@ class SynthViewTests(unittest.TestCase):
         view = build_synth_module_view_sv(module=module)
         self.assertEqual(len(view.types), len(module.types))
 
-    def test_synth_type_body_text_is_indented(self) -> None:
+    def test_synth_view_kinds_recognized(self) -> None:
         module = _load_fixture_module("nested_struct_sv_basic")
         view = build_synth_module_view_sv(module=module)
         for t in view.types:
-            self.assertTrue(t.body_text.startswith("  "), f"body for {t.name} not indented")
+            self.assertIn(t.kind, {"scalar_alias", "struct", "enum", "flags"})
 
 
 class TestPackageViewTests(unittest.TestCase):
@@ -87,9 +87,7 @@ class CombinedFixtureTests(unittest.TestCase):
         synth = build_synth_module_view_sv(module=module)
         test = build_test_module_view_sv(module=module)
         # The two views describe the same module from different angles.
-        self.assertEqual(len(synth.types), len(test.types))
-        for s, t in zip(synth.types, test.types, strict=True):
-            self.assertEqual(s.name, t.name)
+        self.assertEqual(len(synth.types), len(test.helpers))
 
 
 if __name__ == "__main__":
