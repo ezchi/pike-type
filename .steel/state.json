@@ -1,8 +1,8 @@
 {
   "currentStage": "retrospect",
-  "specId": "009-struct-enum-member",
-  "branch": "feature/009-struct-enum-member",
-  "description": "Update Struct() to accept Enum() member",
+  "specId": "011-cross-module-type-refs",
+  "branch": "feature/011-cross-module-type-refs",
+  "description": "Preserve cross-module type identity in DSL and emit cross-package references in generated outputs",
   "iteration": 1,
   "stages": {
     "specification": {
@@ -21,10 +21,11 @@
       "status": "complete"
     },
     "validation": {
-      "status": "complete"
+      "status": "complete_with_follow_up",
+      "follow_up_failures": ["NFR-4", "NFR-5", "AC-22", "AC-24"]
     },
     "retrospect": {
-      "status": "complete"
+      "status": "in_progress"
     }
   },
   "skillsUsed": {

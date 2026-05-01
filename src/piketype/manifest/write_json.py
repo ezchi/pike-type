@@ -100,7 +100,13 @@ def write_manifest(repo: RepoIR) -> Path:
                     _serialize_type_ir(type_ir=type_ir, repo_root=repo_root)
                     for type_ir in module.types
                 ],
-                "dependencies": [],
+                "dependencies": [
+                    {
+                        "target_module": dep.target.python_module_name,
+                        "kind": dep.kind,
+                    }
+                    for dep in module.dependencies
+                ],
                 "generated_outputs": {
                     "sv": str(
                         sv_module_output_path(

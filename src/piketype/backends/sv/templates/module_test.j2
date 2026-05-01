@@ -1,0 +1,23 @@
+{% import "_macros.j2" as macros %}
+{{ header }}
+package {{ package_name }};
+  import {{ same_module_synth_basename }}_pkg::*;
+{% for pkg, sym in cross_module_synth_imports %}
+  import {{ pkg }}::{{ sym }};
+{% endfor %}
+{% for pkg, sym in cross_module_test_imports %}
+  import {{ pkg }}::{{ sym }};
+{% endfor %}
+{% for h in helpers %}
+
+{% if h.kind == "scalar_alias" %}
+  {{ macros.test_scalar_helper(h) | indent(2, false, true) }}
+{% elif h.kind == "struct" %}
+  {{ macros.test_struct_helper(h) | indent(2, false, true) }}
+{% elif h.kind == "flags" %}
+  {{ macros.test_flags_helper(h) | indent(2, false, true) }}
+{% elif h.kind == "enum" %}
+  {{ macros.test_enum_helper(h) | indent(2, false, true) }}
+{% endif %}
+{% endfor %}
+endpackage

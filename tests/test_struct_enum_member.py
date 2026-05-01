@@ -326,11 +326,11 @@ class StructEnumMemberRuntimeTest(unittest.TestCase):
 # ---------------------------------------------------------------------------
 
 
-class StructEnumMemberNegativeTest(unittest.TestCase):
-    """Negative tests for cross-module Enum rejection."""
+class StructEnumMemberCrossModuleTest(unittest.TestCase):
+    """Cross-module Enum references are accepted (spec 011 relaxes the spec 009 restriction)."""
 
-    def test_cross_module_enum_rejected(self) -> None:
-        """AC-22, AC-24: Cross-module Enum reference is rejected by validation."""
+    def test_cross_module_enum_accepted(self) -> None:
+        """Spec 011 FR-5: a struct field referencing an Enum from another module passes validation."""
         src = SourceSpanIR(path="test.py", line=1, column=0)
         module_a_ref = ModuleRefIR(
             repo_relative_path="a/piketype/types.py",
@@ -386,9 +386,8 @@ class StructEnumMemberNegativeTest(unittest.TestCase):
             dependencies=(),
         )
         repo = RepoIR(repo_root="/tmp", modules=(module_a, module_b), tool_version=None)
-        with self.assertRaises(ValidationError) as ctx:
-            validate_repo(repo)
-        self.assertIn("cross-module", str(ctx.exception))
+        # Should not raise — cross-module references are now allowed.
+        validate_repo(repo)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,138 @@
+{
+  "modules": [
+    {
+      "basename": "bar",
+      "constants": [],
+      "dependencies": [
+        {
+          "kind": "type_ref",
+          "target_module": "alpha.piketype.foo"
+        }
+      ],
+      "generated_outputs": {
+        "cpp": "gen/cpp/alpha/piketype/bar_types.hpp",
+        "py": "gen/py/alpha/piketype/bar_types.py",
+        "sv": "gen/sv/alpha/piketype/bar_pkg.sv",
+        "sv_test": "gen/sv/alpha/piketype/bar_test_pkg.sv"
+      },
+      "namespace_parts": [
+        "alpha",
+        "piketype",
+        "bar"
+      ],
+      "python_module_name": "alpha.piketype.bar",
+      "repo_relative_path": "alpha/piketype/bar.py",
+      "source": {
+        "column": null,
+        "line": 1,
+        "path": "alpha/piketype/bar.py"
+      },
+      "types": [
+        {
+          "field_count": 5,
+          "kind": "struct",
+          "name": "bar_t",
+          "source": {
+            "column": null,
+            "line": 6,
+            "path": "alpha/piketype/bar.py"
+          }
+        }
+      ]
+    },
+    {
+      "basename": "foo",
+      "constants": [],
+      "dependencies": [],
+      "generated_outputs": {
+        "cpp": "gen/cpp/alpha/piketype/foo_types.hpp",
+        "py": "gen/py/alpha/piketype/foo_types.py",
+        "sv": "gen/sv/alpha/piketype/foo_pkg.sv",
+        "sv_test": "gen/sv/alpha/piketype/foo_test_pkg.sv"
+      },
+      "namespace_parts": [
+        "alpha",
+        "piketype",
+        "foo"
+      ],
+      "python_module_name": "alpha.piketype.foo",
+      "repo_relative_path": "alpha/piketype/foo.py",
+      "source": {
+        "column": null,
+        "line": 1,
+        "path": "alpha/piketype/foo.py"
+      },
+      "types": [
+        {
+          "kind": "scalar_alias",
+          "name": "byte_t",
+          "resolved_width": 8,
+          "signed": false,
+          "source": {
+            "column": null,
+            "line": 3,
+            "path": "alpha/piketype/foo.py"
+          },
+          "state_kind": "logic"
+        },
+        {
+          "field_count": 2,
+          "kind": "struct",
+          "name": "addr_t",
+          "source": {
+            "column": null,
+            "line": 6,
+            "path": "alpha/piketype/foo.py"
+          }
+        },
+        {
+          "kind": "enum",
+          "name": "cmd_t",
+          "resolved_width": 2,
+          "source": {
+            "column": null,
+            "line": 12,
+            "path": "alpha/piketype/foo.py"
+          },
+          "value_count": 3,
+          "values": [
+            {
+              "name": "IDLE",
+              "resolved_value": 0
+            },
+            {
+              "name": "READ",
+              "resolved_value": 1
+            },
+            {
+              "name": "WRITE",
+              "resolved_value": 2
+            }
+          ]
+        },
+        {
+          "flag_count": 2,
+          "flag_names": [
+            "read",
+            "write"
+          ],
+          "kind": "flags",
+          "name": "perms_t",
+          "source": {
+            "column": null,
+            "line": 18,
+            "path": "alpha/piketype/foo.py"
+          }
+        }
+      ]
+    }
+  ],
+  "repo_root": ".",
+  "runtime_outputs": {
+    "cpp_header": "gen/cpp/runtime/piketype_runtime.hpp",
+    "cpp_source": "gen/cpp/runtime/piketype_runtime.cpp",
+    "py": "gen/py/runtime/piketype_runtime.py",
+    "sv": "gen/sv/runtime/piketype_runtime_pkg.sv"
+  },
+  "tool_version": "0.1.0"
+}

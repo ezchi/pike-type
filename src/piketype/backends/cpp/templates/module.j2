@@ -1,0 +1,45 @@
+{% import "_macros.j2" as macros %}
+{{ header }}
+#ifndef {{ guard.macro }}
+#define {{ guard.macro }}
+
+#include <cstdint>
+{% if has_types %}
+#include <cstddef>
+#include <stdexcept>
+#include <vector>
+{% endif %}
+{% for p in cross_module_include_paths %}
+#include "{{ p }}"
+{% endfor %}
+
+{% if namespace.has_namespace %}
+{{ namespace.open_line }}
+
+{% endif %}
+{% for c in constants %}
+constexpr {{ c.cpp_type }} {{ c.name }} = {{ c.value_expr }};
+{% endfor %}
+{% if constants and types %}
+
+{% endif %}
+{% for t in types %}
+{% if not loop.first %}
+
+{% endif %}
+{% if t.kind == "scalar_alias" %}
+{{ macros.scalar_alias(t) }}
+{% elif t.kind == "enum" %}
+{{ macros.enum(t) }}
+{% elif t.kind == "flags" %}
+{{ macros.flags(t) }}
+{% elif t.kind == "struct" %}
+{{ macros.struct(t) }}
+{% endif %}
+{% endfor %}
+{% if namespace.has_namespace %}
+
+{{ namespace.close_line }}
+{% endif %}
+
+#endif  // {{ guard.macro }}

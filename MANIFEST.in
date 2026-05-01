@@ -1,0 +1,3 @@
+recursive-include src/piketype/backends/py/templates *.j2
+recursive-include src/piketype/backends/cpp/templates *.j2
+recursive-include src/piketype/backends/sv/templates *.j2

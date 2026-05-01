@@ -97,10 +97,12 @@ def validate_cpp_namespace(value: str) -> tuple[str, ...]:
 
 
 def check_duplicate_basenames(*, module_paths: list[Path]) -> None:
-    """Reject duplicate module basenames when ``--namespace`` is active.
+    """Reject duplicate module basenames anywhere in the repo (FR-9a).
 
     Raises ``ValidationError`` listing the conflicting paths if any two
-    discovered modules share the same file stem.
+    discovered modules share the same file stem. Runs unconditionally for
+    every ``piketype gen`` invocation (not just under ``--namespace``)
+    because cross-module SV imports identify target packages by basename.
     """
     by_stem: dict[str, list[Path]] = {}
     for path in module_paths:
@@ -115,6 +117,6 @@ def check_duplicate_basenames(*, module_paths: list[Path]) -> None:
         paths_str = ", ".join(str(p) for p in sorted(duplicates[stem]))
         parts.append(f"  '{stem}': {paths_str}")
     raise ValidationError(
-        "--namespace requires unique module basenames, but duplicates were found:\n"
+        "piketype requires unique module basenames across the repo, but duplicates were found:\n"
         + "\n".join(parts)
     )
