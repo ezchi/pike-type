@@ -164,9 +164,9 @@ class SvSynthModuleView:
     types: tuple[SvSynthTypeView, ...]
     # Pack/unpack data parallel to types[]; only populated for struct kind.
     pack_unpack: tuple[SvSynthStructPackUnpackView | None, ...]
-    # Cross-module synth-package wildcard imports (basenames only); template
-    # renders `import {b}_pkg::*;`. Sorted by target.python_module_name.
-    synth_cross_module_target_basenames: tuple[str, ...]
+    # Explicit per-symbol cross-module imports. Each entry is (pkg_name, symbol_name);
+    # template renders `import {pkg}::{sym};`. Sorted by (pkg, sym).
+    synth_cross_module_imports: tuple[tuple[str, str], ...]
 
 
 # ---------------------------------------------------------------------------
@@ -264,8 +264,12 @@ class SvTestModuleView:
     header: str
     package_name: str
     same_module_synth_basename: str
-    cross_module_synth_target_basenames: tuple[str, ...]
-    cross_module_test_target_basenames: tuple[str, ...]
+    # Explicit per-symbol imports from foreign synth packages
+    # (typedef of scalar-alias cross-module refs).
+    cross_module_synth_imports: tuple[tuple[str, str], ...]
+    # Explicit per-symbol imports from foreign test packages
+    # (helper class `T_ct` for composite cross-module refs).
+    cross_module_test_imports: tuple[tuple[str, str], ...]
     helpers: tuple[SvTestHelperView, ...]
 
 
@@ -698,7 +702,9 @@ def build_synth_module_view_sv(
         constants=tuple(_build_constant_view(const_ir=c) for c in module.constants),
         types=tuple(types_list),
         pack_unpack=tuple(pack_unpack_list),
-        synth_cross_module_target_basenames=_collect_cross_module_target_basenames(module=module),
+        synth_cross_module_imports=_collect_cross_module_synth_imports(
+            module=module, repo_type_index=repo_type_index
+        ),
     )
 
 
@@ -717,28 +723,89 @@ def build_test_module_view_sv(
             helpers.append(_build_test_flags_helper(type_ir=t))
         else:
             helpers.append(_build_test_enum_helper(type_ir=t))
-    cross_basenames = _collect_cross_module_target_basenames(module=module)
     return SvTestModuleView(
         header="",
         package_name=f"{module.ref.basename}_test_pkg",
         same_module_synth_basename=module.ref.basename,
-        cross_module_synth_target_basenames=cross_basenames,
-        cross_module_test_target_basenames=cross_basenames,
+        cross_module_synth_imports=_collect_cross_module_test_synth_imports(
+            module=module, repo_type_index=repo_type_index
+        ),
+        cross_module_test_imports=_collect_cross_module_test_helper_imports(
+            module=module, repo_type_index=repo_type_index
+        ),
         helpers=tuple(helpers),
     )
 
 
-def _collect_cross_module_target_basenames(*, module: ModuleIR) -> tuple[str, ...]:
-    """Return target package basenames for direct cross-module type refs in this module's types.
+def _iter_cross_module_typerefs(
+    *, module: ModuleIR
+) -> list[TypeRefIR]:
+    """Return all cross-module TypeRefIRs in this module's struct fields.
 
-    Sorted ascending by `target.python_module_name`. Deduplicated.
+    Deduplicated by (target_python_module_name, target_type_name); ordered
+    deterministically by that key.
     """
-    seen: dict[str, str] = {}  # python_module_name -> basename
+    seen: dict[tuple[str, str], TypeRefIR] = {}
     for type_ir in module.types:
         if isinstance(type_ir, StructIR):
             for field in type_ir.fields:
-                if isinstance(field.type_ir, TypeRefIR):
-                    target_module = field.type_ir.module
-                    if target_module.python_module_name != module.ref.python_module_name:
-                        seen[target_module.python_module_name] = target_module.basename
-    return tuple(seen[k] for k in sorted(seen.keys()))
+                ref = field.type_ir
+                if isinstance(ref, TypeRefIR) and ref.module.python_module_name != module.ref.python_module_name:
+                    seen.setdefault((ref.module.python_module_name, ref.name), ref)
+    return [seen[k] for k in sorted(seen.keys())]
+
+
+def _collect_cross_module_synth_imports(
+    *, module: ModuleIR, repo_type_index: dict[tuple[str, str], TypeDefIR]
+) -> tuple[tuple[str, str], ...]:
+    """Per-symbol imports for the synth package.
+
+    For each cross-module type `T_t` referenced by this module's struct fields,
+    import the bundle `{T_t, LP_<UPPER>_WIDTH, pack_<base>, unpack_<base>}` from
+    `<target>_pkg`. Sorted by (pkg, symbol).
+    """
+    pairs: set[tuple[str, str]] = set()
+    for ref in _iter_cross_module_typerefs(module=module):
+        pkg = f"{ref.module.basename}_pkg"
+        base = _type_base_name(ref.name)
+        upper = base.upper()
+        pairs.add((pkg, ref.name))
+        pairs.add((pkg, f"LP_{upper}_WIDTH"))
+        pairs.add((pkg, f"pack_{base}"))
+        pairs.add((pkg, f"unpack_{base}"))
+    return tuple(sorted(pairs))
+
+
+def _collect_cross_module_test_synth_imports(
+    *, module: ModuleIR, repo_type_index: dict[tuple[str, str], TypeDefIR]
+) -> tuple[tuple[str, str], ...]:
+    """Per-symbol imports for the test package, drawn from foreign synth packages.
+
+    For each scalar-alias cross-module ref, import the typedef name from
+    `<target>_pkg` (used as a raw helper-class field type, e.g. `rand byte_t f;`).
+    Composite cross-module refs do not need a synth-package import in the test
+    package — they reference the helper class instead. Sorted by (pkg, symbol).
+    """
+    pairs: set[tuple[str, str]] = set()
+    for ref in _iter_cross_module_typerefs(module=module):
+        target = repo_type_index.get((ref.module.python_module_name, ref.name))
+        if isinstance(target, ScalarAliasIR):
+            pairs.add((f"{ref.module.basename}_pkg", ref.name))
+    return tuple(sorted(pairs))
+
+
+def _collect_cross_module_test_helper_imports(
+    *, module: ModuleIR, repo_type_index: dict[tuple[str, str], TypeDefIR]
+) -> tuple[tuple[str, str], ...]:
+    """Per-symbol imports for the test package, drawn from foreign test packages.
+
+    For each composite (struct/flags/enum) cross-module ref, import the helper
+    class name `<base>_ct` from `<target>_test_pkg`. Scalar-alias refs do not
+    need a helper-class import. Sorted by (pkg, symbol).
+    """
+    pairs: set[tuple[str, str]] = set()
+    for ref in _iter_cross_module_typerefs(module=module):
+        target = repo_type_index.get((ref.module.python_module_name, ref.name))
+        if isinstance(target, (StructIR, FlagsIR, EnumIR)):
+            pairs.add((f"{ref.module.basename}_test_pkg", _helper_class_name(target.name)))
+    return tuple(sorted(pairs))

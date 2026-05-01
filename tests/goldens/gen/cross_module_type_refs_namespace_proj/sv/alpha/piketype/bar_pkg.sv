@@ -3,7 +3,22 @@
 // Do not edit by hand.
 
 package bar_pkg;
-  import foo_pkg::*;
+  import foo_pkg::LP_ADDR_WIDTH;
+  import foo_pkg::LP_BYTE_WIDTH;
+  import foo_pkg::LP_CMD_WIDTH;
+  import foo_pkg::LP_PERMS_WIDTH;
+  import foo_pkg::addr_t;
+  import foo_pkg::byte_t;
+  import foo_pkg::cmd_t;
+  import foo_pkg::pack_addr;
+  import foo_pkg::pack_byte;
+  import foo_pkg::pack_cmd;
+  import foo_pkg::pack_perms;
+  import foo_pkg::perms_t;
+  import foo_pkg::unpack_addr;
+  import foo_pkg::unpack_byte;
+  import foo_pkg::unpack_cmd;
+  import foo_pkg::unpack_perms;
 
   localparam int LP_BAR_WIDTH = 36;
   localparam int LP_BAR_BYTE_COUNT = 6;

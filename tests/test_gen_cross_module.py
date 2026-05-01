@@ -72,12 +72,13 @@ class CrossModuleTypeRefsIntegrationTest(unittest.TestCase):
             _assert_trees_equal(self, expected_root, repo_dir / "gen")
 
     def test_bar_pkg_uses_cross_module_byte_t(self) -> None:
-        """AC-2, AC-3: explicit byte-content checks against the user-supplied expected snippet."""
+        """AC-2, AC-3: explicit per-symbol imports for cross-module type refs."""
         bar_pkg_path = GOLDENS_DIR / "cross_module_type_refs" / "sv" / "alpha" / "piketype" / "bar_pkg.sv"
         text = bar_pkg_path.read_text(encoding="utf-8")
-        # AC-2: exactly one wildcard import for foo_pkg.
-        self.assertIn("import foo_pkg::*;", text)
-        self.assertEqual(text.count("import foo_pkg::*;"), 1)
+        # AC-2: explicit per-symbol imports (no wildcard) for the byte_t bundle.
+        self.assertNotIn("import foo_pkg::*;", text)
+        for sym in ("byte_t", "LP_BYTE_WIDTH", "pack_byte", "unpack_byte"):
+            self.assertIn(f"import foo_pkg::{sym};", text)
         # AC-3: typedef uses byte_t (not logic [7:0]) for both fields.
         self.assertIn("byte_t field1;", text)
         self.assertIn("byte_t field2;", text)

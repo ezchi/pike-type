@@ -3,7 +3,10 @@
 // Do not edit by hand.
 
 package bar_pkg;
-  import foo_pkg::*;
+  import foo_pkg::LP_BYTE_WIDTH;
+  import foo_pkg::byte_t;
+  import foo_pkg::pack_byte;
+  import foo_pkg::unpack_byte;
 
   localparam int LP_BAR_WIDTH = 24;
   localparam int LP_BAR_BYTE_COUNT = 4;

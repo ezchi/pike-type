@@ -2,11 +2,11 @@
 {{ header }}
 package {{ package_name }};
   import {{ same_module_synth_basename }}_pkg::*;
-{% for b in cross_module_synth_target_basenames %}
-  import {{ b }}_pkg::*;
+{% for pkg, sym in cross_module_synth_imports %}
+  import {{ pkg }}::{{ sym }};
 {% endfor %}
-{% for b in cross_module_test_target_basenames %}
-  import {{ b }}_test_pkg::*;
+{% for pkg, sym in cross_module_test_imports %}
+  import {{ pkg }}::{{ sym }};
 {% endfor %}
 {% for h in helpers %}
 

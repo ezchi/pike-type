@@ -4,8 +4,10 @@
 
 package bar_test_pkg;
   import bar_pkg::*;
-  import foo_pkg::*;
-  import foo_test_pkg::*;
+  import foo_pkg::byte_t;
+  import foo_test_pkg::addr_ct;
+  import foo_test_pkg::cmd_ct;
+  import foo_test_pkg::perms_ct;
 
   class bar_ct;
     localparam int WIDTH = LP_BAR_WIDTH;
