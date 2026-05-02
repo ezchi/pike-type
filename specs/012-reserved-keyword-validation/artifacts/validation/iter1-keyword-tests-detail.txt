@@ -1,0 +1,25 @@
+test_constant_for_is_rejected (tests.test_validate_keywords.KeywordValidationTest.test_constant_for_is_rejected)
+AC-5: constant ``for`` collides with C++, Python, and SystemVerilog. ... ok
+test_enum_value_while_is_accepted (tests.test_validate_keywords.KeywordValidationTest.test_enum_value_while_is_accepted)
+AC-3: exact-case keyword matching — ``WHILE`` (uppercase) is not the ... ok
+test_flags_field_try_is_rejected (tests.test_validate_keywords.KeywordValidationTest.test_flags_field_try_is_rejected)
+AC-6: flags field named ``try`` collides with C++ and Python. ... ok
+test_keyword_near_miss_type_id_passes (tests.test_validate_keywords.KeywordValidationTest.test_keyword_near_miss_type_id_passes)
+AC-7: a struct field whose name contains a keyword as a substring ... ok
+test_module_name_class_is_rejected (tests.test_validate_keywords.KeywordValidationTest.test_module_name_class_is_rejected)
+AC-4: module file ``class.py`` emits C++ namespace ``class`` and ... ok
+test_module_name_logic_is_accepted (tests.test_validate_keywords.KeywordValidationTest.test_module_name_logic_is_accepted)
+AC-4b: module file ``logic.py`` produces SV ``logic_pkg`` (not a ... ok
+test_struct_field_type_is_rejected (tests.test_validate_keywords.KeywordValidationTest.test_struct_field_type_is_rejected)
+AC-1: struct field named ``type`` collides with SystemVerilog and ... ok
+test_type_name_class_t_is_accepted (tests.test_validate_keywords.KeywordValidationTest.test_type_name_class_t_is_accepted)
+AC-2: ``class_t`` (full type name) is not a keyword; the base form ... ok
+test_uppercase_check_fires_before_keyword_check (tests.test_validate_keywords.KeywordValidationTest.test_uppercase_check_fires_before_keyword_check)
+AC-11: a lowercase enum value (here ``for``) violates the ... ok
+test_hard_keyword_snapshot_matches_keyword_kwlist (tests.test_keyword_set_snapshot.PythonKeywordSnapshotTests.test_hard_keyword_snapshot_matches_keyword_kwlist) ... skipped 'Python keyword snapshot is pinned to CPython 3.12.x; running on 3.13 — drift expected.'
+test_soft_keyword_snapshot_matches_keyword_softkwlist (tests.test_keyword_set_snapshot.PythonKeywordSnapshotTests.test_soft_keyword_snapshot_matches_keyword_softkwlist) ... skipped 'Python keyword snapshot is pinned to CPython 3.12.x; running on 3.13 — drift expected.'
+
+----------------------------------------------------------------------
+Ran 11 tests in 0.680s
+
+OK (skipped=2)
