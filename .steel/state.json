@@ -1,5 +1,5 @@
 {
-  "currentStage": "implementation",
+  "currentStage": "validation",
   "specId": "012-reserved-keyword-validation",
   "branch": "feature/012-reserved-keyword-validation",
   "description": "Reject DSL identifiers that collide with reserved keywords of any target language (SystemVerilog, C++20, Python 3.12) at validation time before code generation.",
@@ -18,7 +18,7 @@
       "status": "complete"
     },
     "implementation": {
-      "status": "pending"
+      "status": "complete"
     },
     "validation": {
       "status": "pending"
