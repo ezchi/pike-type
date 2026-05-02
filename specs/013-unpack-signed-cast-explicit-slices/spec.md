@@ -264,7 +264,11 @@ that ships the codegen change.
 
 ## Open Questions
 
-(All open questions raised in iteration 1 are resolved in this iteration:
-OQ-1 → part-select `a[i:i]` form; OQ-2 → cast operator `signed'(...)` form;
-OQ-3 → new fixture, do not edit existing fixtures. No outstanding open
-questions remain.)
+(All open questions raised in iteration 1 are resolved:
+OQ-1 → part-select `a[i:i]` form;
+OQ-2 → cast operator `signed'(...)` form;
+OQ-3 → reuse the existing `tests/fixtures/struct_signed/` fixture, which
+already exercises a signed inline `Logic(N, signed=True)` field — no new
+fixture is created (resolution refined by Clarification Q1, supersedes
+the iteration-2 wording that mandated a new fixture).
+No outstanding open questions remain.)
