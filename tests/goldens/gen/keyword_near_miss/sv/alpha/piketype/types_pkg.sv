@@ -19,13 +19,9 @@ package types_pkg;
 
   function automatic near_miss_t unpack_near_miss(logic [LP_NEAR_MISS_WIDTH-1:0] a);
     near_miss_t result;
-    int unsigned offset;
     result = '0;
-    offset = 0;
-    result.payload = a[offset +: 8];
-    offset += 8;
-    result.type_id = a[offset +: 2];
-    offset += 2;
+    result.payload = a[7:0];
+    result.type_id = a[9:8];
     return result;
   endfunction
 endpackage

@@ -21,13 +21,9 @@ package types_pkg;
 
   function automatic aligned_t unpack_aligned(logic [LP_ALIGNED_WIDTH-1:0] a);
     aligned_t result;
-    int unsigned offset;
     result = '0;
-    offset = 0;
-    result.b = a[offset +: 12];
-    offset += 12;
-    result.a = a[offset +: 5];
-    offset += 5;
+    result.b = a[11:0];
+    result.a = a[16:12];
     return result;
   endfunction
 
@@ -47,13 +43,9 @@ package types_pkg;
 
   function automatic no_extra_pad_t unpack_no_extra_pad(logic [LP_NO_EXTRA_PAD_WIDTH-1:0] a);
     no_extra_pad_t result;
-    int unsigned offset;
     result = '0;
-    offset = 0;
-    result.b = a[offset +: 12];
-    offset += 12;
-    result.a = a[offset +: 5];
-    offset += 5;
+    result.b = a[11:0];
+    result.a = a[16:12];
     return result;
   endfunction
 
@@ -72,11 +64,8 @@ package types_pkg;
 
   function automatic inner_t unpack_inner(logic [LP_INNER_WIDTH-1:0] a);
     inner_t result;
-    int unsigned offset;
     result = '0;
-    offset = 0;
-    result.x = a[offset +: 3];
-    offset += 3;
+    result.x = a[2:0];
     return result;
   endfunction
 
@@ -94,13 +83,9 @@ package types_pkg;
 
   function automatic outer_t unpack_outer(logic [LP_OUTER_WIDTH-1:0] a);
     outer_t result;
-    int unsigned offset;
     result = '0;
-    offset = 0;
-    result.y = a[offset +: 8];
-    offset += 8;
-    result.inner = unpack_inner(a[offset +: LP_INNER_WIDTH]);
-    offset += LP_INNER_WIDTH;
+    result.y = a[7:0];
+    result.inner = unpack_inner(a[10:8]);
     return result;
   endfunction
 endpackage

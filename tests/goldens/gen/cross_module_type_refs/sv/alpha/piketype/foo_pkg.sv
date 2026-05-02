@@ -31,13 +31,9 @@ package foo_pkg;
 
   function automatic addr_t unpack_addr(logic [LP_ADDR_WIDTH-1:0] a);
     addr_t result;
-    int unsigned offset;
     result = '0;
-    offset = 0;
-    result.lo = a[offset +: 8];
-    offset += 8;
-    result.hi = a[offset +: 8];
-    offset += 8;
+    result.lo = a[7:0];
+    result.hi = a[15:8];
     return result;
   endfunction
 

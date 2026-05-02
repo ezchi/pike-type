@@ -21,15 +21,10 @@ package types_pkg;
 
   function automatic big_t unpack_big(logic [LP_BIG_WIDTH-1:0] a);
     big_t result;
-    int unsigned offset;
     result = '0;
-    offset = 0;
-    result.extra = a[offset +: 128];
-    offset += 128;
-    result.flag = a[offset +: 1];
-    offset += 1;
-    result.data = a[offset +: 65];
-    offset += 65;
+    result.extra = a[127:0];
+    result.flag = a[128:128];
+    result.data = a[193:129];
     return result;
   endfunction
 endpackage

@@ -14,7 +14,7 @@ package types_pkg;
   endfunction
 
   function automatic signed_4_t unpack_signed_4(logic [LP_SIGNED_4_WIDTH-1:0] a);
-    return a;
+    return signed'(a);
   endfunction
 
   localparam int LP_SIGNED_5_WIDTH = 5;
@@ -27,7 +27,7 @@ package types_pkg;
   endfunction
 
   function automatic signed_5_t unpack_signed_5(logic [LP_SIGNED_5_WIDTH-1:0] a);
-    return a;
+    return signed'(a);
   endfunction
 
   localparam int LP_MIXED_WIDTH = 9;
@@ -46,14 +46,10 @@ package types_pkg;
 
   function automatic mixed_t unpack_mixed(logic [LP_MIXED_WIDTH-1:0] a);
     mixed_t result;
-    int unsigned offset;
     result = '0;
-    offset = 0;
-    result.field_u = a[offset +: 5];
-    offset += 5;
+    result.field_u = signed'(a[4:0]);
     result.field_u_pad = {3{result.field_u[4]}};
-    result.field_s = unpack_signed_4(a[offset +: LP_SIGNED_4_WIDTH]);
-    offset += LP_SIGNED_4_WIDTH;
+    result.field_s = unpack_signed_4(a[8:5]);
     result.field_s_pad = {4{result.field_s[3]}};
     return result;
   endfunction

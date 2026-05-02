@@ -37,17 +37,11 @@ package types_pkg;
 
   function automatic bar_t unpack_bar(logic [LP_BAR_WIDTH-1:0] a);
     bar_t result;
-    int unsigned offset;
     result = '0;
-    offset = 0;
-    result.flag_b = a[offset +: 1];
-    offset += 1;
-    result.status = a[offset +: 4];
-    offset += 4;
-    result.field_1 = unpack_foo(a[offset +: LP_FOO_WIDTH]);
-    offset += LP_FOO_WIDTH;
-    result.flag_a = a[offset +: 1];
-    offset += 1;
+    result.flag_b = a[0:0];
+    result.status = a[4:1];
+    result.field_1 = unpack_foo(a[17:5]);
+    result.flag_a = a[18:18];
     return result;
   endfunction
 endpackage

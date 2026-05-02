@@ -42,13 +42,9 @@ package types_pkg;
 
   function automatic report_t unpack_report(logic [LP_REPORT_WIDTH-1:0] a);
     report_t result;
-    int unsigned offset;
     result = '0;
-    offset = 0;
-    result.code = a[offset +: 5];
-    offset += 5;
-    result.status = unpack_status(a[offset +: LP_STATUS_WIDTH]);
-    offset += LP_STATUS_WIDTH;
+    result.code = a[4:0];
+    result.status = unpack_status(a[7:5]);
     return result;
   endfunction
 
@@ -68,13 +64,9 @@ package types_pkg;
 
   function automatic aligned_report_t unpack_aligned_report(logic [LP_ALIGNED_REPORT_WIDTH-1:0] a);
     aligned_report_t result;
-    int unsigned offset;
     result = '0;
-    offset = 0;
-    result.data = a[offset +: 3];
-    offset += 3;
-    result.flags = unpack_status(a[offset +: LP_STATUS_WIDTH]);
-    offset += LP_STATUS_WIDTH;
+    result.data = a[2:0];
+    result.flags = unpack_status(a[5:3]);
     return result;
   endfunction
 endpackage

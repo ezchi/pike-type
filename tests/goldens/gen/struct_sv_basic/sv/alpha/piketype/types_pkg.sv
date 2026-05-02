@@ -50,15 +50,10 @@ package types_pkg;
 
   function automatic header_t unpack_header(logic [LP_HEADER_WIDTH-1:0] a);
     header_t result;
-    int unsigned offset;
     result = '0;
-    offset = 0;
-    result.mode = a[offset +: 2];
-    offset += 2;
-    result.enable = unpack_flag(a[offset +: LP_FLAG_WIDTH]);
-    offset += LP_FLAG_WIDTH;
-    result.addr = unpack_addr(a[offset +: LP_ADDR_WIDTH]);
-    offset += LP_ADDR_WIDTH;
+    result.mode = a[1:0];
+    result.enable = unpack_flag(a[2:2]);
+    result.addr = unpack_addr(a[15:3]);
     return result;
   endfunction
 endpackage

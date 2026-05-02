@@ -29,7 +29,7 @@ package types_pkg;
   endfunction
 
   function automatic mask_t unpack_mask(logic [LP_MASK_WIDTH-1:0] a);
-    return a;
+    return signed'(a);
   endfunction
 
   localparam int LP_FLAG_WIDTH = 1;

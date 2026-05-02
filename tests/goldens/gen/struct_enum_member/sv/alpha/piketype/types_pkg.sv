@@ -32,13 +32,9 @@ package types_pkg;
 
   function automatic pkt_t unpack_pkt(logic [LP_PKT_WIDTH-1:0] a);
     pkt_t result;
-    int unsigned offset;
     result = '0;
-    offset = 0;
-    result.data = a[offset +: 8];
-    offset += 8;
-    result.cmd = unpack_cmd(a[offset +: LP_CMD_WIDTH]);
-    offset += LP_CMD_WIDTH;
+    result.data = a[7:0];
+    result.cmd = unpack_cmd(a[9:8]);
     return result;
   endfunction
 
@@ -58,13 +54,9 @@ package types_pkg;
 
   function automatic aligned_pkt_t unpack_aligned_pkt(logic [LP_ALIGNED_PKT_WIDTH-1:0] a);
     aligned_pkt_t result;
-    int unsigned offset;
     result = '0;
-    offset = 0;
-    result.data = a[offset +: 8];
-    offset += 8;
-    result.cmd = unpack_cmd(a[offset +: LP_CMD_WIDTH]);
-    offset += LP_CMD_WIDTH;
+    result.data = a[7:0];
+    result.cmd = unpack_cmd(a[9:8]);
     return result;
   endfunction
 endpackage

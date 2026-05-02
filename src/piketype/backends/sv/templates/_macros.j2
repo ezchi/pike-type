@@ -108,7 +108,11 @@
 {% macro synth_unpack_fn(view, pack_unpack) %}
   function automatic {{ view.name }} unpack_{{ view.base }}(logic [LP_{{ view.upper_base }}_WIDTH-1:0] a);
 {% if view.kind == "scalar_alias" %}
+{% if view.signed %}
+    return signed'(a);
+{% else %}
     return a;
+{% endif %}
 {% elif view.kind == "flags" %}
     {{ view.name }} result;
     result = '0;
@@ -120,16 +124,14 @@
     return {{ view.name }}'(a);
 {% elif view.kind == "struct" %}
     {{ view.name }} result;
-    int unsigned offset;
     result = '0;
-    offset = 0;
 {% for f in pack_unpack.unpack_fields %}
 {% if f.is_type_ref %}
-    result.{{ f.name }} = unpack_{{ f.inner_base }}(a[offset +: LP_{{ f.inner_upper }}_WIDTH]);
-    offset += LP_{{ f.inner_upper }}_WIDTH;
+    result.{{ f.name }} = unpack_{{ f.inner_base }}(a[{{ f.slice_high }}:{{ f.slice_low }}]);
+{% elif f.is_signed %}
+    result.{{ f.name }} = signed'(a[{{ f.slice_high }}:{{ f.slice_low }}]);
 {% else %}
-    result.{{ f.name }} = a[offset +: {{ f.width }}];
-    offset += {{ f.width }};
+    result.{{ f.name }} = a[{{ f.slice_high }}:{{ f.slice_low }}];
 {% endif %}
 {% if f.has_signed_padding %}
     result.{{ f.name }}_pad = {{ '{' }}{{ f.padding_bits }}{{ '{result.' }}{{ f.name }}[{{ f.sign_bit_index }}]{{ '}' }}{{ '}' }};

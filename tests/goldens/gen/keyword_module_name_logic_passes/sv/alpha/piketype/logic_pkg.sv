@@ -20,13 +20,9 @@ package logic_pkg;
 
   function automatic handler_t unpack_handler(logic [LP_HANDLER_WIDTH-1:0] a);
     handler_t result;
-    int unsigned offset;
     result = '0;
-    offset = 0;
-    result.b = a[offset +: 2];
-    offset += 2;
-    result.a = a[offset +: 2];
-    offset += 2;
+    result.b = a[1:0];
+    result.a = a[3:2];
     return result;
   endfunction
 endpackage

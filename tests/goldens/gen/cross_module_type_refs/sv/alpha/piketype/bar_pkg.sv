@@ -38,19 +38,12 @@ package bar_pkg;
 
   function automatic bar_t unpack_bar(logic [LP_BAR_WIDTH-1:0] a);
     bar_t result;
-    int unsigned offset;
     result = '0;
-    offset = 0;
-    result.perm = unpack_perms(a[offset +: LP_PERMS_WIDTH]);
-    offset += LP_PERMS_WIDTH;
-    result.op = unpack_cmd(a[offset +: LP_CMD_WIDTH]);
-    offset += LP_CMD_WIDTH;
-    result.hdr = unpack_addr(a[offset +: LP_ADDR_WIDTH]);
-    offset += LP_ADDR_WIDTH;
-    result.field2 = unpack_byte(a[offset +: LP_BYTE_WIDTH]);
-    offset += LP_BYTE_WIDTH;
-    result.field1 = unpack_byte(a[offset +: LP_BYTE_WIDTH]);
-    offset += LP_BYTE_WIDTH;
+    result.perm = unpack_perms(a[1:0]);
+    result.op = unpack_cmd(a[3:2]);
+    result.hdr = unpack_addr(a[19:4]);
+    result.field2 = unpack_byte(a[27:20]);
+    result.field1 = unpack_byte(a[35:28]);
     return result;
   endfunction
 endpackage

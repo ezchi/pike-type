@@ -24,15 +24,10 @@ package bar_pkg;
 
   function automatic bar_t unpack_bar(logic [LP_BAR_WIDTH-1:0] a);
     bar_t result;
-    int unsigned offset;
     result = '0;
-    offset = 0;
-    result.c = unpack_byte(a[offset +: LP_BYTE_WIDTH]);
-    offset += LP_BYTE_WIDTH;
-    result.b = unpack_byte(a[offset +: LP_BYTE_WIDTH]);
-    offset += LP_BYTE_WIDTH;
-    result.a = unpack_byte(a[offset +: LP_BYTE_WIDTH]);
-    offset += LP_BYTE_WIDTH;
+    result.c = unpack_byte(a[7:0]);
+    result.b = unpack_byte(a[15:8]);
+    result.a = unpack_byte(a[23:16]);
     return result;
   endfunction
 endpackage

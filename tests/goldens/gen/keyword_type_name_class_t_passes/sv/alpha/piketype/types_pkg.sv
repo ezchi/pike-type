@@ -18,13 +18,9 @@ package types_pkg;
 
   function automatic class_t unpack_class(logic [LP_CLASS_WIDTH-1:0] a);
     class_t result;
-    int unsigned offset;
     result = '0;
-    offset = 0;
-    result.payload = a[offset +: 16];
-    offset += 16;
-    result.addr = a[offset +: 8];
-    offset += 8;
+    result.payload = a[15:0];
+    result.addr = a[23:16];
     return result;
   endfunction
 endpackage
