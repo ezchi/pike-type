@@ -137,7 +137,7 @@ PY_SOFT_KEYWORDS: frozenset[str] = frozenset({
 })
 
 
-def keyword_languages(identifier: str) -> tuple[str, ...]:
+def keyword_languages(*, identifier: str) -> tuple[str, ...]:
     """Return alphabetically-sorted target-language labels in which ``identifier``
     is a reserved keyword.
 
