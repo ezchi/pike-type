@@ -1,0 +1,3 @@
+  /Users/ezchi/Projects/pike-type/src/piketype/validate/engine.py:383:15 - error: Argument type is unknown
+    Argument corresponds to parameter "node" in function "visit" (reportUnknownArgumentType)
+100 errors, 0 warnings, 0 notes
