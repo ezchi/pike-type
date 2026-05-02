@@ -1,30 +1,30 @@
 {
-  "currentStage": "retrospect",
-  "specId": "014-enum-pack-width-cast",
-  "branch": "feature/014-enum-pack-width-cast",
-  "description": "The generated SystemVerilog pack function for Enum types uses a single-bit `logic'(a)` cast inside a function whose return type is `logic [LP_<NAME>_WIDTH-1:0]`. This is wrong for any multi-bit enum: the cast truncates to 1 bit and the function relies on implicit width extension instead of producing a width-correct value. Fix the codegen so the pack function returns the enum reinterpreted at its declared width (e.g. via `LP_<NAME>_WIDTH'(a)` or equivalent) for both multi-bit and 1-bit enums.",
-  "iteration": 0,
+  "currentStage": "specification",
+  "specId": "015-scanner-exclude-venv-dirs",
+  "branch": "feature/015-scanner-exclude-venv-dirs",
+  "description": "Fix find_piketype_modules in src/piketype/discovery/scanner.py to skip virtual-env, VCS, and other non-source directories during the rglob walk, so it does not pick up piketype's own installed source under .venv/lib/python3.13/site-packages/piketype/. The CLI currently fails with 'piketype requires unique module basenames across the repo, but duplicates were found' because the scanner descends into .venv. Add an EXCLUDED_DIRS frozenset ({'.venv', 'venv', '.git', 'node_modules', '.tox', '__pycache__'}) and exclude any path whose relative parts intersect that set.",
+  "iteration": 1,
   "stages": {
     "specification": {
-      "status": "complete"
+      "status": "in_progress"
     },
     "clarification": {
-      "status": "complete"
+      "status": "pending"
     },
     "planning": {
-      "status": "complete"
+      "status": "pending"
     },
     "task_breakdown": {
-      "status": "complete"
+      "status": "pending"
     },
     "implementation": {
-      "status": "complete"
+      "status": "pending"
     },
     "validation": {
-      "status": "complete"
+      "status": "pending"
     },
     "retrospect": {
-      "status": "complete"
+      "status": "pending"
     }
   },
   "skillsUsed": {
