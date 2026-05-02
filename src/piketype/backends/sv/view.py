@@ -140,6 +140,9 @@ class SvSynthStructUnpackFieldView:
     has_signed_padding: bool  # padding_bits > 0 and signed
     padding_bits: int
     sign_bit_index: int  # width - 1
+    slice_low: int
+    slice_high: int
+    is_signed: bool  # True only when effective type is signed AND not type-ref
 
 
 @dataclass(frozen=True, slots=True)
@@ -503,11 +506,17 @@ def _build_struct_pack_unpack(
             pack_parts.append(SvSynthStructPackPartView(expr=f"a.{field.name}"))
 
     unpack_fields: list[SvSynthStructUnpackFieldView] = []
+    low = 0
     for field in reversed(type_ir.fields):
         fw = _field_data_width(field=field, repo_type_index=repo_type_index)
-        is_signed = _is_field_signed(field=field, repo_type_index=repo_type_index)
-        has_signed_padding = field.padding_bits > 0 and is_signed
-        if isinstance(field.type_ir, TypeRefIR):
+        is_signed_eff = _is_field_signed(field=field, repo_type_index=repo_type_index)
+        has_signed_padding = field.padding_bits > 0 and is_signed_eff
+        is_type_ref = isinstance(field.type_ir, TypeRefIR)
+        slice_low = low
+        slice_high = low + fw - 1
+        is_signed = is_signed_eff and not is_type_ref
+        if is_type_ref:
+            assert isinstance(field.type_ir, TypeRefIR)
             inner_target = repo_type_index[(field.type_ir.module.python_module_name, field.type_ir.name)]
             inner_base = _type_base_name(inner_target.name)
             unpack_fields.append(
@@ -520,6 +529,9 @@ def _build_struct_pack_unpack(
                     has_signed_padding=has_signed_padding,
                     padding_bits=field.padding_bits,
                     sign_bit_index=fw - 1 if has_signed_padding else 0,
+                    slice_low=slice_low,
+                    slice_high=slice_high,
+                    is_signed=is_signed,
                 )
             )
         else:
@@ -533,8 +545,12 @@ def _build_struct_pack_unpack(
                     has_signed_padding=has_signed_padding,
                     padding_bits=field.padding_bits,
                     sign_bit_index=fw - 1 if has_signed_padding else 0,
+                    slice_low=slice_low,
+                    slice_high=slice_high,
+                    is_signed=is_signed,
                 )
             )
+        low += fw
     return SvSynthStructPackUnpackView(
         pack_parts=tuple(pack_parts),
         unpack_fields=tuple(unpack_fields),
