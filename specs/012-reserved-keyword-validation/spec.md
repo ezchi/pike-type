@@ -2,7 +2,7 @@
 
 **Spec ID:** 012-reserved-keyword-validation
 **Branch:** `feature/012-reserved-keyword-validation`
-**Status:** draft (iteration 3)
+**Status:** draft (clarification iteration 1)
 
 ## Overview
 
@@ -50,8 +50,8 @@ The validation pass MUST check the following user-supplied identifiers from the 
 
 The validation MUST check identifiers against three frozen keyword sets:
 
-- **SystemVerilog**: IEEE 1800-2017 reserved keywords, plus the additions introduced in IEEE 1800-2023 (notably `nettype`, `interconnect`). Including the 2023 additions defends against forward-compat regressions for users on newer Verilator releases. [NEEDS CLARIFICATION: confirm 1800-2023 inclusion is acceptable; the alternative is 1800-2017 only, which is what current Verilator-targeted goldens assume.]
-- **C++**: ISO C++20 reserved keywords plus alternative tokens (`and`, `or`, `not`, `xor`, `bitand`, `bitor`, `compl`, `and_eq`, `or_eq`, `xor_eq`, `not_eq`). C++20 contextual identifiers `import` and `module` MUST also be included because they tokenize as keywords inside `import`/`module` declarations (high collision risk for hardware DSL authors). Other contextual identifiers (`final`, `override`) MUST NOT be included; they are only meaningful in narrow grammatical positions and using them as field names is legal. [NEEDS CLARIFICATION: confirm `import`/`module` inclusion vs full `final`/`override`/`co_await`/etc. inclusion.]
+- **SystemVerilog**: The **union** of IEEE 1800-2017 reserved keywords and the additions introduced in IEEE 1800-2023 (e.g. `nettype`, `interconnect`). The keyword module's comment lists the 2023-only additions explicitly so a reader can audit the source against either standard.
+- **C++**: ISO C++20 reserved keywords (including the coroutine keywords `co_await`, `co_yield`, `co_return`, which are language-level reserved keywords, not contextual identifiers) plus alternative tokens (`and`, `or`, `not`, `xor`, `bitand`, `bitor`, `compl`, `and_eq`, `or_eq`, `xor_eq`, `not_eq`). C++20 contextual identifiers `import` and `module` MUST also be included because they participate in module-declaration parsing and present a forward-compat risk for hardware DSL authors who pick `import.py` or `module.py` as a module filename. Contextual identifiers `final` and `override` MUST NOT be included; they are legal as identifiers in any non-declarator position and rejecting them would over-restrict per Constitution principle 4.
 - **Python**: A static snapshot of `keyword.kwlist` ∪ `keyword.softkwlist` taken from CPython 3.12.x at spec-freeze time, captured as a literal `frozenset` in the keyword module. Snapshotting (rather than late-binding to the running interpreter's `keyword` module) preserves byte-identical error output across patch-level Python upgrades, in service of Constitution principle 3 (Determinism).
 
 Each keyword set MUST be a `frozenset[str]` defined in a single dedicated module (proposed: `src/piketype/validate/keywords.py`) with one constant per language and a documented standard reference. The validation pass MUST NOT compute keyword sets at module load by introspecting target compilers.
@@ -134,9 +134,9 @@ If a single identifier could trip multiple checks (e.g. an enum value that is bo
 
 - **NFR-1. Performance.** The keyword check MUST add < 5 ms to `piketype gen` for the largest fixture currently in `tests/fixtures/`. Rationale: `frozenset` membership is O(1); identifier counts are in the low thousands at most.
 - **NFR-2. Determinism.** Repeated runs on the same input produce the same error message byte-for-byte (Constitution principle 3). No environment, OS, locale, or Python patch-version dependence.
-- **NFR-3. Test coverage.** Each in-scope identifier kind (FR-1.1 through FR-1.6) MUST have at least one negative-test fixture under `tests/fixtures/` with the matching expected-error golden. Specifically: one fixture per identifier kind × one fixture for a multi-language collision × one positive smoke fixture demonstrating that a near-miss like `type_id` passes.
+- **NFR-3. Test coverage.** Each in-scope identifier kind (FR-1.1 through FR-1.6) MUST have at least one negative-test fixture under `tests/fixtures/` with the matching expected-error golden. Specifically: one fixture per identifier kind × one fixture for a multi-language collision × one positive smoke fixture demonstrating that a near-miss like `type_id` passes. In addition, a unit test in `tests/` MUST verify that the Python keyword snapshot in `src/piketype/validate/keywords.py` equals `frozenset(keyword.kwlist) | frozenset(keyword.softkwlist)` when the running interpreter is Python 3.12.x (the test SHOULD skip with an explanatory message under any other Python minor version, since drift is then expected and governed by a separate Python-version-bump PR).
 - **NFR-4. No external dependencies.** The implementation MUST NOT add new runtime dependencies. The Python keyword set is a literal `frozenset` snapshot per FR-2; the stdlib `keyword` module MAY be imported in a doctest or comment that documents the source-of-truth provenance, but MUST NOT be imported at runtime.
-- **NFR-5. Documentation.** The `docs/` tree (architecture / RFC sections describing the validation pipeline) MUST be updated to mention the keyword pass. No new top-level docs file is required.
+- **NFR-5. Documentation.** The `docs/` tree (architecture / RFC sections describing the validation pipeline) MUST be updated to mention the keyword pass. No new top-level docs file is required. The keyword module `src/piketype/validate/keywords.py` MUST contain a top-of-file comment recording: (a) the IEEE 1800 standard revisions consumed (1800-2017 + 1800-2023), (b) the ISO C++ standard revision (C++20) and any contextual-identifier inclusion/exclusion decisions, (c) the exact CPython 3.12 patch version from which the Python snapshot was taken (e.g. `3.12.7`).
 
 ## Acceptance Criteria
 
@@ -168,5 +168,11 @@ If a single identifier could trip multiple checks (e.g. an enum value that is bo
 
 ## Open Questions
 
-1. **[NEEDS CLARIFICATION]** SystemVerilog standard revision: include IEEE 1800-2023 additions (`nettype`, `interconnect`, etc.) on top of the 1800-2017 base? Including them defends against forward-compat regressions but rejects identifiers that compile fine on current Verilator. (FR-2)
-2. **[NEEDS CLARIFICATION]** C++ contextual identifiers: include `import` and `module` only (current FR-2 default), or also include `final`, `override`, `co_await`, `co_yield`, `co_return`? `final`/`override` are legal as field names but may surprise reviewers who treat them as keywords. (FR-2)
+(None. All previously open questions resolved during the clarification stage; see `clarifications.md`.)
+
+## Changelog
+
+- [Clarification iter1] FR-2 (SV): Resolved Q1 — committed to the union of IEEE 1800-2017 + 1800-2023 reserved keywords. Rationale: Constitution principle 4 (correctness over convenience) and asymmetric cost of false-negative vs. false-positive. See `clarifications.md` Q1.
+- [Clarification iter1] FR-2 (C++): Resolved Q2 — corrected the classification of `co_await`/`co_yield`/`co_return` (these are reserved C++20 keywords, not contextual identifiers) and pinned the contextual-identifier inclusion list (`import`, `module` IN; `final`, `override` OUT). See `clarifications.md` Q2.
+- [Clarification iter1] NFR-3: Added a unit-test requirement that the Python keyword snapshot equals `frozenset(keyword.kwlist) | frozenset(keyword.softkwlist)` when the running interpreter is Python 3.12.x, with skip-on-other-versions semantics. See `clarifications.md` Q7.
+- [Clarification iter1] NFR-5: Added a documentation requirement that `keywords.py` records the SV/C++ standard revisions consumed and the exact CPython 3.12 patch version of the Python snapshot. See `clarifications.md` Q7.
