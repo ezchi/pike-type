@@ -220,6 +220,8 @@ Owns:
 
 Validation should be implemented as explicit passes, not hidden inside emitters.
 
+One such cross-language check is the **reserved-keyword validation pass** (`_validate_reserved_keywords` in `validate/engine.py`). It runs after all structural and cross-module passes and rejects user-supplied DSL identifiers (type names, struct fields, flags fields, enum values, constants, module basenames) whose emitted form collides with a reserved keyword in any active target language (SystemVerilog, C++20, Python 3.12). The keyword sets live in `validate/keywords.py` as frozen `frozenset[str]` snapshots — IEEE 1800-2017 ∪ 1800-2023 for SV, ISO C++20 (N4861 §2.13) reserved keywords plus alternative tokens plus `import`/`module` for C++, and `keyword.kwlist ∪ keyword.softkwlist` snapshotted from CPython 3.12.x for Python. The module-name check uses per-language emitted forms (SV: `<base>_pkg`; C++/Python: bare base) so that, for example, a module file named `logic.py` is accepted (the SV package becomes `logic_pkg`, not a keyword) while `class.py` is rejected (C++ namespace `class` and Python module `class` are both keywords).
+
 ### `backends/`
 
 Own:
