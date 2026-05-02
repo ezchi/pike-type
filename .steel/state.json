@@ -1,5 +1,5 @@
 {
-  "currentStage": "planning",
+  "currentStage": "task_breakdown",
   "specId": "013-unpack-signed-cast-explicit-slices",
   "branch": "feature/013-unpack-signed-cast-explicit-slices",
   "description": "In the SystemVerilog unpack function, add a signed type cast when assigning to signed target fields (currently triggers lint errors), and replace the runtime offset variable with explicit codegen-computed slice indices like [3:0] and [27:13].",
@@ -12,7 +12,7 @@
       "status": "complete"
     },
     "planning": {
-      "status": "pending"
+      "status": "complete"
     },
     "task_breakdown": {
       "status": "pending"
