@@ -1,28 +1,27 @@
 {
-  "currentStage": "retrospect",
-  "specId": "012-reserved-keyword-validation",
-  "branch": "feature/012-reserved-keyword-validation",
-  "description": "Reject DSL identifiers that collide with reserved keywords of any target language (SystemVerilog, C++20, Python 3.12) at validation time before code generation.",
-  "iteration": 1,
+  "currentStage": "specification",
+  "specId": "013-unpack-signed-cast-explicit-slices",
+  "branch": "feature/013-unpack-signed-cast-explicit-slices",
+  "description": "In the SystemVerilog unpack function, add a signed type cast when assigning to signed target fields (currently triggers lint errors), and replace the runtime offset variable with explicit codegen-computed slice indices like [3:0] and [27:13].",
+  "iteration": 0,
   "stages": {
     "specification": {
-      "status": "complete"
+      "status": "in_progress"
     },
     "clarification": {
-      "status": "complete"
+      "status": "pending"
     },
     "planning": {
-      "status": "complete"
+      "status": "pending"
     },
     "task_breakdown": {
-      "status": "complete"
+      "status": "pending"
     },
     "implementation": {
-      "status": "complete"
+      "status": "pending"
     },
     "validation": {
-      "status": "complete_with_follow_up",
-      "follow_up_failures": ["AC-10"]
+      "status": "pending"
     },
     "retrospect": {
       "status": "pending"

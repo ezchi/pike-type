@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "emacs-tools": {
+      "url": "http://localhost:49399/mcp/gemini-pike-type-20260501-191913",
+      "type": "http",
+      "trust": true,
+      "includeTools": [
+        "mcp__emacs-tools__gemini-cli-ide-mcp-treesit-info,mcp__emacs-tools__gemini-cli-ide-mcp-imenu-list-symbols,mcp__emacs-tools__gemini-cli-ide-mcp-project-info,mcp__emacs-tools__gemini-cli-ide-mcp-xref-find-apropos,mcp__emacs-tools__gemini-cli-ide-mcp-xref-find-references,mcp__emacs-tools__gemini-cli-ide-mcp-get-terminal-input"
+      ]
+    }
+  }
+}
