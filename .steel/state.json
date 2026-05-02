@@ -3,13 +3,13 @@
   "specId": "015-scanner-exclude-venv-dirs",
   "branch": "feature/015-scanner-exclude-venv-dirs",
   "description": "Fix find_piketype_modules in src/piketype/discovery/scanner.py to skip virtual-env, VCS, and other non-source directories during the rglob walk, so it does not pick up piketype's own installed source under .venv/lib/python3.13/site-packages/piketype/. The CLI currently fails with 'piketype requires unique module basenames across the repo, but duplicates were found' because the scanner descends into .venv. Add an EXCLUDED_DIRS frozenset ({'.venv', 'venv', '.git', 'node_modules', '.tox', '__pycache__'}) and exclude any path whose relative parts intersect that set.",
-  "iteration": 2,
+  "iteration": 1,
   "stages": {
     "specification": {
       "status": "complete"
     },
     "clarification": {
-      "status": "ready"
+      "status": "in_progress"
     },
     "planning": {
       "status": "pending"
