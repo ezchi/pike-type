@@ -95,7 +95,7 @@
 {% elif view.kind == "flags" %}
     return {{ '{' }}{% for n in view.field_names %}a.{{ n }}{% if not loop.last %}, {% endif %}{% endfor %}{{ '}' }};
 {% elif view.kind == "enum" %}
-    return logic'(a);
+    return LP_{{ view.upper_base }}_WIDTH'(a);
 {% elif view.kind == "struct" %}
     return {{ '{' }}{% for p in pack_unpack.pack_parts %}{{ p.expr }}{% if not loop.last %}, {% endif %}{% endfor %}{{ '}' }};
 {% endif %}

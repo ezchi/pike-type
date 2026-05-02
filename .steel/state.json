@@ -1,8 +1,8 @@
 {
   "currentStage": "retrospect",
-  "specId": "013-unpack-signed-cast-explicit-slices",
-  "branch": "feature/013-unpack-signed-cast-explicit-slices",
-  "description": "In the SystemVerilog unpack function, add a signed type cast when assigning to signed target fields (currently triggers lint errors), and replace the runtime offset variable with explicit codegen-computed slice indices like [3:0] and [27:13].",
+  "specId": "014-enum-pack-width-cast",
+  "branch": "feature/014-enum-pack-width-cast",
+  "description": "The generated SystemVerilog pack function for Enum types uses a single-bit `logic'(a)` cast inside a function whose return type is `logic [LP_<NAME>_WIDTH-1:0]`. This is wrong for any multi-bit enum: the cast truncates to 1 bit and the function relies on implicit width extension instead of producing a width-correct value. Fix the codegen so the pack function returns the enum reinterpreted at its declared width (e.g. via `LP_<NAME>_WIDTH'(a)` or equivalent) for both multi-bit and 1-bit enums.",
   "iteration": 0,
   "stages": {
     "specification": {
@@ -33,6 +33,7 @@
     "planning": [],
     "task_breakdown": [],
     "implementation": [],
-    "validation": []
+    "validation": [],
+    "retrospect": []
   }
 }

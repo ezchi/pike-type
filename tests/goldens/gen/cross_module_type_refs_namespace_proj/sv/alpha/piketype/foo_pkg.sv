@@ -43,7 +43,7 @@ package foo_pkg;
   typedef enum logic [LP_CMD_WIDTH-1:0] {IDLE = 0, READ = 1, WRITE = 2} cmd_t;
 
   function automatic logic [LP_CMD_WIDTH-1:0] pack_cmd(cmd_t a);
-    return logic'(a);
+    return LP_CMD_WIDTH'(a);
   endfunction
 
   function automatic cmd_t unpack_cmd(logic [LP_CMD_WIDTH-1:0] a);

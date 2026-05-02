@@ -10,7 +10,7 @@ package types_pkg;
   typedef enum logic {IDLE = 0, WHILE = 1} state_t;
 
   function automatic logic [LP_STATE_WIDTH-1:0] pack_state(state_t a);
-    return logic'(a);
+    return LP_STATE_WIDTH'(a);
   endfunction
 
   function automatic state_t unpack_state(logic [LP_STATE_WIDTH-1:0] a);

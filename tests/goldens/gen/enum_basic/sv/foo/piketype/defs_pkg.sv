@@ -10,7 +10,7 @@ package defs_pkg;
   typedef enum logic [LP_COLOR_WIDTH-1:0] {RED = 0, GREEN = 5, BLUE = 10} color_t;
 
   function automatic logic [LP_COLOR_WIDTH-1:0] pack_color(color_t a);
-    return logic'(a);
+    return LP_COLOR_WIDTH'(a);
   endfunction
 
   function automatic color_t unpack_color(logic [LP_COLOR_WIDTH-1:0] a);
@@ -23,7 +23,7 @@ package defs_pkg;
   typedef enum logic [LP_CMD_WIDTH-1:0] {NOP = 0, READ = 5, WRITE = 6, RESET = 7} cmd_t;
 
   function automatic logic [LP_CMD_WIDTH-1:0] pack_cmd(cmd_t a);
-    return logic'(a);
+    return LP_CMD_WIDTH'(a);
   endfunction
 
   function automatic cmd_t unpack_cmd(logic [LP_CMD_WIDTH-1:0] a);
@@ -36,7 +36,7 @@ package defs_pkg;
   typedef enum logic {SET = 0} flag_t;
 
   function automatic logic [LP_FLAG_WIDTH-1:0] pack_flag(flag_t a);
-    return logic'(a);
+    return LP_FLAG_WIDTH'(a);
   endfunction
 
   function automatic flag_t unpack_flag(logic [LP_FLAG_WIDTH-1:0] a);
@@ -49,7 +49,7 @@ package defs_pkg;
   typedef enum logic [LP_BIG_WIDTH-1:0] {SMALL = 0, LARGE = 9223372036854775808} big_t;
 
   function automatic logic [LP_BIG_WIDTH-1:0] pack_big(big_t a);
-    return logic'(a);
+    return LP_BIG_WIDTH'(a);
   endfunction
 
   function automatic big_t unpack_big(logic [LP_BIG_WIDTH-1:0] a);

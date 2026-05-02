@@ -1,0 +1,364 @@
+=== Test run: 2026-05-02 validation iter 1 ===
+=== Suite 1: unittest discover ===
+Command: PYTHONPATH=/Users/ezchi/Projects/pike-type/src /Users/ezchi/Projects/pike-type/.venv/bin/python -m unittest discover -s tests
+test_main_exits_one_on_violation (test_check_templates.CliTests.test_main_exits_one_on_violation) ... /var/folders/tr/g2lnd1t13b1gh6jwsr06zpkr0000gn/T/tmpuo51p2ax/bad.j2:1:4 P1 bit-shift mask construction: '(1 << '
+ok
+test_main_exits_zero_when_no_templates (test_check_templates.CliTests.test_main_exits_zero_when_no_templates) ... ok
+test_p1_bit_shift_mask (test_check_templates.JinjaBlockPatternTests.test_p1_bit_shift_mask) ... ok
+test_p2_byte_count_arithmetic_left (test_check_templates.JinjaBlockPatternTests.test_p2_byte_count_arithmetic_left) ... ok
+test_p2_byte_count_arithmetic_right (test_check_templates.JinjaBlockPatternTests.test_p2_byte_count_arithmetic_right) ... ok
+test_p3_runtime_type_interrogation (test_check_templates.JinjaBlockPatternTests.test_p3_runtime_type_interrogation) ... ok
+test_p4_type_lookup (test_check_templates.JinjaBlockPatternTests.test_p4_type_lookup) ... ok
+test_p5_explicit_byte_arithmetic (test_check_templates.JinjaBlockPatternTests.test_p5_explicit_byte_arithmetic) ... ok
+test_p6_filesystem_access (test_check_templates.JinjaBlockPatternTests.test_p6_filesystem_access) ... ok
+test_p7_non_determinism (test_check_templates.JinjaBlockPatternTests.test_p7_non_determinism) ... ok
+test_cpp_byte_count_arithmetic_outside_blocks (test_check_templates.NegativeCasesTests.test_cpp_byte_count_arithmetic_outside_blocks) ... ok
+test_empty_directory_no_violations (test_check_templates.NegativeCasesTests.test_empty_directory_no_violations) ... ok
+test_python_field_access_in_jinja_block (test_check_templates.NegativeCasesTests.test_python_field_access_in_jinja_block) ... ok
+test_systemverilog_width_arithmetic_outside_blocks (test_check_templates.NegativeCasesTests.test_systemverilog_width_arithmetic_outside_blocks) ... ok
+test_p8_python_extension (test_check_templates.RawBodyPatternTests.test_p8_python_extension) ... ok
+test_cli_has_expected_commands (test_cli_smoke.CliSmokeTest.test_cli_has_expected_commands) ... ok
+test_cpp_const_boundaries (test_const_ranges.ConstRangeTest.test_cpp_const_boundaries) ... ok
+test_storage_resolution_defaults_and_overrides (test_const_ranges.ConstRangeTest.test_storage_resolution_defaults_and_overrides) ... ok
+test_storage_resolution_rejects_invalid_override (test_const_ranges.ConstRangeTest.test_storage_resolution_rejects_invalid_override) ... ok
+test_sv_const_boundaries (test_const_ranges.ConstRangeTest.test_sv_const_boundaries) ... ok
+test_validation_rejects_above_uint64_max (test_const_ranges.ConstRangeTest.test_validation_rejects_above_uint64_max) ... ok
+test_validation_rejects_below_int64_min (test_const_ranges.ConstRangeTest.test_validation_rejects_below_int64_min) ... ok
+test_accepts_explicit_signed_and_width (test_dsl_const.ConstDslTest.test_accepts_explicit_signed_and_width) ... ok
+test_builds_expression_and_resolves_value (test_dsl_const.ConstDslTest.test_builds_expression_and_resolves_value) ... ok
+test_builds_nested_struct_members (test_dsl_const.ConstDslTest.test_builds_nested_struct_members) ... ok
+test_builds_scalar_aliases (test_dsl_const.ConstDslTest.test_builds_scalar_aliases) ... ok
+test_builds_struct_members (test_dsl_const.ConstDslTest.test_builds_struct_members) ... ok
+test_constructs_with_integer_literal (test_dsl_const.ConstDslTest.test_constructs_with_integer_literal) ... ok
+test_rejects_true_division_operator (test_dsl_const.ConstDslTest.test_rejects_true_division_operator) ... ok
+test_scalar_alias_width_expr_const_ref (test_freeze.CrossModuleConstRefTests.test_scalar_alias_width_expr_const_ref) ... ok
+test_struct_field_referencing_other_module_produces_type_ref (test_freeze.CrossModuleTypeRefTests.test_struct_field_referencing_other_module_produces_type_ref) ... ok
+test_cross_module_type_ref_produces_dependency (test_freeze.ModuleDependenciesTests.test_cross_module_type_ref_produces_dependency) ... ok
+test_dependencies_sorted_deterministically (test_freeze.ModuleDependenciesTests.test_dependencies_sorted_deterministically) ... ok
+test_same_module_ref_produces_no_dependency (test_freeze.ModuleDependenciesTests.test_same_module_ref_produces_no_dependency) ... ok
+test_generated_python_outputs_are_not_rescanned_as_dsl_modules (test_gen_const_sv.GenConstSvIntegrationTest.test_generated_python_outputs_are_not_rescanned_as_dsl_modules) ... ok
+test_generates_all_repo_piketype_modules (test_gen_const_sv.GenConstSvIntegrationTest.test_generates_all_repo_piketype_modules) ... ok
+test_generates_const_expressions (test_gen_const_sv.GenConstSvIntegrationTest.test_generates_const_expressions) ... ok
+test_generates_explicit_uint32_constant_when_requested (test_gen_const_sv.GenConstSvIntegrationTest.test_generates_explicit_uint32_constant_when_requested) ... ok
+test_generates_nested_structs_in_sv (test_gen_const_sv.GenConstSvIntegrationTest.test_generates_nested_structs_in_sv) ... ok
+test_generates_safe_cpp_types_for_wide_constants (test_gen_const_sv.GenConstSvIntegrationTest.test_generates_safe_cpp_types_for_wide_constants) ... ok
+test_generates_scalar_aliases_in_sv (test_gen_const_sv.GenConstSvIntegrationTest.test_generates_scalar_aliases_in_sv) ... ok
+test_generates_scalar_wide (test_gen_const_sv.GenConstSvIntegrationTest.test_generates_scalar_wide) ... ok
+test_generates_struct_multiple_of (test_gen_const_sv.GenConstSvIntegrationTest.test_generates_struct_multiple_of) ... ok
+test_generates_struct_padded (test_gen_const_sv.GenConstSvIntegrationTest.test_generates_struct_padded) ... ok
+test_generates_struct_signed (test_gen_const_sv.GenConstSvIntegrationTest.test_generates_struct_signed) ... ok
+test_generates_struct_wide (test_gen_const_sv.GenConstSvIntegrationTest.test_generates_struct_wide) ... ok
+test_generates_structs_in_sv (test_gen_const_sv.GenConstSvIntegrationTest.test_generates_structs_in_sv) ... ok
+test_namespace_override_multi_module (test_gen_const_sv.GenConstSvIntegrationTest.test_namespace_override_multi_module) ... ok
+test_namespace_rejects_cpp_keyword (test_gen_const_sv.GenConstSvIntegrationTest.test_namespace_rejects_cpp_keyword) ... ok
+test_namespace_rejects_double_underscore (test_gen_const_sv.GenConstSvIntegrationTest.test_namespace_rejects_double_underscore) ... ok
+test_namespace_rejects_duplicate_basenames (test_gen_const_sv.GenConstSvIntegrationTest.test_namespace_rejects_duplicate_basenames) ... ok
+test_namespace_rejects_empty_segment (test_gen_const_sv.GenConstSvIntegrationTest.test_namespace_rejects_empty_segment) ... ok
+test_namespace_rejects_leading_underscore (test_gen_const_sv.GenConstSvIntegrationTest.test_namespace_rejects_leading_underscore) ... ok
+test_namespace_rejects_leading_underscore_non_first (test_gen_const_sv.GenConstSvIntegrationTest.test_namespace_rejects_leading_underscore_non_first) ... ok
+test_namespace_rejects_non_identifier (test_gen_const_sv.GenConstSvIntegrationTest.test_namespace_rejects_non_identifier) ... ok
+test_namespace_rejects_std_first_segment (test_gen_const_sv.GenConstSvIntegrationTest.test_namespace_rejects_std_first_segment) ... ok
+test_namespace_rejects_trailing_underscore (test_gen_const_sv.GenConstSvIntegrationTest.test_namespace_rejects_trailing_underscore) ... ok
+test_rejects_constant_collision_with_generated_identifier (test_gen_const_sv.GenConstSvIntegrationTest.test_rejects_constant_collision_with_generated_identifier) ... ok
+test_rejects_pad_suffix_field (test_gen_const_sv.GenConstSvIntegrationTest.test_rejects_pad_suffix_field) ... ok
+test_rejects_path_outside_piketype_directory (test_gen_const_sv.GenConstSvIntegrationTest.test_rejects_path_outside_piketype_directory) ... ok
+test_rejects_piketype_file_with_no_dsl_objects (test_gen_const_sv.GenConstSvIntegrationTest.test_rejects_piketype_file_with_no_dsl_objects) ... ok
+test_rejects_signed_scalar_wider_than_64 (test_gen_const_sv.GenConstSvIntegrationTest.test_rejects_signed_scalar_wider_than_64) ... ok
+test_bar_types_hpp_uses_qualified_byte_ct (test_gen_cross_module.CrossModuleNamespaceIntegrationTest.test_bar_types_hpp_uses_qualified_byte_ct)
+AC-6: with --namespace=proj::lib, cross-module field types are ::proj::lib::foo::*_ct. ... ok
+test_namespace_proj_generates_qualified_field_types (test_gen_cross_module.CrossModuleNamespaceIntegrationTest.test_namespace_proj_generates_qualified_field_types) ... ok
+test_bar_pkg_alignment_byte_count (test_gen_cross_module.CrossModuleStructMultipleOfIntegrationTest.test_bar_pkg_alignment_byte_count)
+Three byte_t fields = 24 data bits; multiple_of(32) → 4-byte total. ... ok
+test_generates_expected_outputs (test_gen_cross_module.CrossModuleStructMultipleOfIntegrationTest.test_generates_expected_outputs) ... ok
+test_bar_pkg_uses_cross_module_byte_t (test_gen_cross_module.CrossModuleTypeRefsIntegrationTest.test_bar_pkg_uses_cross_module_byte_t)
+AC-2, AC-3: explicit per-symbol imports for cross-module type refs. ... ok
+test_generates_expected_outputs (test_gen_cross_module.CrossModuleTypeRefsIntegrationTest.test_generates_expected_outputs) ... ok
+test_idempotent (test_gen_cross_module.CrossModuleTypeRefsIntegrationTest.test_idempotent) ... ok
+test_auto_fill_sequential (test_gen_enum.EnumDSLTest.test_auto_fill_sequential) ... ok
+test_explicit_width (test_gen_enum.EnumDSLTest.test_explicit_width) ... ok
+test_inferred_width (test_gen_enum.EnumDSLTest.test_inferred_width) ... ok
+test_rejects_duplicate_name (test_gen_enum.EnumDSLTest.test_rejects_duplicate_name) ... ok
+test_rejects_float_width (test_gen_enum.EnumDSLTest.test_rejects_float_width) ... ok
+test_rejects_negative_value (test_gen_enum.EnumDSLTest.test_rejects_negative_value) ... ok
+test_rejects_non_upper_case (test_gen_enum.EnumDSLTest.test_rejects_non_upper_case) ... ok
+test_rejects_width_65 (test_gen_enum.EnumDSLTest.test_rejects_width_65) ... ok
+test_rejects_width_zero (test_gen_enum.EnumDSLTest.test_rejects_width_zero) ... ok
+test_enum_basic (test_gen_enum.EnumGoldenTest.test_enum_basic) ... ok
+test_enum_basic_idempotent (test_gen_enum.EnumGoldenTest.test_enum_basic_idempotent) ... ok
+test_big_from_bytes_small (test_gen_enum.EnumRuntimeTest.test_big_from_bytes_small) ... ok
+test_big_to_bytes_large (test_gen_enum.EnumRuntimeTest.test_big_to_bytes_large) ... ok
+test_cmd_from_bytes_rejects_unknown (test_gen_enum.EnumRuntimeTest.test_cmd_from_bytes_rejects_unknown) ... ok
+test_cmd_to_bytes_nop (test_gen_enum.EnumRuntimeTest.test_cmd_to_bytes_nop) ... ok
+test_cmd_to_bytes_reset (test_gen_enum.EnumRuntimeTest.test_cmd_to_bytes_reset) ... ok
+test_color_clone (test_gen_enum.EnumRuntimeTest.test_color_clone) ... ok
+test_color_constructor_rejects_int (test_gen_enum.EnumRuntimeTest.test_color_constructor_rejects_int) ... ok
+test_color_from_bytes_green (test_gen_enum.EnumRuntimeTest.test_color_from_bytes_green) ... ok
+test_color_from_bytes_rejects_unknown (test_gen_enum.EnumRuntimeTest.test_color_from_bytes_rejects_unknown) ... ok
+test_color_int (test_gen_enum.EnumRuntimeTest.test_color_int) ... ok
+test_color_repr (test_gen_enum.EnumRuntimeTest.test_color_repr) ... ok
+test_color_to_bytes_blue (test_gen_enum.EnumRuntimeTest.test_color_to_bytes_blue) ... ok
+test_color_to_bytes_red (test_gen_enum.EnumRuntimeTest.test_color_to_bytes_red) ... ok
+test_eq (test_gen_enum.EnumRuntimeTest.test_eq) ... ok
+test_flag_from_bytes_rejects_unknown (test_gen_enum.EnumRuntimeTest.test_flag_from_bytes_rejects_unknown) ... ok
+test_flag_to_bytes (test_gen_enum.EnumRuntimeTest.test_flag_to_bytes) ... ok
+test_neq (test_gen_enum.EnumRuntimeTest.test_neq) ... ok
+test_accepts_explicit_width_larger_than_minimum (test_gen_enum.EnumValidationTest.test_accepts_explicit_width_larger_than_minimum) ... ok
+test_accepts_valid_enum (test_gen_enum.EnumValidationTest.test_accepts_valid_enum) ... ok
+test_rejects_cross_enum_literal_collision (test_gen_enum.EnumValidationTest.test_rejects_cross_enum_literal_collision)
+FR-17: Same value name in two different enums. ... ok
+test_rejects_duplicate_resolved_values (test_gen_enum.EnumValidationTest.test_rejects_duplicate_resolved_values) ... ok
+test_rejects_empty_enum (test_gen_enum.EnumValidationTest.test_rejects_empty_enum) ... ok
+test_rejects_enum_literal_collision_with_constant (test_gen_enum.EnumValidationTest.test_rejects_enum_literal_collision_with_constant)
+FR-17: Enum value name collides with constant name. ... ok
+test_rejects_missing_t_suffix (test_gen_enum.EnumValidationTest.test_rejects_missing_t_suffix) ... ok
+test_rejects_value_exceeds_width (test_gen_enum.EnumValidationTest.test_rejects_value_exceeds_width) ... ok
+test_add_flag_chaining (test_gen_flags.FlagsDSLTest.test_add_flag_chaining) ... ok
+test_rejects_duplicate_flag (test_gen_flags.FlagsDSLTest.test_rejects_duplicate_flag) ... ok
+test_rejects_empty_name (test_gen_flags.FlagsDSLTest.test_rejects_empty_name) ... ok
+test_rejects_non_snake_case_leading_digit (test_gen_flags.FlagsDSLTest.test_rejects_non_snake_case_leading_digit) ... ok
+test_rejects_non_snake_case_uppercase (test_gen_flags.FlagsDSLTest.test_rejects_non_snake_case_uppercase) ... ok
+test_width_property (test_gen_flags.FlagsDSLTest.test_width_property) ... ok
+test_width_zero (test_gen_flags.FlagsDSLTest.test_width_zero) ... ok
+test_generates_flags_golden (test_gen_flags.FlagsGoldenTest.test_generates_flags_golden) ... ok
+test_idempotent (test_gen_flags.FlagsGoldenTest.test_idempotent) ... ok
+test_byte_all_off (test_gen_flags.FlagsRuntimeTest.test_byte_all_off) ... ok
+test_byte_all_on (test_gen_flags.FlagsRuntimeTest.test_byte_all_on) ... ok
+test_byte_f0_only (test_gen_flags.FlagsRuntimeTest.test_byte_f0_only) ... ok
+test_clone (test_gen_flags.FlagsRuntimeTest.test_clone) ... ok
+test_from_bytes_wrong_size (test_gen_flags.FlagsRuntimeTest.test_from_bytes_wrong_size) ... ok
+test_nonzero_padding_masked (test_gen_flags.FlagsRuntimeTest.test_nonzero_padding_masked) ... ok
+test_round_trip_triple (test_gen_flags.FlagsRuntimeTest.test_round_trip_triple) ... ok
+test_round_trip_wide (test_gen_flags.FlagsRuntimeTest.test_round_trip_wide) ... ok
+test_single_flag_false (test_gen_flags.FlagsRuntimeTest.test_single_flag_false) ... ok
+test_single_flag_true (test_gen_flags.FlagsRuntimeTest.test_single_flag_true) ... ok
+test_single_from_bytes (test_gen_flags.FlagsRuntimeTest.test_single_from_bytes) ... ok
+test_triple_a_c (test_gen_flags.FlagsRuntimeTest.test_triple_a_c) ... ok
+test_triple_all (test_gen_flags.FlagsRuntimeTest.test_triple_all) ... ok
+test_triple_from_bytes (test_gen_flags.FlagsRuntimeTest.test_triple_from_bytes) ... ok
+test_very_wide_f0_only (test_gen_flags.FlagsRuntimeTest.test_very_wide_f0_only) ... ok
+test_very_wide_f32_only (test_gen_flags.FlagsRuntimeTest.test_very_wide_f32_only) ... ok
+test_wide_all_on (test_gen_flags.FlagsRuntimeTest.test_wide_all_on) ... ok
+test_wide_f0_only (test_gen_flags.FlagsRuntimeTest.test_wide_f0_only) ... ok
+test_wide_f8_only (test_gen_flags.FlagsRuntimeTest.test_wide_f8_only) ... ok
+test_accepts_64_flags (test_gen_flags.FlagsValidationTest.test_accepts_64_flags) ... ok
+test_accepts_valid_flags (test_gen_flags.FlagsValidationTest.test_accepts_valid_flags) ... ok
+test_rejects_duplicate_flag_names (test_gen_flags.FlagsValidationTest.test_rejects_duplicate_flag_names) ... ok
+test_rejects_missing_t_suffix (test_gen_flags.FlagsValidationTest.test_rejects_missing_t_suffix) ... ok
+test_rejects_more_than_64_flags (test_gen_flags.FlagsValidationTest.test_rejects_more_than_64_flags) ... ok
+test_rejects_pad_suffix (test_gen_flags.FlagsValidationTest.test_rejects_pad_suffix) ... ok
+test_rejects_reserved_name_from_bytes (test_gen_flags.FlagsValidationTest.test_rejects_reserved_name_from_bytes) ... ok
+test_rejects_reserved_name_to_bytes (test_gen_flags.FlagsValidationTest.test_rejects_reserved_name_to_bytes) ... ok
+test_rejects_reserved_name_value (test_gen_flags.FlagsValidationTest.test_rejects_reserved_name_value) ... ok
+test_rejects_zero_flags (test_gen_flags.FlagsValidationTest.test_rejects_zero_flags) ... ok
+test_hard_keyword_snapshot_matches_keyword_kwlist (test_keyword_set_snapshot.PythonKeywordSnapshotTests.test_hard_keyword_snapshot_matches_keyword_kwlist) ... skipped 'Python keyword snapshot is pinned to CPython 3.12.x; running on 3.13 — drift expected.'
+test_soft_keyword_snapshot_matches_keyword_softkwlist (test_keyword_set_snapshot.PythonKeywordSnapshotTests.test_soft_keyword_snapshot_matches_keyword_softkwlist) ... skipped 'Python keyword snapshot is pinned to CPython 3.12.x; running on 3.13 — drift expected.'
+test_cross_module_byte_t_has_stable_identity (test_loader.CrossModuleIdentityTests.test_cross_module_byte_t_has_stable_identity) ... ok
+test_load_path_not_in_owned_set_raises (test_loader.CrossModuleIdentityTests.test_load_path_not_in_owned_set_raises) ... ok
+test_outside_scope_raises_runtime_error (test_loader.LoadOrGetModuleTests.test_outside_scope_raises_runtime_error) ... ok
+test_repeated_calls_return_same_object (test_loader.LoadOrGetModuleTests.test_repeated_calls_return_same_object) ... ok
+test_keys_absent_before_run_are_absent_after (test_loader.PrepareRunSnapshotRestoreTests.test_keys_absent_before_run_are_absent_after) ... ok
+test_nested_prepare_run_raises (test_loader.PrepareRunSnapshotRestoreTests.test_nested_prepare_run_raises) ... ok
+test_owned_keys_removed_during_scope_then_restored (test_loader.PrepareRunSnapshotRestoreTests.test_owned_keys_removed_during_scope_then_restored) ... ok
+test_sequential_runs_do_not_leak_between_fixtures (test_loader.PrepareRunSnapshotRestoreTests.test_sequential_runs_do_not_leak_between_fixtures) ... ok
+test_duplicates_raises (test_namespace_validation.CheckDuplicateBasenamesTest.test_duplicates_raises) ... ok
+test_empty_list_passes (test_namespace_validation.CheckDuplicateBasenamesTest.test_empty_list_passes) ... ok
+test_no_duplicates_passes (test_namespace_validation.CheckDuplicateBasenamesTest.test_no_duplicates_passes) ... ok
+test_single_module_passes (test_namespace_validation.CheckDuplicateBasenamesTest.test_single_module_passes) ... ok
+test_allows_std_in_non_first_segment (test_namespace_validation.ValidateCppNamespaceTest.test_allows_std_in_non_first_segment) ... ok
+test_keyword_set_is_nonempty (test_namespace_validation.ValidateCppNamespaceTest.test_keyword_set_is_nonempty) ... ok
+test_rejects_alignas (test_namespace_validation.ValidateCppNamespaceTest.test_rejects_alignas) ... ok
+test_rejects_class_keyword (test_namespace_validation.ValidateCppNamespaceTest.test_rejects_class_keyword) ... ok
+test_rejects_constexpr (test_namespace_validation.ValidateCppNamespaceTest.test_rejects_constexpr) ... ok
+test_rejects_double_colon_prefix (test_namespace_validation.ValidateCppNamespaceTest.test_rejects_double_colon_prefix) ... ok
+test_rejects_double_colon_suffix (test_namespace_validation.ValidateCppNamespaceTest.test_rejects_double_colon_suffix) ... ok
+test_rejects_double_underscore (test_namespace_validation.ValidateCppNamespaceTest.test_rejects_double_underscore) ... ok
+test_rejects_double_underscore_middle (test_namespace_validation.ValidateCppNamespaceTest.test_rejects_double_underscore_middle) ... ok
+test_rejects_empty_string (test_namespace_validation.ValidateCppNamespaceTest.test_rejects_empty_string) ... ok
+test_rejects_hyphen (test_namespace_validation.ValidateCppNamespaceTest.test_rejects_hyphen) ... ok
+test_rejects_keyword_in_non_first_segment (test_namespace_validation.ValidateCppNamespaceTest.test_rejects_keyword_in_non_first_segment) ... ok
+test_rejects_leading_digit (test_namespace_validation.ValidateCppNamespaceTest.test_rejects_leading_digit) ... ok
+test_rejects_leading_underscore_first_segment (test_namespace_validation.ValidateCppNamespaceTest.test_rejects_leading_underscore_first_segment) ... ok
+test_rejects_leading_underscore_non_first_segment (test_namespace_validation.ValidateCppNamespaceTest.test_rejects_leading_underscore_non_first_segment) ... ok
+test_rejects_leading_underscore_uppercase (test_namespace_validation.ValidateCppNamespaceTest.test_rejects_leading_underscore_uppercase) ... ok
+test_rejects_namespace_keyword (test_namespace_validation.ValidateCppNamespaceTest.test_rejects_namespace_keyword) ... ok
+test_rejects_noexcept (test_namespace_validation.ValidateCppNamespaceTest.test_rejects_noexcept) ... ok
+test_rejects_nullptr (test_namespace_validation.ValidateCppNamespaceTest.test_rejects_nullptr) ... ok
+test_rejects_quadruple_colon (test_namespace_validation.ValidateCppNamespaceTest.test_rejects_quadruple_colon) ... ok
+test_rejects_static_assert (test_namespace_validation.ValidateCppNamespaceTest.test_rejects_static_assert) ... ok
+test_rejects_std_first_segment (test_namespace_validation.ValidateCppNamespaceTest.test_rejects_std_first_segment) ... ok
+test_rejects_thread_local (test_namespace_validation.ValidateCppNamespaceTest.test_rejects_thread_local) ... ok
+test_rejects_trailing_underscore (test_namespace_validation.ValidateCppNamespaceTest.test_rejects_trailing_underscore) ... ok
+test_rejects_trailing_underscore_non_first (test_namespace_validation.ValidateCppNamespaceTest.test_rejects_trailing_underscore_non_first) ... ok
+test_segment_with_digits (test_namespace_validation.ValidateCppNamespaceTest.test_segment_with_digits) ... ok
+test_single_segment (test_namespace_validation.ValidateCppNamespaceTest.test_single_segment) ... ok
+test_three_segments (test_namespace_validation.ValidateCppNamespaceTest.test_three_segments) ... ok
+test_two_segments (test_namespace_validation.ValidateCppNamespaceTest.test_two_segments) ... ok
+test_backend_files_have_no_inline_import_construction (test_no_inline_imports.NoInlineImportsTests.test_backend_files_have_no_inline_import_construction) ... ok
+test_does_not_flag_arithmetic_mod (test_no_inline_imports.StaticCheckRuleTests.test_does_not_flag_arithmetic_mod) ... ok
+test_does_not_flag_format_define (test_no_inline_imports.StaticCheckRuleTests.test_does_not_flag_format_define) ... ok
+test_does_not_flag_join_underscore (test_no_inline_imports.StaticCheckRuleTests.test_does_not_flag_join_underscore) ... ok
+test_does_not_flag_namespace_join (test_no_inline_imports.StaticCheckRuleTests.test_does_not_flag_namespace_join) ... ok
+test_does_not_flag_unrelated_constants (test_no_inline_imports.StaticCheckRuleTests.test_does_not_flag_unrelated_constants) ... ok
+test_flags_binop_add_concat (test_no_inline_imports.StaticCheckRuleTests.test_flags_binop_add_concat) ... ok
+test_flags_binop_mod_format (test_no_inline_imports.StaticCheckRuleTests.test_flags_binop_mod_format) ... ok
+test_flags_constant_import_pkg (test_no_inline_imports.StaticCheckRuleTests.test_flags_constant_import_pkg) ... ok
+test_flags_constant_include_quote (test_no_inline_imports.StaticCheckRuleTests.test_flags_constant_include_quote) ... ok
+test_flags_format_method (test_no_inline_imports.StaticCheckRuleTests.test_flags_format_method) ... ok
+test_flags_join_skeleton (test_no_inline_imports.StaticCheckRuleTests.test_flags_join_skeleton) ... ok
+test_flags_joined_str_from_types (test_no_inline_imports.StaticCheckRuleTests.test_flags_joined_str_from_types) ... ok
+test_flags_joined_str_import_pkg (test_no_inline_imports.StaticCheckRuleTests.test_flags_joined_str_import_pkg) ... ok
+test_within_budget (test_perf_gen.PerfGateTests.test_within_budget) ... skipped 'set PIKETYPE_PERF_TEST=1 to enable'
+test_appends_trailing_newline_when_missing (test_render.RenderTests.test_appends_trailing_newline_when_missing) ... ok
+test_rejects_dataclass_class_object (test_render.RenderTests.test_rejects_dataclass_class_object) ... ok
+test_rejects_dict_context (test_render.RenderTests.test_rejects_dict_context) ... ok
+test_rejects_plain_object (test_render.RenderTests.test_rejects_plain_object) ... ok
+test_renders_dataclass_context (test_render.RenderTests.test_renders_dataclass_context) ... ok
+test_empty_repo_returns_empty_index (test_repo_index.BuildRepoTypeIndexTests.test_empty_repo_returns_empty_index) ... ok
+test_multi_module_same_type_name_distinct_keys (test_repo_index.BuildRepoTypeIndexTests.test_multi_module_same_type_name_distinct_keys) ... ok
+test_multiple_type_kinds_indexed (test_repo_index.BuildRepoTypeIndexTests.test_multiple_type_kinds_indexed) ... ok
+test_single_module_with_one_type (test_repo_index.BuildRepoTypeIndexTests.test_single_module_with_one_type) ... ok
+test_nested_struct_to_bytes (test_runtime_bytes.RuntimeBytesTest.test_nested_struct_to_bytes) ... ok
+test_scalar_13bit_from_bytes_masks_padding (test_runtime_bytes.RuntimeBytesTest.test_scalar_13bit_from_bytes_masks_padding) ... ok
+test_signed_4bit_from_bytes_padding_mismatch (test_runtime_bytes.RuntimeBytesTest.test_signed_4bit_from_bytes_padding_mismatch) ... ok
+test_signed_4bit_struct_member (test_runtime_bytes.RuntimeBytesTest.test_signed_4bit_struct_member) ... ok
+test_signed_5bit_from_bytes_padding_mismatch (test_runtime_bytes.RuntimeBytesTest.test_signed_5bit_from_bytes_padding_mismatch) ... ok
+test_signed_5bit_negative (test_runtime_bytes.RuntimeBytesTest.test_signed_5bit_negative) ... ok
+test_signed_5bit_positive (test_runtime_bytes.RuntimeBytesTest.test_signed_5bit_positive) ... ok
+test_struct_padded_from_bytes_nonzero_padding (test_runtime_bytes.RuntimeBytesTest.test_struct_padded_from_bytes_nonzero_padding) ... ok
+test_struct_padded_to_bytes (test_runtime_bytes.RuntimeBytesTest.test_struct_padded_to_bytes) ... ok
+test_struct_wide_to_bytes (test_runtime_bytes.RuntimeBytesTest.test_struct_wide_to_bytes) ... ok
+test_wide_65bit_from_bytes_masks_padding (test_runtime_bytes.RuntimeBytesTest.test_wide_65bit_from_bytes_masks_padding) ... ok
+test_wide_65bit_to_bytes (test_runtime_bytes.RuntimeBytesTest.test_wide_65bit_to_bytes) ... ok
+test_bar_t_round_trip_full (test_runtime_py_cross_module.CrossModuleRuntimeBytesTest.test_bar_t_round_trip_full)
+Full round-trip: build bar_t, to_bytes, from_bytes, compare. ... ok
+test_bar_t_to_bytes_two_byte_fields (test_runtime_py_cross_module.CrossModuleRuntimeBytesTest.test_bar_t_to_bytes_two_byte_fields)
+Construct bar_t with two cross-module byte_ct fields; assert exact bytes for those fields. ... ok
+test_byte_t_round_trip (test_runtime_py_cross_module.CrossModuleRuntimeBytesTest.test_byte_t_round_trip) ... ok
+test_cross_module_enum_accepted (test_struct_enum_member.StructEnumMemberCrossModuleTest.test_cross_module_enum_accepted)
+Spec 011 FR-5: a struct field referencing an Enum from another module passes validation. ... ok
+test_add_enum_and_scalar_member (test_struct_enum_member.StructEnumMemberDSLTest.test_add_enum_and_scalar_member)
+Struct can have both Enum and scalar members. ... ok
+test_add_enum_member_accepted (test_struct_enum_member.StructEnumMemberDSLTest.test_add_enum_member_accepted)
+AC-1: Struct().add_member() accepts EnumType. ... ok
+test_reject_invalid_type (test_struct_enum_member.StructEnumMemberDSLTest.test_reject_invalid_type)
+Non-DSL types are still rejected. ... ok
+test_freeze_padding_bits_2bit (test_struct_enum_member.StructEnumMemberFreezeTest.test_freeze_padding_bits_2bit)
+AC-3: 2-bit enum gets 6 padding bits. ... ok
+test_freeze_padding_bits_8bit (test_struct_enum_member.StructEnumMemberFreezeTest.test_freeze_padding_bits_8bit)
+AC-3: 8-bit enum gets 0 padding bits. ... ok
+test_freeze_produces_type_ref_ir (test_struct_enum_member.StructEnumMemberFreezeTest.test_freeze_produces_type_ref_ir)
+AC-2: Frozen StructIR field has TypeRefIR pointing to EnumIR. ... ok
+test_freeze_rejects_anonymous_enum (test_struct_enum_member.StructEnumMemberFreezeTest.test_freeze_rejects_anonymous_enum)
+AC-5, AC-23: Anonymous inline Enum is rejected during freeze. ... ok
+test_golden_match (test_struct_enum_member.StructEnumMemberGoldenTest.test_golden_match)
+AC-6–9, AC-10, AC-14, AC-15, AC-19: Golden file integration tests pass. ... ok
+test_idempotent (test_struct_enum_member.StructEnumMemberGoldenTest.test_idempotent)
+AC-20: piketype gen is idempotent. ... ok
+test_coercer_rejects_none (test_struct_enum_member.StructEnumMemberRuntimeTest.test_coercer_rejects_none)
+AC-11: Enum field coercer rejects None. ... ok
+test_coercer_rejects_raw_enum (test_struct_enum_member.StructEnumMemberRuntimeTest.test_coercer_rejects_raw_enum)
+AC-11: Enum field coercer rejects raw IntEnum value. ... ok
+test_expected_bytes (test_struct_enum_member.StructEnumMemberRuntimeTest.test_expected_bytes)
+AC-18: to_bytes produces specific expected byte values. ... ok
+test_multiple_of_byte_count (test_struct_enum_member.StructEnumMemberRuntimeTest.test_multiple_of_byte_count)
+AC-16, AC-17: multiple_of() struct has correct byte count. ... ok
+test_round_trip (test_struct_enum_member.StructEnumMemberRuntimeTest.test_round_trip)
+AC-12, AC-13: to_bytes -> from_bytes round-trip for pkt_t. ... ok
+test_add_flags_and_scalar_member (test_struct_flags_member.StructFlagsMemberDSLTest.test_add_flags_and_scalar_member)
+Struct can have both Flags and scalar members. ... ok
+test_add_flags_member_accepted (test_struct_flags_member.StructFlagsMemberDSLTest.test_add_flags_member_accepted)
+AC-1: Struct().add_member() accepts FlagsType. ... ok
+test_reject_invalid_type (test_struct_flags_member.StructFlagsMemberDSLTest.test_reject_invalid_type)
+Non-DSL types are still rejected. ... ok
+test_golden_match (test_struct_flags_member.StructFlagsMemberGoldenTest.test_golden_match)
+AC-20: Golden file integration tests pass. ... ok
+test_idempotent (test_struct_flags_member.StructFlagsMemberGoldenTest.test_idempotent)
+AC-21: piketype gen is idempotent. ... ok
+test_expected_bytes_report (test_struct_flags_member.StructFlagsMemberRuntimeTest.test_expected_bytes_report)
+AC-19: to_bytes produces specific expected byte values. ... ok
+test_flags_field_not_nullable (test_struct_flags_member.StructFlagsMemberRuntimeTest.test_flags_field_not_nullable)
+AC-10: Flags field coercer rejects None. ... ok
+test_flags_field_rejects_wrong_type (test_struct_flags_member.StructFlagsMemberRuntimeTest.test_flags_field_rejects_wrong_type)
+AC-10: Flags field coercer rejects wrong type. ... ok
+test_multiple_of_byte_count (test_struct_flags_member.StructFlagsMemberRuntimeTest.test_multiple_of_byte_count)
+AC-25: multiple_of() struct has correct byte count. ... ok
+test_multiple_of_round_trip (test_struct_flags_member.StructFlagsMemberRuntimeTest.test_multiple_of_round_trip)
+Round-trip for multiple_of struct with Flags member. ... ok
+test_round_trip_report (test_struct_flags_member.StructFlagsMemberRuntimeTest.test_round_trip_report)
+AC-11, AC-12: to_bytes -> from_bytes round-trip for report_t. ... ok
+test_aligned_struct_byte_count (test_struct_multiple_of.MultipleOfRuntimeTest.test_aligned_struct_byte_count) ... ok
+test_aligned_struct_round_trip (test_struct_multiple_of.MultipleOfRuntimeTest.test_aligned_struct_round_trip) ... ok
+test_inner_aligned_byte_count (test_struct_multiple_of.MultipleOfRuntimeTest.test_inner_aligned_byte_count) ... ok
+test_no_extra_pad_byte_count (test_struct_multiple_of.MultipleOfRuntimeTest.test_no_extra_pad_byte_count) ... ok
+test_no_extra_pad_round_trip (test_struct_multiple_of.MultipleOfRuntimeTest.test_no_extra_pad_round_trip) ... ok
+test_outer_nested_round_trip (test_struct_multiple_of.MultipleOfRuntimeTest.test_outer_nested_round_trip) ... ok
+test_outer_with_nested_aligned_byte_count (test_struct_multiple_of.MultipleOfRuntimeTest.test_outer_with_nested_aligned_byte_count) ... ok
+test_add_member_after_multiple_of (test_struct_multiple_of.MultipleOfValidationTest.test_add_member_after_multiple_of) ... ok
+test_multiple_of_bool (test_struct_multiple_of.MultipleOfValidationTest.test_multiple_of_bool) ... ok
+test_multiple_of_negative (test_struct_multiple_of.MultipleOfValidationTest.test_multiple_of_negative) ... ok
+test_multiple_of_not_multiple_of_8_val_3 (test_struct_multiple_of.MultipleOfValidationTest.test_multiple_of_not_multiple_of_8_val_3) ... ok
+test_multiple_of_not_multiple_of_8_val_5 (test_struct_multiple_of.MultipleOfValidationTest.test_multiple_of_not_multiple_of_8_val_5) ... ok
+test_multiple_of_twice (test_struct_multiple_of.MultipleOfValidationTest.test_multiple_of_twice) ... ok
+test_multiple_of_zero (test_struct_multiple_of.MultipleOfValidationTest.test_multiple_of_zero) ... ok
+test_local_vs_imported_type_name (test_validate_engine.CrossModuleNameCollisionTests.test_local_vs_imported_type_name) ... ok
+test_two_node_cross_module_cycle (test_validate_engine.CrossModuleStructCycleTests.test_two_node_cross_module_cycle) ... ok
+test_cross_module_scalar_alias_accepted (test_validate_engine.CrossModuleTypeRefAcceptedTests.test_cross_module_scalar_alias_accepted) ... ok
+test_unknown_target_module_raises (test_validate_engine.UnknownTypeRejectionTests.test_unknown_target_module_raises) ... ok
+test_constant_for_is_rejected (test_validate_keywords.KeywordValidationTest.test_constant_for_is_rejected)
+AC-5: constant ``for`` collides with C++, Python, and SystemVerilog. ... ok
+test_enum_value_while_is_accepted (test_validate_keywords.KeywordValidationTest.test_enum_value_while_is_accepted)
+AC-3: exact-case keyword matching — ``WHILE`` (uppercase) is not the ... ok
+test_flags_field_try_is_rejected (test_validate_keywords.KeywordValidationTest.test_flags_field_try_is_rejected)
+AC-6: flags field named ``try`` collides with C++ and Python. ... ok
+test_keyword_near_miss_type_id_passes (test_validate_keywords.KeywordValidationTest.test_keyword_near_miss_type_id_passes)
+AC-7: a struct field whose name contains a keyword as a substring ... ok
+test_module_name_class_is_rejected (test_validate_keywords.KeywordValidationTest.test_module_name_class_is_rejected)
+AC-4: module file ``class.py`` emits C++ namespace ``class`` and ... ok
+test_module_name_logic_is_accepted (test_validate_keywords.KeywordValidationTest.test_module_name_logic_is_accepted)
+AC-4b: module file ``logic.py`` produces SV ``logic_pkg`` (not a ... ok
+test_struct_field_type_is_rejected (test_validate_keywords.KeywordValidationTest.test_struct_field_type_is_rejected)
+AC-1: struct field named ``type`` collides with SystemVerilog and ... ok
+test_type_name_class_t_is_accepted (test_validate_keywords.KeywordValidationTest.test_type_name_class_t_is_accepted)
+AC-2: ``class_t`` (full type name) is not a keyword; the base form ... ok
+test_uppercase_check_fires_before_keyword_check (test_validate_keywords.KeywordValidationTest.test_uppercase_check_fires_before_keyword_check)
+AC-11: a lowercase enum value (here ``for``) violates the ... ok
+test_constants_have_pre_rendered_expression_text (test_view_cpp.ConstViewTests.test_constants_have_pre_rendered_expression_text) ... ok
+test_default_namespace_guard (test_view_cpp.GuardViewTests.test_default_namespace_guard) ... ok
+test_namespace_override_guard (test_view_cpp.GuardViewTests.test_namespace_override_guard) ... ok
+test_module_view_carries_one_type_per_ir_type (test_view_cpp.IncludesAndTypesTests.test_module_view_carries_one_type_per_ir_type) ... ok
+test_standard_includes_with_types_in_declaration_order (test_view_cpp.IncludesAndTypesTests.test_standard_includes_with_types_in_declaration_order) ... ok
+test_type_view_kinds_are_recognized (test_view_cpp.IncludesAndTypesTests.test_type_view_kinds_are_recognized) ... ok
+test_default_namespace_strips_piketype (test_view_cpp.NamespaceViewTests.test_default_namespace_strips_piketype) ... ok
+test_namespace_override_used_directly (test_view_cpp.NamespaceViewTests.test_namespace_override_used_directly) ... ok
+test_enum_view_has_required_fields (test_view_py.EnumBasicFixtureTests.test_enum_view_has_required_fields) ... ok
+test_has_enum (test_view_py.EnumBasicFixtureTests.test_has_enum) ... ok
+test_flags_view_data_mask_msb_first (test_view_py.FlagsBasicFixtureTests.test_flags_view_data_mask_msb_first) ... ok
+test_has_flags (test_view_py.FlagsBasicFixtureTests.test_has_flags) ... ok
+test_has_scalar_alias (test_view_py.ScalarWideFixtureTests.test_has_scalar_alias) ... ok
+test_wide_alias_class_name_uses_ct_suffix (test_view_py.ScalarWideFixtureTests.test_wide_alias_class_name_uses_ct_suffix) ... ok
+test_wide_alias_msb_byte_mask_set (test_view_py.ScalarWideFixtureTests.test_wide_alias_msb_byte_mask_set) ... ok
+test_module_has_struct (test_view_py.StructPaddedFixtureTests.test_module_has_struct) ... ok
+test_struct_field_discriminators_mutually_exclusive (test_view_py.StructPaddedFixtureTests.test_struct_field_discriminators_mutually_exclusive) ... ok
+test_struct_field_pack_bits_is_byte_count_times_eight (test_view_py.StructPaddedFixtureTests.test_struct_field_pack_bits_is_byte_count_times_eight) ... ok
+test_struct_view_byte_count_includes_alignment (test_view_py.StructPaddedFixtureTests.test_struct_view_byte_count_includes_alignment) ... ok
+test_synth_and_test_views_for_struct_padded (test_view_sv.CombinedFixtureTests.test_synth_and_test_views_for_struct_padded) ... ok
+test_package_name_uses_pkg_suffix (test_view_sv.SynthViewTests.test_package_name_uses_pkg_suffix) ... ok
+test_synth_view_has_one_type_per_ir (test_view_sv.SynthViewTests.test_synth_view_has_one_type_per_ir) ... ok
+test_synth_view_kinds_recognized (test_view_sv.SynthViewTests.test_synth_view_kinds_recognized) ... ok
+test_synth_package_import_basename_set (test_view_sv.TestPackageViewTests.test_synth_package_import_basename_set) ... ok
+test_test_package_name_suffix (test_view_sv.TestPackageViewTests.test_test_package_name_suffix) ... ok
+
+----------------------------------------------------------------------
+Ran 303 tests in 5.783s
+
+OK (skipped=3)
+=== Suite 1 exit code: 0 ===
+
+=== Suite 2: basedpyright (regression guard per NFR-3) ===
+Command: /Users/ezchi/Projects/pike-type/.venv/bin/python -m basedpyright src/piketype/
+    Argument corresponds to parameter "iterable" in function "sorted"
+    Argument type is "dict_keys[Unknown, set[Unknown]]" (reportUnknownArgumentType)
+  /Users/ezchi/Projects/pike-type/src/piketype/validate/engine.py:383:15 - error: Argument type is unknown
+    Argument corresponds to parameter "node" in function "visit" (reportUnknownArgumentType)
+100 errors, 0 warnings, 0 notes
+=== Suite 2 exit code: 0 ===
