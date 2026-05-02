@@ -2,7 +2,7 @@
 
 **Spec ID:** 015-scanner-exclude-venv-dirs
 **Branch:** feature/015-scanner-exclude-venv-dirs
-**Status:** Clarified (post-Clarification iteration 1)
+**Status:** Clarified (post-Clarification iteration 2)
 
 ## Overview
 
@@ -60,6 +60,7 @@ This blocks `piketype gen` for any user who runs the CLI from a checkout that co
 - **OOS-4.** Excluding hidden directories (anything starting with `.`) wholesale. The list is explicit; we do not sweep all dotfiles.
 - **OOS-5.** Refactoring `is_under_piketype_dir`, `ensure_cli_path_is_valid`, or callers in `commands/gen.py`.
 - **OOS-6.** Changes to `paths.GEN_DIRNAME` handling.
+- **OOS-7.** Resolving symlinks before the excluded-directory check. A symlink in `repo_root` that points to a path physically under an excluded directory name (e.g., `repo_root/extlib -> /opt/projectx/.venv/...`) will NOT be excluded by this fix; only directly named `.venv/`, `__pycache__/`, etc. inside `repo_root` are filtered. See clarification C-3.
 
 ## Open Questions
 
@@ -83,3 +84,4 @@ This blocks `piketype gen` for any user who runs the CLI from a checkout that co
 - [Clarification iter1] NFR-1: pinned implementation strategy to the `rglob` post-filter; `pathlib.Path.walk()` pruning is out of scope for this fix (C-2).
 - [Clarification iter1] AC-6: tightened test requirement to a focused `unittest.TestCase` unit test covering AC-1 and AC-5; an integration test for AC-2 is optional, not required (C-4).
 - [Clarification iter1] Q-1, Q-2: removed (resolved by C-1 and C-2).
+- [Clarification iter2] OOS-7: added; symlinks pointing into excluded paths are NOT resolved by this fix (C-3, promoted from [NO SPEC CHANGE] to [SPEC UPDATE] per Gauge iter1 WARNING).
