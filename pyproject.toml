@@ -47,3 +47,8 @@ typeCheckingMode = "strict"
 reportMissingTypeStubs = false
 reportAny = false
 reportExplicitAny = false
+
+[dependency-groups]
+dev = [
+    "jinja2>=3.1.6",
+]
