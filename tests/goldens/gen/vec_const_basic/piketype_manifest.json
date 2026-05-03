@@ -1,0 +1,137 @@
+{
+  "modules": [
+    {
+      "basename": "vecs",
+      "constants": [
+        {
+          "name": "A",
+          "resolved_signed": true,
+          "resolved_value": 5,
+          "resolved_width": 32,
+          "source": {
+            "column": null,
+            "line": 3,
+            "path": "alpha/piketype/vecs.py"
+          }
+        }
+      ],
+      "dependencies": [],
+      "generated_outputs": {
+        "cpp": "gen/cpp/alpha/piketype/vecs_types.hpp",
+        "py": "gen/py/alpha/piketype/vecs_types.py",
+        "sv": "gen/sv/alpha/piketype/vecs_pkg.sv"
+      },
+      "namespace_parts": [
+        "alpha",
+        "piketype",
+        "vecs"
+      ],
+      "python_module_name": "alpha.piketype.vecs",
+      "repo_relative_path": "alpha/piketype/vecs.py",
+      "source": {
+        "column": null,
+        "line": 1,
+        "path": "alpha/piketype/vecs.py"
+      },
+      "types": [],
+      "vec_constants": [
+        {
+          "base": "dec",
+          "name": "B",
+          "source": {
+            "column": null,
+            "line": 4,
+            "path": "alpha/piketype/vecs.py"
+          },
+          "value": 15,
+          "width": 8
+        },
+        {
+          "base": "hex",
+          "name": "LP_ETHERTYPE_VLAN",
+          "source": {
+            "column": null,
+            "line": 5,
+            "path": "alpha/piketype/vecs.py"
+          },
+          "value": 33024,
+          "width": 16
+        },
+        {
+          "base": "dec",
+          "name": "LP_IP_PROTOCOL_TCP",
+          "source": {
+            "column": null,
+            "line": 6,
+            "path": "alpha/piketype/vecs.py"
+          },
+          "value": 6,
+          "width": 8
+        },
+        {
+          "base": "dec",
+          "name": "LP_IP_PROTOCOL_UDP",
+          "source": {
+            "column": null,
+            "line": 7,
+            "path": "alpha/piketype/vecs.py"
+          },
+          "value": 17,
+          "width": 8
+        },
+        {
+          "base": "hex",
+          "name": "LP_NIBBLE_F",
+          "source": {
+            "column": null,
+            "line": 8,
+            "path": "alpha/piketype/vecs.py"
+          },
+          "value": 15,
+          "width": 4
+        },
+        {
+          "base": "hex",
+          "name": "LP_PADDED_HEX",
+          "source": {
+            "column": null,
+            "line": 9,
+            "path": "alpha/piketype/vecs.py"
+          },
+          "value": 15,
+          "width": 8
+        },
+        {
+          "base": "bin",
+          "name": "LP_PADDED_BIN",
+          "source": {
+            "column": null,
+            "line": 10,
+            "path": "alpha/piketype/vecs.py"
+          },
+          "value": 15,
+          "width": 8
+        },
+        {
+          "base": "hex",
+          "name": "LP_AB16",
+          "source": {
+            "column": null,
+            "line": 11,
+            "path": "alpha/piketype/vecs.py"
+          },
+          "value": 171,
+          "width": 16
+        }
+      ]
+    }
+  ],
+  "repo_root": ".",
+  "runtime_outputs": {
+    "cpp_header": "gen/cpp/runtime/piketype_runtime.hpp",
+    "cpp_source": "gen/cpp/runtime/piketype_runtime.cpp",
+    "py": "gen/py/runtime/piketype_runtime.py",
+    "sv": "gen/sv/runtime/piketype_runtime_pkg.sv"
+  },
+  "tool_version": "0.1.0"
+}

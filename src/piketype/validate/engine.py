@@ -29,9 +29,8 @@ def validate_repo(repo: RepoIR) -> None:
         for type_ir in module.types
     }
     for module in repo.modules:
-        if not module.constants:
-            if not module.types:
-                raise ValidationError(f"{module.ref.repo_relative_path}: piketype file defines no DSL objects")
+        if not module.constants and not module.types and not module.vec_constants:
+            raise ValidationError(f"{module.ref.repo_relative_path}: piketype file defines no DSL objects")
 
         seen_names: set[str] = set()
         for const in module.constants:

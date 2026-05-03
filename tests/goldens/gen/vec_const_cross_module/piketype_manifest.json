@@ -1,0 +1,89 @@
+{
+  "modules": [
+    {
+      "basename": "a",
+      "constants": [],
+      "dependencies": [],
+      "generated_outputs": {
+        "cpp": "gen/cpp/alpha/piketype/a_types.hpp",
+        "py": "gen/py/alpha/piketype/a_types.py",
+        "sv": "gen/sv/alpha/piketype/a_pkg.sv"
+      },
+      "namespace_parts": [
+        "alpha",
+        "piketype",
+        "a"
+      ],
+      "python_module_name": "alpha.piketype.a",
+      "repo_relative_path": "alpha/piketype/a.py",
+      "source": {
+        "column": null,
+        "line": 1,
+        "path": "alpha/piketype/a.py"
+      },
+      "types": [],
+      "vec_constants": [
+        {
+          "base": "hex",
+          "name": "LP_X",
+          "source": {
+            "column": null,
+            "line": 3,
+            "path": "alpha/piketype/a.py"
+          },
+          "value": 4660,
+          "width": 16
+        }
+      ]
+    },
+    {
+      "basename": "b",
+      "constants": [],
+      "dependencies": [
+        {
+          "kind": "vec_const_import",
+          "target_module": "alpha.piketype.a"
+        }
+      ],
+      "generated_outputs": {
+        "cpp": "gen/cpp/alpha/piketype/b_types.hpp",
+        "py": "gen/py/alpha/piketype/b_types.py",
+        "sv": "gen/sv/alpha/piketype/b_pkg.sv"
+      },
+      "namespace_parts": [
+        "alpha",
+        "piketype",
+        "b"
+      ],
+      "python_module_name": "alpha.piketype.b",
+      "repo_relative_path": "alpha/piketype/b.py",
+      "source": {
+        "column": null,
+        "line": 1,
+        "path": "alpha/piketype/b.py"
+      },
+      "types": [],
+      "vec_constants": [
+        {
+          "base": "hex",
+          "name": "LP_Y",
+          "source": {
+            "column": null,
+            "line": 5,
+            "path": "alpha/piketype/b.py"
+          },
+          "value": 171,
+          "width": 8
+        }
+      ]
+    }
+  ],
+  "repo_root": ".",
+  "runtime_outputs": {
+    "cpp_header": "gen/cpp/runtime/piketype_runtime.hpp",
+    "cpp_source": "gen/cpp/runtime/piketype_runtime.cpp",
+    "py": "gen/py/runtime/piketype_runtime.py",
+    "sv": "gen/sv/runtime/piketype_runtime_pkg.sv"
+  },
+  "tool_version": "0.1.0"
+}
