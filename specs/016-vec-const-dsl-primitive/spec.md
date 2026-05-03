@@ -2,7 +2,7 @@
 
 **Spec ID:** 016-vec-const-dsl-primitive
 **Branch:** feature/016-vec-const-dsl-primitive
-**Status:** Draft (Forge iteration 2)
+**Status:** Clarified (post-Clarification iteration 1)
 
 ## Overview
 
@@ -32,13 +32,13 @@ The Project Constitution §Constraints item 5 must be amended to scope its 32/64
 - **FR-2.** The signature MUST be exactly `VecConst(width: int | Const | ConstExpr, value: int | Const | ConstExpr, *, base: str)`. (i.e., `width` and `value` accept the same operand types `Const()` already accepts; `base` is keyword-only.)
 - **FR-3.** `base` MUST accept exactly the three string values `"hex"`, `"dec"`, `"bin"`. Any other value MUST raise `ValidationError` at construction time with a clear message naming the offending value.
 - **FR-4.** `width` MUST resolve (after evaluating any expression) to a positive int. Width = 0 or negative MUST raise `ValidationError`.
-- **FR-5.** `width` upper bound MUST be 64 — matching the existing 64-bit ceiling on signed scalar widths and the natural SV typed-literal range. (See Open Q-3 for whether to lift this.)
+- **FR-5.** `width` upper bound MUST be 64 — matching the existing 64-bit ceiling on signed scalar widths and the natural SV typed-literal range.
 
 ### Evaluation semantics
 
 - **FR-6.** When `value` is a `Const` reference, `ConstExpr` (e.g., `A * 3`), or int literal, the generator MUST evaluate it at IR-build time and emit the resolved scalar integer in the SV literal. The generated SV MUST NOT contain the symbolic expression — it must contain only the final integer rendered in the chosen base.
 - **FR-7.** Overflow check: the resolved integer value MUST satisfy `0 <= value <= 2**width - 1`. Values outside that range MUST raise `ValidationError` at construction or validation time with a message that includes (a) the offending integer value, (b) the declared width N, and (c) the upper bound rendered as the formula `2**N - 1` (with N substituted) — e.g., for `width=8, value=300`: `"VecConst(width=8, value=300) overflows: value must satisfy 0 <= value <= 2**8 - 1 (= 255)"`. The exact phrasing is not mandated, but the three substrings (value, width, formula `2**N - 1`) MUST appear.
-- **FR-8.** Negative resolved values are rejected. (See Open Q-1 for whether to allow signed two's-complement representation.)
+- **FR-8.** Negative resolved values are rejected.
 
 ### SV emission
 
@@ -52,7 +52,7 @@ The Project Constitution §Constraints item 5 must be amended to scope its 32/64
 
 ### Naming
 
-- **FR-12.** The emitted SV constant name MUST be the user's Python variable name verbatim — case preserved, no `LP_` prefix added by the generator. If the user names their Python variable `LP_ETHERTYPE_VLAN`, the SV emits `LP_ETHERTYPE_VLAN`; if they name it `Foo`, the SV emits `Foo`. This matches existing `Const()` behavior. (See Open Q-2 for whether to mandate `LP_` prefix or uppercase.)
+- **FR-12.** The emitted SV constant name MUST be the user's Python variable name verbatim — case preserved, no `LP_` prefix added by the generator. If the user names their Python variable `LP_ETHERTYPE_VLAN`, the SV emits `LP_ETHERTYPE_VLAN`; if they name it `Foo`, the SV emits `Foo`. This matches existing `Const()` behavior.
 
 ### Cross-module behavior
 
@@ -68,7 +68,7 @@ The Project Constitution §Constraints item 5 must be amended to scope its 32/64
 
 - **FR-16.** **C++ backend:** for v1, a `VecConst` declaration MUST emit NO output in the generated C++ header for that module. The C++ emitter MUST treat `VecConst` IR nodes as silently absent (not as an error). This deliberately preserves Constitution Principle 1 ("Single source of truth ... derived from that single definition") by making the *absence* of cross-language emission an explicit, declared property of the v1 primitive — not an oversight. Adding C++ emission is deferred to a follow-up spec; see OOS-9.
 - **FR-17.** **Python backend:** for v1, a `VecConst` declaration MUST emit NO output in the generated Python `_types.py` for that module. Same rationale and deferral as FR-16.
-- **FR-18.** **Manifest:** for v1, `VecConst` declarations MUST appear in the JSON manifest under a new `vec_constants` array (sibling to the existing `constants` array), with at minimum the fields `name`, `width`, `value`, `base`, and `source` (file:line). This is the minimum needed so cross-module reference validation and downstream tools can see them. (See Open Q-3 for whether to fold into `constants` instead.)
+- **FR-18.** **Manifest:** for v1, `VecConst` declarations MUST appear in the JSON manifest under a new `vec_constants` array (sibling to the existing `constants` array), with at minimum the fields `name`, `width`, `value`, `base`, and `source` (file:line). This is the minimum needed so cross-module reference validation and downstream tools can see them. The legacy `constants` array schema MUST remain byte-identical to pre-change — no `kind` discriminator is added to legacy entries.
 
 ## Non-Functional Requirements
 
@@ -108,8 +108,8 @@ The Project Constitution §Constraints item 5 must be amended to scope its 32/64
 
 ## Out of Scope
 
-- **OOS-1.** Signed `VecConst`. The user did not request a `signed=` flag and the request showed only positive values. Two's-complement representation of negative values is OUT for v1; raise `ValidationError` on negative resolved values. (See Open Q-1.)
-- **OOS-2.** Width >64. Both `Const` and existing scalar widths cap at 64 for signed; we mirror this. Wider vector constants are rare in practice and not requested. (See Open Q-3.)
+- **OOS-1.** Signed `VecConst`. The user did not request a `signed=` flag and the request showed only positive values. Two's-complement representation of negative values is OUT for v1; raise `ValidationError` on negative resolved values.
+- **OOS-2.** Width >64. Both `Const` and existing scalar widths cap at 64 for signed; we mirror this. Wider vector constants are rare in practice and not requested.
 - **OOS-3.** Bases other than `hex`/`dec`/`bin`. SV also has `'o` (octal) but it is rare; not requested.
 - **OOS-4.** Don't-care or X/Z digits in the literal (e.g., `8'h?F`, `8'b1x_x_`). Out for v1.
 - **OOS-5.** Underscore-separated digit grouping (e.g., `16'h81_00`). Not requested; could be added later as a render-style option.
@@ -120,10 +120,7 @@ The Project Constitution §Constraints item 5 must be amended to scope its 32/64
 
 ## Open Questions
 
-- **Q-1.** Should `VecConst` also accept signed values (two's-complement representation)? E.g., `VecConst(width=8, value=-1, signed=True)` → `8'shFF` or `-8'sd1`? Not in the user's request; current spec rejects negative values (FR-8). [NEEDS CLARIFICATION — confirm OOS-1 holds, or add `signed=False` keyword arg now to leave room for later signed support.]
-- **Q-2.** Naming convention: the user's first example used `LP_ETHERTYPE_VLAN` as the Python variable name; the second example used bare `B`. The spec currently emits the user's name verbatim (FR-12). Should the generator also enforce a naming convention (e.g., `UPPER_SNAKE_CASE` like Constitution §Coding Standards mandates for module-level constants), and reject lowercase names at validation time? [NEEDS CLARIFICATION — accept any name, or enforce UPPER_SNAKE_CASE with an `LP_` prefix recommendation?]
-- **Q-3.** Manifest schema for `VecConst`: FR-18 places them in a new `vec_constants` array. Alternative: fold into the existing `constants` array with a `"kind": "vec"` discriminator. Both are valid; the former is more discoverable, the latter is more compact. [NEEDS CLARIFICATION — keep `vec_constants` array, or fold into `constants`?]
-- **Q-4.** Width upper bound: FR-5 says max 64. The user's examples use 8 and 16. Lifting to arbitrary widths is feasible (SV supports it) and matches the unrestricted scalar primitives — but Const today caps at 64 and the Constitution's existing 64-bit-signed-scalar cap suggests project-wide alignment. The Gauge flagged 128-bit IPv6 addresses and hash constants as plausible future use cases. [NEEDS CLARIFICATION — keep at 64, or lift to arbitrary positive widths?]
+(All open questions resolved in Clarification iteration 1. See `clarifications.md`.)
 
 ## Risks
 
@@ -143,3 +140,5 @@ The Project Constitution §Constraints item 5 must be amended to scope its 32/64
 - [Spec iter2] FR-7: tightened error-message contract to require the formula `2**N - 1` substring (gauge iter1 WARNING).
 - [Spec iter2] FR-16, FR-17, FR-18 added: C++ and Python emit no VecConst output for v1; manifest gets a new `vec_constants` array. Resolves gauge iter1 BLOCKING (Q-4 left Principle 1 ambiguous). OOS-9 rewritten accordingly.
 - [Spec iter2] Open Questions Q-4, Q-5, Q-6 removed (resolved by FR-16/17/18). Q-3 (width >64) renumbered to Q-4 to keep the lifting-discussion alive for clarification.
+- [Clarification iter1] FR-5, FR-8, FR-12, FR-18, OOS-1, OOS-2: removed parenthetical Q-references (Q-1, Q-2, Q-3, Q-4 all resolved this round). FR-18 reinforced: legacy `constants` array stays byte-identical (no `kind` discriminator added). No FR/NFR/AC semantics changed.
+- [Clarification iter1] Open Questions section emptied. All four user answers (reject signed / verbatim naming / Option A separate `vec_constants` array / keep width at 64) confirmed existing FR defaults.
