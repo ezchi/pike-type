@@ -11,7 +11,7 @@
 | Implementation | 14 task-iters across 13 tasks | 13× APPROVE first try, T4 iter2 (REVISE → APPROVE) | T4 iter1 caught FR-2 signature defect: VecConst.__init__ was over-restrictive (`def __init__(self, *, width, value, base)` instead of `def __init__(self, width, value, *, base)`). Fixed in iter2 + added `test_positional_width_and_value_accepted`. |
 | Validation | 2 | REVISE → APPROVE | Iter1 BLOCKING: `validate/engine.py` four passes (duplicate-name, generated-identifier collision, enum-literal collision, reserved-keyword) didn't fold in `module.vec_constants`. Iter2 fixed all four + added two new tests in `VecConstNameValidationTests`. |
 | Retrospect | (in progress) | — | This document. |
-| **Total** | **23 forge-gauge cycles** | **6 REVISE / 17 APPROVE first-try** | All REVISE caught real defects, zero unnecessary churn. |
+| **Total** | **23 forge-gauge cycles** | **5 REVISE / 18 APPROVE** | All REVISE caught real defects, zero unnecessary churn. (Recount: spec iter1, planning iter1, planning iter2, T4 iter1, validation iter1 = 5 REVISE. The remaining 18 verdicts are APPROVE.) |
 
 - **Forge:** claude (this assistant) for every stage.
 - **Gauge:** gemini (`gemini-3.1-pro-preview` via `gemini` CLI 0.40.1) for every stage. Multiple 429 RESOURCE_EXHAUSTED retries across the run; per existing memory `reference_gemini_gauge_rate_limits.md`, this is expected.
@@ -44,8 +44,12 @@ Branch contains 33 commits from forge/gauge/steel/stage-complete tags. Final cod
 > **How to apply:** Whenever a `tasks.md` introduces a new IR top-level entity, ALWAYS include a discrete task that extends these four validation passes. Use `grep -n 'module.constants' src/piketype/validate/engine.py` as a checklist of edit sites.
 
 **Evidence:**
-- `specs/016-vec-const-dsl-primitive/artifacts/validation/iter1-gauge.md` BLOCKING — explicitly named all four missing passes:
-  > "`_validate_reserved_keywords`: Does not iterate over `module.vec_constants`... `validate_repo`: Does not check `vec_constants` for duplicate names... `_validate_generated_identifier_collision`: Does not check `vec_constants` against reserved names like `LP_{NAME}_WIDTH` or `pack_{name}`... `_validate_enum_literal_collision`: Does not check for collisions between `VecConst` names and enum literals."
+- `specs/016-vec-const-dsl-primitive/artifacts/validation/iter1-gauge.md` BLOCKING — verbatim quote:
+  > "`src/piketype/validate/engine.py` is missing name validation for `VecConst`.
+  >    - `_validate_reserved_keywords`: Does not iterate over `module.vec_constants`, allowing collisions with SystemVerilog/C++/Python keywords (e.g., `while = VecConst(...)`).
+  >    - `validate_repo`: Does not check `vec_constants` for duplicate names within the module or collisions with types/constants.
+  >    - `_validate_generated_identifier_collision`: Does not check `vec_constants` against reserved names like `LP_{NAME}_WIDTH` or `pack_{name}`.
+  >    - `_validate_enum_literal_collision`: Does not check for collisions between `VecConst` names and enum literals."
 - `specs/016-vec-const-dsl-primitive/artifacts/validation/iter2-forge.md` resolved the gap with a four-pass extension.
 
 **Rationale:** Non-obvious because: (a) the validation engine lives in a separate file from `freeze.py`, `view.py`, `manifest/write_json.py`, and is easy to forget; (b) the constitution's "Adding a New Type or Feature" recipe says "Add validation rules in validate/engine.py" but doesn't enumerate the four lockstep passes; (c) tests pass without these checks because the negative inputs (keyword names, duplicates) only happen with deliberately-broken DSL — easy to miss in fixture-based testing.
@@ -71,6 +75,30 @@ Branch contains 33 commits from forge/gauge/steel/stage-complete tags. Final cod
 - 24 manifest goldens regenerated; 307 tests still passed → byte-identity transitively confirmed.
 
 **Rationale:** Non-obvious because: re-running `piketype gen` per-fixture is the "correct" approach but requires per-fixture CLI args (some fixtures need `--namespace=...`); the in-place JSON patch is functionally equivalent for purely-additive empty-field changes and saves ~hour of script wrangling.
+
+---
+
+### M-4 (project) — VecConst value-expressions don't currently emit cross-module `const_ref` dep edges (acknowledged v1 gap)
+
+**Type:** `project`
+
+**Name:** `project_vec_const_value_expr_dep_gap.md`
+
+**Content:**
+> When a `VecConst`'s `value=` expression contains a `Const` reference from another module (e.g., `B = VecConst(width=8, value=ModuleA.LP_X * 2, base="dec")`), the value is correctly evaluated to a literal integer at freeze time, but `_collect_module_dependencies` does NOT register a `(ModuleA, "const_ref")` dependency edge for that reference.
+>
+> Consequence: SV `import a_pkg::LP_X;` is not emitted on the importing module's package, even though the importing module's Python source did `from a import LP_X`. This is correct in the literal-emission sense (B emits the resolved int, no symbol reference in SV), but breaks the IR's "all cross-module references show up in dependencies" invariant.
+>
+> **Why:** Forge artifact `task3-iter1-forge.md` explicitly notes this as an acknowledged v1 scope choice. The user's stated examples are same-module (`A = Const(5); B = VecConst(value=A * 3)`), so the gap doesn't surface in the user's primary use case. A future spec can lift this if a real cross-module use lands.
+>
+> **How to apply:** When adding new IR-walking validation passes or new dependency-edge consumers, be aware that `module.dependencies` does NOT include `Const` references inside `VecConst` value expressions. Either traverse `module.vec_constants[*].expr` separately (NOT currently a field — VecConstIR stores resolved int only), or treat this as a known gap.
+
+**Evidence:**
+- `specs/016-vec-const-dsl-primitive/artifacts/implementation/task3-iter1-forge.md` Key Implementation Decisions section explicitly notes "Cross-module Const refs inside a VecConst expression don't currently register as deps. **Deferred** as a follow-up."
+- `specs/016-vec-const-dsl-primitive/artifacts/implementation/task3-iter1-gauge.md` NOTE: "Cross-module `Const` references inside a `VecConst`'s value expression ... do not currently register as `const_ref` dependency edges in the IR. This is an acknowledged scope choice for v1 by the Forge."
+- `specs/016-vec-const-dsl-primitive/artifacts/retrospect/iter1-gauge.md` NOTE: same gap re-flagged, suggesting it's worth a memory.
+
+**Rationale:** Non-obvious because: (a) the gap doesn't break the user's primary use case (same-module examples) and isn't visible in any existing test; (b) future maintainers building IR-walking validations may incorrectly assume `module.dependencies` is exhaustive; (c) it's not derivable from the codebase — VecConstIR's resolved-int storage looks complete.
 
 ---
 
@@ -179,7 +207,7 @@ Quote from `artifacts/validation/iter1-gauge.md`:
 
 ### P-2 — Forge-Gauge dynamics: gauge consistently catches real defects in spec 016 (zero churn this run)
 
-**Classification of all 6 REVISE verdicts:**
+**Classification of all 5 REVISE verdicts:**
 
 | Stage | Iter | Severity | Defect category |
 |-------|------|----------|-----------------|
@@ -189,7 +217,7 @@ Quote from `artifacts/validation/iter1-gauge.md`:
 | Implementation T4 | 1 | WARNING | (a) Real — VecConst.__init__ over-restrictive vs FR-2. |
 | Validation | 1 | BLOCKING | (a) Real — 4 validate/engine.py passes didn't fold in `vec_constants`. |
 
-**0 of 6 REVISE verdicts were churn or scope-expansion attempts.** This continues the pattern from spec 015 where the same gauge (gemini) was thorough and grounded.
+**0 of 5 REVISE verdicts were churn or scope-expansion attempts.** This continues the pattern from spec 015 where the same gauge (gemini) was thorough and grounded.
 
 **Proposed fix:** None — the dynamic is healthy. Memory M-2 (`reference_gemini_gauge_rate_limits.md`) from spec 015 about wall-clock waits remains accurate.
 
@@ -228,8 +256,8 @@ This change is judgment-call: the user may prefer to keep the Constitution terse
 
 ## Summary
 
-- **23 forge-gauge cycles, 6 REVISE verdicts, 0 churn.** Every REVISE caught a real defect.
-- **Three memories worth saving** (M-1 validate-engine four-pass lockstep; M-2 manifest in-place JSON patch; M-3 cross-module non-operand IR pattern).
+- **23 forge-gauge cycles, 5 REVISE verdicts, 0 churn.** Every REVISE caught a real defect.
+- **Four memories worth saving** (M-1 validate-engine four-pass lockstep; M-2 manifest in-place JSON patch; M-3 cross-module non-operand IR pattern; M-4 VecConst value-expr dep-edge gap).
 - **Three skill updates worth applying** (S-1 `/steel-tasks` validate-engine checklist; S-2 `systemverilog-core` convention-discovery against goldens; S-3 `/steel-implement` downstream-validation touchpoints).
 - **Constitution refinement candidate** (P-3) — judgment-call; recommend S-1 instead.
 - **No workflow gaps** — Steel-Kit's 7-stage flow worked as intended.
