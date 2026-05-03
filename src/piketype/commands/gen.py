@@ -15,6 +15,7 @@ from piketype.dsl.freeze import (
     build_const_definition_map,
     build_loaded_module,
     build_type_definition_map,
+    build_vec_const_definition_map,
     freeze_module,
     freeze_repo,
 )
@@ -50,6 +51,7 @@ def run_gen(path: str, *, namespace: str | None = None) -> None:
         ]
         definition_map = build_const_definition_map(loaded_modules=loaded_modules)
         type_definition_map = build_type_definition_map(loaded_modules=loaded_modules)
+        vec_const_definition_map = build_vec_const_definition_map(loaded_modules=loaded_modules)
 
         frozen_modules: list[FrozenModule] = []
         cli_module_had_local_definitions = False
@@ -58,6 +60,7 @@ def run_gen(path: str, *, namespace: str | None = None) -> None:
                 loaded_module=loaded_module,
                 definition_map=definition_map,
                 type_definition_map=type_definition_map,
+                vec_const_definition_map=vec_const_definition_map,
             )
             if loaded_module.module_path == cli_path and frozen_module.has_local_definitions:
                 cli_module_had_local_definitions = True
