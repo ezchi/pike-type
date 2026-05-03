@@ -9,6 +9,7 @@
 
 namespace alpha::b {
 
+constexpr std::uint8_t LP_Y = 0xAB;
 
 }  // namespace alpha::b
 

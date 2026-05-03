@@ -9,6 +9,7 @@
 
 namespace alpha::a {
 
+constexpr std::uint16_t LP_X = 0x1234;
 
 }  // namespace alpha::a
 

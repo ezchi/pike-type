@@ -2,3 +2,4 @@
 # Source: alpha/piketype/b.py
 # Do not edit by hand.
 
+LP_Y = 0xAB

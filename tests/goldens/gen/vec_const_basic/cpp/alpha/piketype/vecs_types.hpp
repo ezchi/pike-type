@@ -10,6 +10,14 @@
 namespace alpha::vecs {
 
 constexpr std::int32_t A = 5;
+constexpr std::uint8_t B = 15;
+constexpr std::uint16_t LP_ETHERTYPE_VLAN = 0x8100;
+constexpr std::uint8_t LP_IP_PROTOCOL_TCP = 6;
+constexpr std::uint8_t LP_IP_PROTOCOL_UDP = 17;
+constexpr std::uint8_t LP_NIBBLE_F = 0xF;
+constexpr std::uint8_t LP_PADDED_HEX = 0x0F;
+constexpr std::uint8_t LP_PADDED_BIN = 0b00001111;
+constexpr std::uint16_t LP_AB16 = 0x00AB;
 
 }  // namespace alpha::vecs
 

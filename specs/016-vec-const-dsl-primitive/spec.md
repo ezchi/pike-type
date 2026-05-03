@@ -66,8 +66,9 @@ The Project Constitution §Constraints item 5 must be amended to scope its 32/64
 
 ### Cross-backend emission policy
 
-- **FR-16.** **C++ backend:** for v1, a `VecConst` declaration MUST emit NO output in the generated C++ header for that module. The C++ emitter MUST treat `VecConst` IR nodes as silently absent (not as an error). This deliberately preserves Constitution Principle 1 ("Single source of truth ... derived from that single definition") by making the *absence* of cross-language emission an explicit, declared property of the v1 primitive — not an oversight. Adding C++ emission is deferred to a follow-up spec; see OOS-9.
-- **FR-17.** **Python backend:** for v1, a `VecConst` declaration MUST emit NO output in the generated Python `_types.py` for that module. Same rationale and deferral as FR-16.
+- **FR-16.** **C++ backend:** a `VecConst` declaration emits one `constexpr std::uint{8|16|32|64}_t <NAME> = <literal>;` line in the generated C++ header, where the unsigned-int width rounds up to the smallest type fitting the VecConst's width, and `<literal>` honors the declared `base` (hex → `0x...` uppercase + zero-padded to `(width+3)//4` digits; dec → decimal; bin → `0b...` zero-padded to `width` digits). Suffix follows existing `Const` style: none for ≤16 bits, `U` for 32-bit, `ULL` for 64-bit.
+- **FR-17.** **Python backend:** a `VecConst` declaration emits one `<NAME> = <literal>` line in the generated Python `_types.py`, with the same base-honoring literal rules as FR-16 (no suffix needed in Python).
+- **(Note: FR-16 and FR-17 were rewritten post-016 release at user request; original v1 scope made both backends no-op. See git history.)**
 - **FR-18.** **Manifest:** for v1, `VecConst` declarations MUST appear in the JSON manifest under a new `vec_constants` array (sibling to the existing `constants` array), with at minimum the fields `name`, `width`, `value`, `base`, and `source` (file:line). This is the minimum needed so cross-module reference validation and downstream tools can see them. The legacy `constants` array schema MUST remain byte-identical to pre-change — no `kind` discriminator is added to legacy entries.
 
 ## Non-Functional Requirements
@@ -116,7 +117,7 @@ The Project Constitution §Constraints item 5 must be amended to scope its 32/64
 - **OOS-6.** A `format=` string-template emission mode. Not requested.
 - **OOS-7.** Auto-deriving `width` from value (e.g., `VecConst(value=0xFF, base="hex")` → 8 bits). Not requested; user always specifies width.
 - **OOS-8.** Modifying `Const()`'s width restriction or its emission shape. The constitution amendment scopes the 32/64 restriction to `Const`, not the other way around.
-- **OOS-9.** Cross-language emission of `VecConst` to C++ and Python (i.e., `constexpr uint16_t LP_X = 0xN;` C++ form, `LP_X: int = 0xN` Python form). Resolved by FR-16 / FR-17 to be NO-OP for v1. A follow-up spec MAY add this when a concrete C++ or Python use case lands.
+- **OOS-9.** ~~Cross-language emission of `VecConst` to C++ and Python.~~ **No longer out of scope** — implemented in a post-016 follow-up edit per FR-16 / FR-17 (rewritten).
 
 ## Open Questions
 
@@ -142,3 +143,4 @@ The Project Constitution §Constraints item 5 must be amended to scope its 32/64
 - [Spec iter2] Open Questions Q-4, Q-5, Q-6 removed (resolved by FR-16/17/18). Q-3 (width >64) renumbered to Q-4 to keep the lifting-discussion alive for clarification.
 - [Clarification iter1] FR-5, FR-8, FR-12, FR-18, OOS-1, OOS-2: removed parenthetical Q-references (Q-1, Q-2, Q-3, Q-4 all resolved this round). FR-18 reinforced: legacy `constants` array stays byte-identical (no `kind` discriminator added). No FR/NFR/AC semantics changed.
 - [Clarification iter1] Open Questions section emptied. All four user answers (reject signed / verbatim naming / Option A separate `vec_constants` array / keep width at 64) confirmed existing FR defaults.
+- [Post-016 follow-up] FR-16, FR-17, OOS-9: rewritten/updated. C++ and Python backends now emit `constexpr std::uintN_t LP_X = <literal>;` and `LP_X = <literal>` respectively, honoring the user's `base` choice. Original v1 no-op behavior was lifted at user's direct request after spec 016 retrospect-complete.

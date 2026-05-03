@@ -35,6 +35,7 @@ from piketype.ir.nodes import (
     TypeDefIR,
     TypeRefIR,
     UnaryExprIR,
+    VecConstIR,
     byte_count,
 )
 
@@ -243,6 +244,28 @@ def _field_byte_count(*, field_ir: StructFieldIR, repo_type_index: dict[tuple[st
 
 def build_constant_view(*, const_ir: ConstIR) -> ConstantView:
     return ConstantView(name=const_ir.name, value_expr=_render_py_expr(const_ir.expr))
+
+
+def _render_py_vec_literal(*, width: int, value: int, base: str) -> str:
+    """Render a Python literal honoring the VecConst base."""
+    match base:
+        case "hex":
+            return f"0x{value:0{(width + 3) // 4}X}"
+        case "dec":
+            return str(value)
+        case "bin":
+            return f"0b{value:0{width}b}"
+        case _:
+            raise ValueError(f"unsupported VecConst base: {base!r}")
+
+
+def build_py_vec_constant_view(*, vec_const_ir: VecConstIR) -> ConstantView:
+    return ConstantView(
+        name=vec_const_ir.name,
+        value_expr=_render_py_vec_literal(
+            width=vec_const_ir.width, value=vec_const_ir.value, base=vec_const_ir.base
+        ),
+    )
 
 
 def build_scalar_alias_view(*, type_ir: ScalarAliasIR) -> ScalarAliasView:
@@ -476,7 +499,10 @@ def build_module_view_py(
     has_enums = any(isinstance(t, EnumIR) for t in module.types)
     has_flags = any(isinstance(t, FlagsIR) for t in module.types)
 
-    constants = tuple(build_constant_view(const_ir=c) for c in module.constants)
+    constants = (
+        tuple(build_constant_view(const_ir=c) for c in module.constants)
+        + tuple(build_py_vec_constant_view(vec_const_ir=v) for v in module.vec_constants)
+    )
 
     types: list[TypeView] = []
     for t in module.types:

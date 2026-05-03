@@ -2,3 +2,4 @@
 # Source: alpha/piketype/a.py
 # Do not edit by hand.
 
+LP_X = 0x1234
