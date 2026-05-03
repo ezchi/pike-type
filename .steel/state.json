@@ -1,30 +1,30 @@
 {
-  "currentStage": "retrospect",
-  "specId": "015-scanner-exclude-venv-dirs",
-  "branch": "feature/015-scanner-exclude-venv-dirs",
-  "description": "Fix find_piketype_modules in src/piketype/discovery/scanner.py to skip virtual-env, VCS, and other non-source directories during the rglob walk, so it does not pick up piketype's own installed source under .venv/lib/python3.13/site-packages/piketype/. The CLI currently fails with 'piketype requires unique module basenames across the repo, but duplicates were found' because the scanner descends into .venv. Add an EXCLUDED_DIRS frozenset ({'.venv', 'venv', '.git', 'node_modules', '.tox', '__pycache__'}) and exclude any path whose relative parts intersect that set.",
+  "currentStage": "specification",
+  "specId": "016-vec-const-dsl-primitive",
+  "branch": "feature/016-vec-const-dsl-primitive",
+  "description": "Add a new DSL primitive `VecConst(width=N, value=V, base=\"hex\"|\"dec\"|\"bin\")` that emits `localparam logic [N-1:0] <NAME> = N'<base-letter><value>;` in SystemVerilog. Distinct from existing `Const()` (which is a 32/64-bit int parameter). Validates that value fits in width bits. Accepts ConstExpr / Const operands and evaluates them at gen time, emitting the resolved literal value (not the symbolic expression). Constitution Constraint 5 will be amended to scope the 32/64-bit restriction to `Const()` only; `VecConst` admits arbitrary positive widths.",
   "iteration": 1,
   "stages": {
     "specification": {
-      "status": "complete"
+      "status": "in_progress"
     },
     "clarification": {
-      "status": "complete"
+      "status": "pending"
     },
     "planning": {
-      "status": "complete"
+      "status": "pending"
     },
     "task_breakdown": {
-      "status": "complete"
+      "status": "pending"
     },
     "implementation": {
-      "status": "complete"
+      "status": "pending"
     },
     "validation": {
-      "status": "complete"
+      "status": "pending"
     },
     "retrospect": {
-      "status": "complete"
+      "status": "pending"
     }
   },
   "skillsUsed": {
