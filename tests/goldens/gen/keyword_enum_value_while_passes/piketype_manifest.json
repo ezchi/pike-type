@@ -44,7 +44,8 @@
             }
           ]
         }
-      ]
+      ],
+      "vec_constants": []
     }
   ],
   "repo_root": ".",

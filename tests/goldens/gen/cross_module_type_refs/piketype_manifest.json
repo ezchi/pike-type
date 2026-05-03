@@ -38,7 +38,8 @@
             "path": "alpha/piketype/bar.py"
           }
         }
-      ]
+      ],
+      "vec_constants": []
     },
     {
       "basename": "foo",
@@ -124,7 +125,8 @@
             "path": "alpha/piketype/foo.py"
           }
         }
-      ]
+      ],
+      "vec_constants": []
     }
   ],
   "repo_root": ".",

@@ -107,6 +107,20 @@ def write_manifest(repo: RepoIR) -> Path:
                     }
                     for dep in module.dependencies
                 ],
+                "vec_constants": [
+                    {
+                        "name": v.name,
+                        "width": v.width,
+                        "value": v.value,
+                        "base": v.base,
+                        "source": {
+                            "path": str(Path(v.source.path).resolve().relative_to(repo_root.resolve())),
+                            "line": v.source.line,
+                            "column": v.source.column,
+                        },
+                    }
+                    for v in module.vec_constants
+                ],
                 "generated_outputs": {
                     "sv": str(
                         sv_module_output_path(

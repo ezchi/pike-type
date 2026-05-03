@@ -30,6 +30,7 @@ from piketype.ir.nodes import (
     TypeDefIR,
     TypeRefIR,
     UnaryExprIR,
+    VecConstIR,
     byte_count,
 )
 
@@ -44,6 +45,15 @@ class SvConstantView:
     sv_type: str
     name: str
     sv_expr: str
+
+
+@dataclass(frozen=True, slots=True)
+class SvVecConstantView:
+    """Pre-rendered logic-vector constant for the synth package."""
+
+    name: str       # FR-12: verbatim Python variable name
+    sv_type: str    # "logic [N-1:0]"
+    sv_expr: str    # "N'<L><digits>" — pre-rendered, FR-9..11
 
 
 # ---------------------------------------------------------------------------
@@ -170,6 +180,8 @@ class SvSynthModuleView:
     # Explicit per-symbol cross-module imports. Each entry is (pkg_name, symbol_name);
     # template renders `import {pkg}::{sym};`. Sorted by (pkg, sym).
     synth_cross_module_imports: tuple[tuple[str, str], ...]
+    has_vec_constants: bool = False
+    vec_constants: tuple[SvVecConstantView, ...] = ()
 
 
 # ---------------------------------------------------------------------------
@@ -321,6 +333,23 @@ def _render_sv_const(*, value: int, signed: bool, width: int) -> tuple[str, str]
     raise ValueError(f"unsupported SV constant storage: signed={signed}, width={width}")
 
 
+def _render_sv_vec_literal(*, width: int, value: int, base: str) -> str:
+    """Render a SystemVerilog typed-literal for a VecConst.
+
+    FR-9..11: ``<width>'<L><digits>`` with hex uppercase + zero-pad to
+    ``(width + 3) // 4`` digits, bin zero-pad to ``width`` digits, dec no pad.
+    """
+    match base:
+        case "hex":
+            return f"{width}'h{value:0{(width + 3) // 4}X}"
+        case "dec":
+            return f"{width}'d{value}"
+        case "bin":
+            return f"{width}'b{value:0{width}b}"
+        case _:
+            raise ValueError(f"unsupported VecConst base: {base!r}")
+
+
 def _data_width(*, type_ir: TypeDefIR, repo_type_index: dict[tuple[str, str], TypeDefIR]) -> int:
     if isinstance(type_ir, ScalarAliasIR):
         return type_ir.resolved_width
@@ -395,6 +424,19 @@ def _render_sv_helper_field_decl(*, field: StructFieldIR, repo_type_index: dict[
 # ---------------------------------------------------------------------------
 # Module-level builders
 # ---------------------------------------------------------------------------
+
+
+def _build_vec_constant_view(*, vec_const_ir: VecConstIR) -> SvVecConstantView:
+    sv_expr = _render_sv_vec_literal(
+        width=vec_const_ir.width,
+        value=vec_const_ir.value,
+        base=vec_const_ir.base,
+    )
+    return SvVecConstantView(
+        name=vec_const_ir.name,
+        sv_type=f"logic [{vec_const_ir.width - 1}:0]",
+        sv_expr=sv_expr,
+    )
 
 
 def _build_constant_view(*, const_ir: ConstIR) -> SvConstantView:
@@ -721,6 +763,8 @@ def build_synth_module_view_sv(
         synth_cross_module_imports=_collect_cross_module_synth_imports(
             module=module, repo_type_index=repo_type_index
         ),
+        has_vec_constants=bool(module.vec_constants),
+        vec_constants=tuple(_build_vec_constant_view(vec_const_ir=v) for v in module.vec_constants),
     )
 
 
@@ -789,6 +833,8 @@ def _collect_cross_module_synth_imports(
         pairs.add((pkg, f"LP_{upper}_WIDTH"))
         pairs.add((pkg, f"pack_{base}"))
         pairs.add((pkg, f"unpack_{base}"))
+    for vci in module.vec_const_imports:
+        pairs.add((f"{vci.target_module_ref.basename}_pkg", vci.symbol_name))
     return tuple(sorted(pairs))
 
 

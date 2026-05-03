@@ -57,7 +57,8 @@
             "path": "alpha/piketype/types.py"
           }
         }
-      ]
+      ],
+      "vec_constants": []
     }
   ],
   "repo_root": ".",

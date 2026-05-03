@@ -59,7 +59,8 @@
           },
           "state_kind": "logic"
         }
-      ]
+      ],
+      "vec_constants": []
     }
   ],
   "repo_root": ".",

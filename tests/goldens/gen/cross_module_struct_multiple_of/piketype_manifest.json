@@ -38,7 +38,8 @@
             "path": "alpha/piketype/bar.py"
           }
         }
-      ]
+      ],
+      "vec_constants": []
     },
     {
       "basename": "foo",
@@ -75,7 +76,8 @@
           },
           "state_kind": "logic"
         }
-      ]
+      ],
+      "vec_constants": []
     }
   ],
   "repo_root": ".",

@@ -77,7 +77,8 @@
         "line": 1,
         "path": "alpha/piketype/constants.py"
       },
-      "types": []
+      "types": [],
+      "vec_constants": []
     }
   ],
   "repo_root": ".",

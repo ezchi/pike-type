@@ -71,7 +71,8 @@
           },
           "state_kind": "bit"
         }
-      ]
+      ],
+      "vec_constants": []
     }
   ],
   "repo_root": ".",
