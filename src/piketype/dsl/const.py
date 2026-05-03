@@ -232,9 +232,9 @@ class VecConst(DslNode):
 
     def __init__(
         self,
-        *,
         width: int | Const | ConstExpr,
         value: int | Const | ConstExpr,
+        *,
         base: str,
     ) -> None:
         if base not in VecConst.SUPPORTED_BASES:

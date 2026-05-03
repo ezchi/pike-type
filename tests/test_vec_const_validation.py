@@ -61,6 +61,15 @@ class VecConstValidationTests(unittest.TestCase):
         self.assertIn("oct", message)
         self.assertIn("base=", message)
 
+    def test_positional_width_and_value_accepted(self) -> None:
+        """FR-2 signature: width and value MUST be positional-or-keyword;
+        only `base` is keyword-only."""
+        v = VecConst(8, 15, base="dec")
+        self.assertEqual(v.base, "dec")
+        # base remains keyword-only.
+        with self.assertRaises(TypeError):
+            VecConst(8, 15, "dec")  # pyright: ignore[reportCallIssue]
+
 
 if __name__ == "__main__":
     unittest.main()
