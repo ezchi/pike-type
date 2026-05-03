@@ -5,7 +5,7 @@ from __future__ import annotations
 import unittest
 
 from piketype.dsl import VecConst
-from piketype.dsl.freeze import _freeze_vec_const_storage
+from piketype.dsl.freeze import _freeze_vec_const_storage  # pyright: ignore[reportPrivateUsage]
 from piketype.errors import ValidationError
 from piketype.ir.nodes import SourceSpanIR
 
