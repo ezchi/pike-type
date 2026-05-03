@@ -220,6 +220,34 @@ class Const(DslNode):
 type ConstOperand = Const | ConstExpr | int
 
 
+@dataclass(slots=True)
+class VecConst(DslNode):
+    """Fixed-width logic vector constant with explicit base."""
+
+    SUPPORTED_BASES: ClassVar[set[str]] = {"hex", "dec", "bin"}
+
+    width_expr: ConstExpr
+    value_expr: ConstExpr
+    base: str
+
+    def __init__(
+        self,
+        *,
+        width: int | Const | ConstExpr,
+        value: int | Const | ConstExpr,
+        base: str,
+    ) -> None:
+        if base not in VecConst.SUPPORTED_BASES:
+            raise ValidationError(
+                f"VecConst() base= must be one of {sorted(VecConst.SUPPORTED_BASES)}, got {base!r}"
+            )
+        source = capture_source_info()
+        DslNode.__init__(self, source=source)
+        self.width_expr = _coerce_operand(width, source=source)
+        self.value_expr = _coerce_operand(value, source=source)
+        self.base = base
+
+
 def _binary_expr(op: str, lhs: ConstOperand, rhs: ConstOperand) -> ConstExpr:
     """Create a binary constant-expression node."""
     if op not in ConstExpr.SUPPORTED_BINARY_OPS:
