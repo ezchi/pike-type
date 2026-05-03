@@ -44,6 +44,12 @@ def validate_repo(repo: RepoIR) -> None:
                 module_path=module.ref.repo_relative_path,
                 const_name=const.name,
             )
+        for vec_const in module.vec_constants:
+            if vec_const.name in seen_names:
+                raise ValidationError(
+                    f"{module.ref.repo_relative_path}: duplicate constant name {vec_const.name}"
+                )
+            seen_names.add(vec_const.name)
         seen_type_names: set[str] = set()
         for type_ir in module.types:
             if type_ir.name in seen_names or type_ir.name in seen_type_names:
@@ -277,7 +283,7 @@ def _validate_generated_identifier_collision(*, module: ModuleIR) -> None:
             f"unpack_{base}",
         ):
             reserved[ident] = type_ir.name
-    const_names = {const.name for const in module.constants}
+    const_names = {const.name for const in module.constants} | {v.name for v in module.vec_constants}
     for const_name in const_names:
         if const_name in reserved:
             raise ValidationError(
@@ -308,7 +314,7 @@ def _validate_alignment_bits(*, module: ModuleIR) -> None:
 
 def _validate_enum_literal_collision(*, module: ModuleIR) -> None:
     """FR-17: Reject enum value names that collide across enums or with constants."""
-    const_names = {const.name for const in module.constants}
+    const_names = {const.name for const in module.constants} | {v.name for v in module.vec_constants}
     all_enum_value_names: dict[str, str] = {}
     for type_ir in module.types:
         if not isinstance(type_ir, EnumIR):
@@ -553,6 +559,17 @@ def _validate_reserved_keywords(*, repo: RepoIR) -> None:
                         kind="constant",
                         identifier=const.name,
                         langs=const_langs,
+                    )
+                )
+        for vec_const in module.vec_constants:
+            vec_const_langs = keyword_languages(identifier=vec_const.name)
+            if vec_const_langs:
+                raise ValidationError(
+                    _format_top_level_msg(
+                        module_path=module_path,
+                        kind="constant",
+                        identifier=vec_const.name,
+                        langs=vec_const_langs,
                     )
                 )
 

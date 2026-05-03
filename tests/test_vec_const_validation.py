@@ -7,7 +7,16 @@ import unittest
 from piketype.dsl import VecConst
 from piketype.dsl.freeze import _freeze_vec_const_storage  # pyright: ignore[reportPrivateUsage]
 from piketype.errors import ValidationError
-from piketype.ir.nodes import SourceSpanIR
+from piketype.ir.nodes import (
+    ConstIR,
+    IntLiteralExprIR,
+    ModuleIR,
+    ModuleRefIR,
+    RepoIR,
+    SourceSpanIR,
+    VecConstIR,
+)
+from piketype.validate.engine import validate_repo
 
 
 _DUMMY_SOURCE = SourceSpanIR(path="<test>", line=1, column=None)
@@ -69,6 +78,71 @@ class VecConstValidationTests(unittest.TestCase):
         # base remains keyword-only.
         with self.assertRaises(TypeError):
             VecConst(8, 15, "dec")  # pyright: ignore[reportCallIssue]
+
+
+class VecConstNameValidationTests(unittest.TestCase):
+    """VecConst names participate in the same validation passes as Const names
+    (gauge-T validation iter1 BLOCKING fix)."""
+
+    def _make_repo_with_vec_const(self, name: str) -> "RepoIR":
+        """Build a minimal RepoIR with a single module containing one VecConst."""
+
+        module = ModuleIR(
+            ref=ModuleRefIR(
+                repo_relative_path="t/m.py",
+                python_module_name="t.m",
+                namespace_parts=("t", "m"),
+                basename="m",
+            ),
+            source=_DUMMY_SOURCE,
+            constants=(),
+            types=(),
+            dependencies=(),
+            vec_constants=(
+                VecConstIR(
+                    name=name, source=_DUMMY_SOURCE, width=8, value=0, base="dec"
+                ),
+            ),
+        )
+        return RepoIR(repo_root=".", modules=(module,), tool_version=None)
+
+    def test_vec_const_name_keyword_collision_rejected(self) -> None:
+        """A VecConst named 'while' (Python/SV keyword) is rejected."""
+        repo = self._make_repo_with_vec_const("while")
+        with self.assertRaises(ValidationError) as ctx:
+            validate_repo(repo)
+        self.assertIn("while", str(ctx.exception))
+
+    def test_vec_const_duplicate_with_const_rejected(self) -> None:
+        """A VecConst with the same name as a Const in the same module is rejected."""
+        module = ModuleIR(
+            ref=ModuleRefIR(
+                repo_relative_path="t/m.py",
+                python_module_name="t.m",
+                namespace_parts=("t", "m"),
+                basename="m",
+            ),
+            source=_DUMMY_SOURCE,
+            constants=(
+                ConstIR(
+                    name="X",
+                    source=_DUMMY_SOURCE,
+                    expr=IntLiteralExprIR(value=1, source=_DUMMY_SOURCE),
+                    resolved_value=1,
+                    resolved_signed=True,
+                    resolved_width=32,
+                ),
+            ),
+            types=(),
+            dependencies=(),
+            vec_constants=(
+                VecConstIR(name="X", source=_DUMMY_SOURCE, width=8, value=0, base="dec"),
+            ),
+        )
+        repo = RepoIR(repo_root=".", modules=(module,), tool_version=None)
+        with self.assertRaises(ValidationError) as ctx:
+            validate_repo(repo)
+        self.assertIn("duplicate constant name X", str(ctx.exception))
 
 
 if __name__ == "__main__":
