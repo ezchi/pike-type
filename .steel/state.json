@@ -12,7 +12,7 @@
       "status": "complete"
     },
     "planning": {
-      "status": "ready"
+      "status": "in_progress"
     },
     "task_breakdown": {
       "status": "pending"
