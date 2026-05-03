@@ -184,6 +184,25 @@ class ConstIR:
 
 
 @dataclass(frozen=True, slots=True)
+class VecConstIR:
+    """Frozen logic-vector constant definition (locally defined)."""
+
+    name: str
+    source: SourceSpanIR
+    width: int
+    value: int
+    base: str
+
+
+@dataclass(frozen=True, slots=True)
+class VecConstImportIR:
+    """Cross-module VecConst sighting (this module imports it from another)."""
+
+    target_module_ref: ModuleRefIR
+    symbol_name: str
+
+
+@dataclass(frozen=True, slots=True)
 class ModuleDependencyIR:
     """Module dependency entry."""
 
@@ -200,6 +219,8 @@ class ModuleIR:
     constants: tuple[ConstIR, ...]
     types: tuple[TypeDefIR, ...]
     dependencies: tuple[ModuleDependencyIR, ...]
+    vec_constants: tuple[VecConstIR, ...] = ()
+    vec_const_imports: tuple[VecConstImportIR, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
