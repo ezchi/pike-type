@@ -3,7 +3,7 @@
   "specId": "016-vec-const-dsl-primitive",
   "branch": "feature/016-vec-const-dsl-primitive",
   "description": "Add a new DSL primitive `VecConst(width=N, value=V, base=\"hex\"|\"dec\"|\"bin\")` that emits `localparam logic [N-1:0] <NAME> = N'<base-letter><value>;` in SystemVerilog. Distinct from existing `Const()` (which is a 32/64-bit int parameter). Validates that value fits in width bits. Accepts ConstExpr / Const operands and evaluates them at gen time, emitting the resolved literal value (not the symbolic expression). Constitution Constraint 5 will be amended to scope the 32/64-bit restriction to `Const()` only; `VecConst` admits arbitrary positive widths.",
-  "iteration": 3,
+  "iteration": 1,
   "stages": {
     "specification": {
       "status": "complete"
@@ -15,7 +15,7 @@
       "status": "complete"
     },
     "task_breakdown": {
-      "status": "ready"
+      "status": "in_progress"
     },
     "implementation": {
       "status": "pending"
