@@ -56,7 +56,7 @@ class CrossModuleTypeRefsIntegrationTest(unittest.TestCase):
             cli_file = repo_dir / "alpha" / "piketype" / "bar.py"
             result = _run_piketype(repo_dir=repo_dir, cli_arg=str(cli_file))
             self.assertEqual(result.returncode, 0, msg=result.stderr)
-            _assert_trees_equal(self, expected_root, repo_dir / "gen")
+            _assert_trees_equal(self, expected_root, repo_dir)
 
     def test_idempotent(self) -> None:
         fixture_root = FIXTURES_DIR / "cross_module_type_refs" / "project"
@@ -69,11 +69,11 @@ class CrossModuleTypeRefsIntegrationTest(unittest.TestCase):
             self.assertEqual(r1.returncode, 0, msg=r1.stderr)
             r2 = _run_piketype(repo_dir=repo_dir, cli_arg=str(cli_file))
             self.assertEqual(r2.returncode, 0, msg=r2.stderr)
-            _assert_trees_equal(self, expected_root, repo_dir / "gen")
+            _assert_trees_equal(self, expected_root, repo_dir)
 
     def test_bar_pkg_uses_cross_module_byte_t(self) -> None:
         """AC-2, AC-3: explicit per-symbol imports for cross-module type refs."""
-        bar_pkg_path = GOLDENS_DIR / "cross_module_type_refs" / "sv" / "alpha" / "piketype" / "bar_pkg.sv"
+        bar_pkg_path = GOLDENS_DIR / "cross_module_type_refs" / "alpha" / "rtl" / "bar_pkg.sv"
         text = bar_pkg_path.read_text(encoding="utf-8")
         # AC-2: explicit per-symbol imports (no wildcard) for the byte_t bundle.
         self.assertNotIn("import foo_pkg::*;", text)
@@ -104,11 +104,11 @@ class CrossModuleNamespaceIntegrationTest(unittest.TestCase):
                 extra_args=("--namespace=proj::lib",),
             )
             self.assertEqual(result.returncode, 0, msg=result.stderr)
-            _assert_trees_equal(self, expected_root, repo_dir / "gen")
+            _assert_trees_equal(self, expected_root, repo_dir)
 
     def test_bar_types_hpp_uses_qualified_byte_ct(self) -> None:
         """AC-6: with --namespace=proj::lib, cross-module field types are ::proj::lib::foo::*_ct."""
-        bar_hpp = GOLDENS_DIR / "cross_module_type_refs_namespace_proj" / "cpp" / "alpha" / "piketype" / "bar_types.hpp"
+        bar_hpp = GOLDENS_DIR / "cross_module_type_refs_namespace_proj" / "alpha" / "cpp" / "bar_types.hpp"
         text = bar_hpp.read_text(encoding="utf-8")
         self.assertIn("::proj::lib::foo::byte_ct field1", text)
         self.assertIn("::proj::lib::foo::byte_ct field2", text)
@@ -128,11 +128,11 @@ class CrossModuleStructMultipleOfIntegrationTest(unittest.TestCase):
             cli_file = repo_dir / "alpha" / "piketype" / "bar.py"
             result = _run_piketype(repo_dir=repo_dir, cli_arg=str(cli_file))
             self.assertEqual(result.returncode, 0, msg=result.stderr)
-            _assert_trees_equal(self, expected_root, repo_dir / "gen")
+            _assert_trees_equal(self, expected_root, repo_dir)
 
     def test_bar_pkg_alignment_byte_count(self) -> None:
         """Three byte_t fields = 24 data bits; multiple_of(32) → 4-byte total."""
-        bar_pkg = GOLDENS_DIR / "cross_module_struct_multiple_of" / "sv" / "alpha" / "piketype" / "bar_pkg.sv"
+        bar_pkg = GOLDENS_DIR / "cross_module_struct_multiple_of" / "alpha" / "rtl" / "bar_pkg.sv"
         text = bar_pkg.read_text(encoding="utf-8")
         self.assertIn("LP_BAR_WIDTH = 24;", text)
         self.assertIn("LP_BAR_BYTE_COUNT = 4;", text)

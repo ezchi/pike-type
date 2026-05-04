@@ -23,15 +23,23 @@ def _copy_tree(src: Path, dst: Path) -> None:
 
 
 def _assert_trees_equal(test_case: unittest.TestCase, expected: Path, actual: Path) -> None:
+    _SKIP_DIRS = {"__pycache__"}
+    _SKIP_SUFFIXES = (".pyc",)
     comparison = filecmp.dircmp(expected, actual)
-    test_case.assertFalse(comparison.left_only, f"missing generated files: {comparison.left_only}")
-    test_case.assertFalse(comparison.right_only, f"unexpected generated files: {comparison.right_only}")
+    left_only = [n for n in comparison.left_only if n not in _SKIP_DIRS and not n.endswith(_SKIP_SUFFIXES)]
+    right_only = [n for n in comparison.right_only if n not in _SKIP_DIRS and not n.endswith(_SKIP_SUFFIXES)]
+    test_case.assertFalse(left_only, f"missing generated files: {left_only}")
+    test_case.assertFalse(right_only, f"unexpected generated files: {right_only}")
     test_case.assertFalse(comparison.funny_files, f"uncomparable files: {comparison.funny_files}")
     for filename in comparison.common_files:
+        if filename.endswith(_SKIP_SUFFIXES):
+            continue
         expected_text = (expected / filename).read_text(encoding="utf-8")
         actual_text = (actual / filename).read_text(encoding="utf-8")
         test_case.assertEqual(expected_text, actual_text, f"content mismatch for {filename}")
     for subdir in comparison.common_dirs:
+        if subdir in _SKIP_DIRS:
+            continue
         _assert_trees_equal(test_case, expected / subdir, actual / subdir)
 
 
@@ -59,7 +67,7 @@ class GenVecConstIntegrationTest(unittest.TestCase):
             _copy_tree(fixture_root, repo_dir)
             result = self._run_piketype_gen(repo_dir, "alpha/piketype/vecs.py")
             self.assertEqual(result.returncode, 0, f"piketype gen failed: {result.stderr}")
-            _assert_trees_equal(self, expected_root, repo_dir / "gen")
+            _assert_trees_equal(self, expected_root, repo_dir)
 
     def test_vec_const_cross_module_emits_per_symbol_import(self) -> None:
         """AC-11 — module b's synth pkg contains `import a_pkg::LP_X;`."""
@@ -70,8 +78,8 @@ class GenVecConstIntegrationTest(unittest.TestCase):
             _copy_tree(fixture_root, repo_dir)
             result = self._run_piketype_gen(repo_dir, "alpha/piketype/a.py")
             self.assertEqual(result.returncode, 0, f"piketype gen failed: {result.stderr}")
-            _assert_trees_equal(self, expected_root, repo_dir / "gen")
-            b_pkg_text = (repo_dir / "gen" / "sv" / "alpha" / "piketype" / "b_pkg.sv").read_text()
+            _assert_trees_equal(self, expected_root, repo_dir)
+            b_pkg_text = (repo_dir / "alpha" / "rtl" / "b_pkg.sv").read_text()
             self.assertIn("import a_pkg::LP_X;", b_pkg_text)
 
 

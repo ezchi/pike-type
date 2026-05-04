@@ -20,7 +20,8 @@ class FindPiketypeModulesTests(unittest.TestCase):
     def test_excludes_venv_duplicate(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            real = root / "src" / "piketype" / "example" / "foo.py"
+            # Strict layout: DSL must be exactly <prefix>/piketype/<name>.py.
+            real = root / "src" / "piketype" / "foo.py"
             venv_dup = (
                 root
                 / ".venv"
@@ -28,7 +29,6 @@ class FindPiketypeModulesTests(unittest.TestCase):
                 / "python3.13"
                 / "site-packages"
                 / "piketype"
-                / "example"
                 / "foo.py"
             )
             _touch(real)

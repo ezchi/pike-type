@@ -5,10 +5,10 @@
       "constants": [],
       "dependencies": [],
       "generated_outputs": {
-        "cpp": "gen/cpp/foo/piketype/defs_types.hpp",
-        "py": "gen/py/foo/piketype/defs_types.py",
-        "sv": "gen/sv/foo/piketype/defs_pkg.sv",
-        "sv_test": "gen/sv/foo/piketype/defs_test_pkg.sv"
+        "cpp": "foo/cpp/defs_types.hpp",
+        "py": "foo/py/defs_types.py",
+        "sv": "foo/rtl/defs_pkg.sv",
+        "sv_test": "foo/sim/defs_test_pkg.sv"
       },
       "namespace_parts": [
         "foo",
@@ -120,11 +120,5 @@
     }
   ],
   "repo_root": ".",
-  "runtime_outputs": {
-    "cpp_header": "gen/cpp/runtime/piketype_runtime.hpp",
-    "cpp_source": "gen/cpp/runtime/piketype_runtime.cpp",
-    "py": "gen/py/runtime/piketype_runtime.py",
-    "sv": "gen/sv/runtime/piketype_runtime_pkg.sv"
-  },
   "tool_version": "0.1.0"
 }

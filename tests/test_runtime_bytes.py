@@ -32,7 +32,7 @@ def gen_fixture(fixture_name: str, tmp_dir: Path) -> Path:
         capture_output=True,
         check=True,
     )
-    return repo_dir / "gen" / "py"
+    return repo_dir
 
 
 class RuntimeBytesTest(unittest.TestCase):
@@ -63,9 +63,9 @@ class RuntimeBytesTest(unittest.TestCase):
             if key == "alpha" or key.startswith("alpha."):
                 del sys.modules[key]
         # Remove old gen/py paths from sys.path
-        sys.path[:] = [p for p in sys.path if "gen/py" not in str(p)]
+        sys.path[:] = [p for p in sys.path if "/py" not in str(p)]
         sys.path.insert(0, str(gen_py))
-        return importlib.import_module("alpha.piketype.types_types")
+        return importlib.import_module("alpha.py.types_types")
 
     # -- AC-6: bar_t to_bytes produces {0x01, 0x1F, 0xFF, 0x0A, 0x00} --
 

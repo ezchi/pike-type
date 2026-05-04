@@ -58,7 +58,7 @@ class KeywordValidationTest(unittest.TestCase):
             cli_file = repo_dir / "alpha" / "piketype" / "types.py"
             result = self.run_piketype(repo_dir, str(cli_file))
             self.assertEqual(result.returncode, 0, msg=result.stderr)
-            assert_trees_equal(self, expected_root, repo_dir / "gen")
+            assert_trees_equal(self, expected_root, repo_dir)
 
     def test_module_name_logic_is_accepted(self) -> None:
         """AC-4b: module file ``logic.py`` produces SV ``logic_pkg`` (not a
@@ -72,7 +72,7 @@ class KeywordValidationTest(unittest.TestCase):
             cli_file = repo_dir / "alpha" / "piketype" / "logic.py"
             result = self.run_piketype(repo_dir, str(cli_file))
             self.assertEqual(result.returncode, 0, msg=result.stderr)
-            assert_trees_equal(self, expected_root, repo_dir / "gen")
+            assert_trees_equal(self, expected_root, repo_dir)
 
     def test_type_name_class_t_is_accepted(self) -> None:
         """AC-2: ``class_t`` (full type name) is not a keyword; the base form
@@ -86,7 +86,7 @@ class KeywordValidationTest(unittest.TestCase):
             cli_file = repo_dir / "alpha" / "piketype" / "types.py"
             result = self.run_piketype(repo_dir, str(cli_file))
             self.assertEqual(result.returncode, 0, msg=result.stderr)
-            assert_trees_equal(self, expected_root, repo_dir / "gen")
+            assert_trees_equal(self, expected_root, repo_dir)
 
     def test_enum_value_while_is_accepted(self) -> None:
         """AC-3: exact-case keyword matching — ``WHILE`` (uppercase) is not the
@@ -99,7 +99,7 @@ class KeywordValidationTest(unittest.TestCase):
             cli_file = repo_dir / "alpha" / "piketype" / "types.py"
             result = self.run_piketype(repo_dir, str(cli_file))
             self.assertEqual(result.returncode, 0, msg=result.stderr)
-            assert_trees_equal(self, expected_root, repo_dir / "gen")
+            assert_trees_equal(self, expected_root, repo_dir)
 
     # -- Negative tests -----------------------------------------------------
 

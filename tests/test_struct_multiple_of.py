@@ -74,7 +74,7 @@ def gen_fixture(fixture_name: str, tmp_dir: Path) -> Path:
         capture_output=True,
         check=True,
     )
-    return repo_dir / "gen" / "py"
+    return repo_dir
 
 
 class MultipleOfRuntimeTest(unittest.TestCase):
@@ -99,9 +99,9 @@ class MultipleOfRuntimeTest(unittest.TestCase):
         for key in list(sys.modules.keys()):
             if key == "alpha" or key.startswith("alpha."):
                 del sys.modules[key]
-        sys.path[:] = [p for p in sys.path if "gen/py" not in str(p)]
+        sys.path[:] = [p for p in sys.path if "/py" not in str(p)]
         sys.path.insert(0, str(gen_py))
-        return importlib.import_module("alpha.piketype.types_types")
+        return importlib.import_module("alpha.py.types_types")
 
     def test_aligned_struct_byte_count(self) -> None:
         mod = self._import_module()

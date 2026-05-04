@@ -209,10 +209,12 @@ class StructEnumMemberGoldenTest(unittest.TestCase):
     def test_golden_match(self) -> None:
         """AC-6–9, AC-10, AC-14, AC-15, AC-19: Golden file integration tests pass."""
         repo_dir = gen_fixture("struct_enum_member", Path(self.tmp))
-        gen_root = repo_dir / "gen"
+        gen_root = repo_dir
         golden_root = TESTS_DIR / "goldens" / "gen" / "struct_enum_member"
         for golden_file in golden_root.rglob("*"):
             if golden_file.is_dir():
+                continue
+            if "__pycache__" in golden_file.parts or golden_file.suffix == ".pyc":
                 continue
             relative = golden_file.relative_to(golden_root)
             generated = gen_root / relative
@@ -224,10 +226,12 @@ class StructEnumMemberGoldenTest(unittest.TestCase):
     def test_idempotent(self) -> None:
         """AC-20: piketype gen is idempotent."""
         repo_dir = gen_fixture("struct_enum_member", Path(self.tmp))
-        gen_root = repo_dir / "gen"
+        gen_root = repo_dir
         first_run: dict[str, str] = {}
         for f in gen_root.rglob("*"):
             if f.is_dir():
+                continue
+            if "__pycache__" in f.parts or f.suffix == ".pyc":
                 continue
             first_run[str(f.relative_to(gen_root))] = f.read_text(encoding="utf-8")
         cli_file = repo_dir / "alpha" / "piketype" / "types.py"
@@ -261,7 +265,7 @@ class StructEnumMemberRuntimeTest(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls._tmp_dir = tempfile.TemporaryDirectory()
         tmp = Path(cls._tmp_dir.name)
-        cls._gen_py = gen_fixture("struct_enum_member", tmp) / "gen" / "py"
+        cls._gen_py = gen_fixture("struct_enum_member", tmp)
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -271,9 +275,9 @@ class StructEnumMemberRuntimeTest(unittest.TestCase):
         for key in list(sys.modules.keys()):
             if key == "alpha" or key.startswith("alpha."):
                 del sys.modules[key]
-        sys.path[:] = [p for p in sys.path if "gen/py" not in str(p)]
+        sys.path[:] = [p for p in sys.path if "/py" not in str(p)]
         sys.path.insert(0, str(self._gen_py))
-        return importlib.import_module("alpha.piketype.types_types")
+        return importlib.import_module("alpha.py.types_types")
 
     def test_round_trip(self) -> None:
         """AC-12, AC-13: to_bytes -> from_bytes round-trip for pkt_t."""
