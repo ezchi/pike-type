@@ -28,6 +28,7 @@ from piketype.ir.nodes import (
     FlagsIR,
     IntLiteralExprIR,
     ModuleIR,
+    ModuleRefIR,
     ScalarAliasIR,
     ScalarTypeSpecIR,
     StructFieldIR,
@@ -180,6 +181,21 @@ def _type_class_name(type_name: str) -> str:
     if type_name.endswith("_t"):
         return f"{type_name[:-2]}_ct"
     return f"{type_name}_ct"
+
+
+def _py_types_module_path(module_ref: ModuleRefIR) -> str:
+    """Return the Python import path for a module's generated _types.py.
+
+    For DSL at ``<prefix>/piketype/<name>.py`` the generated file is at
+    ``<prefix>/py/<name>_types.py``; the Python import path is
+    ``<prefix>.py.<name>_types``.
+    """
+    parts = module_ref.namespace_parts
+    if len(parts) < 2 or parts[-2] != "piketype":
+        # Should be unreachable post-validation, but keep a defensive fallback.
+        return ".".join(parts) + "_types"
+    new_parts = parts[:-2] + ("py", f"{parts[-1]}_types")
+    return ".".join(new_parts)
 
 
 def _render_py_expr(expr: ExprIR) -> str:
@@ -546,7 +562,7 @@ def _collect_py_cross_module_imports(
                     if target_module.python_module_name == module.ref.python_module_name:
                         continue
                     target = repo_type_index[(target_module.python_module_name, field.type_ir.name)]
-                    target_types_module = f"{target_module.python_module_name}_types"
+                    target_types_module = _py_types_module_path(target_module)
                     wrapper = _type_class_name(target.name)
                     key = (target_types_module, wrapper)
                     if key in seen:

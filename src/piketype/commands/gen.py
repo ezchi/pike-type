@@ -7,7 +7,6 @@ from pathlib import Path
 from piketype import __version__
 from piketype.backends.cpp.emitter import emit_cpp
 from piketype.backends.py.emitter import emit_py
-from piketype.backends.runtime.emitter import emit_runtime
 from piketype.backends.sv.emitter import emit_sv
 from piketype.discovery.scanner import ensure_cli_path_is_valid, find_piketype_modules
 from piketype.dsl.freeze import (
@@ -76,5 +75,4 @@ def run_gen(path: str, *, namespace: str | None = None) -> None:
         emit_sv(repo)
         emit_py(repo)
         emit_cpp(repo, namespace=namespace)
-        emit_runtime(repo)
         write_manifest(repo)

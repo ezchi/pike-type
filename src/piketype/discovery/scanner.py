@@ -5,7 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 
 from piketype.errors import PikeTypeError
-from piketype.paths import GEN_DIRNAME
 
 
 EXCLUDED_DIRS: frozenset[str] = frozenset(
@@ -14,8 +13,13 @@ EXCLUDED_DIRS: frozenset[str] = frozenset(
 
 
 def is_under_piketype_dir(path: Path) -> bool:
-    """Return whether the path lives under a directory named ``piketype``."""
-    return "piketype" in path.parts
+    """Return whether the path's PARENT directory is exactly ``piketype``.
+
+    Strict layout: DSL files must be at ``<prefix>/piketype/<name>.py`` —
+    no nesting under ``piketype/``.
+    """
+    parts = path.parts
+    return len(parts) >= 2 and parts[-2] == "piketype"
 
 
 def ensure_cli_path_is_valid(path: Path) -> None:
@@ -25,19 +29,20 @@ def ensure_cli_path_is_valid(path: Path) -> None:
     if path.name == "__init__.py":
         raise PikeTypeError(f"{path} is not a valid piketype module")
     if not is_under_piketype_dir(path):
-        raise PikeTypeError(f"{path} is not under a piketype/ directory")
+        raise PikeTypeError(
+            f"{path} must be at <prefix>/piketype/<name>.py "
+            f"(parent directory must be exactly 'piketype/')"
+        )
 
 
 def find_piketype_modules(repo_root: Path) -> list[Path]:
-    """Return all DSL module files under piketype/ directories."""
+    """Return all DSL module files at ``<prefix>/piketype/<name>.py``."""
     def _included(path: Path) -> bool:
         if path.name == "__init__.py":
             return False
         rel = path.relative_to(repo_root)
         rel_parts = set(rel.parts)
         if rel_parts & EXCLUDED_DIRS:
-            return False
-        if GEN_DIRNAME in rel_parts:
             return False
         return is_under_piketype_dir(rel)
 
