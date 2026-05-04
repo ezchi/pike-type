@@ -19,6 +19,8 @@ def _coerce_operand(value: ConstOperand, *, source: SourceInfo) -> ConstExpr:
     """Convert a supported operand to an expression node."""
     if isinstance(value, Const):
         return ConstExpr(kind="const_ref", source=source, target=value)
+    if isinstance(value, VecConst):
+        return ConstExpr(kind="const_ref", source=source, target=value)
     if isinstance(value, ConstExpr):
         return value
     if isinstance(value, int):
@@ -217,25 +219,33 @@ class Const(DslNode):
         return _unary_expr("~", self)
 
 
-type ConstOperand = Const | ConstExpr | int
+type ConstOperand = Const | VecConst | ConstExpr | int
 
 
 @dataclass(slots=True)
 class VecConst(DslNode):
-    """Fixed-width logic vector constant with explicit base."""
+    """Fixed-width logic vector constant.
+
+    Eagerly resolves `width` and `value` at construction time (mirroring
+    `Const`), validates against width range (1..64) and overflow
+    (0 <= value <= 2**width - 1), and exposes `.value` so the instance
+    can serve as a `ConstOperand` in other constant expressions.
+    """
 
     SUPPORTED_BASES: ClassVar[set[str]] = {"hex", "dec", "bin"}
 
+    width: int        # resolved eagerly
+    value: int        # resolved eagerly (overflow-checked)
+    base: str
     width_expr: ConstExpr
     value_expr: ConstExpr
-    base: str
 
     def __init__(
         self,
-        width: int | Const | ConstExpr,
-        value: int | Const | ConstExpr,
+        width: ConstOperand,
+        value: ConstOperand,
         *,
-        base: str,
+        base: str = "dec",
     ) -> None:
         if base not in VecConst.SUPPORTED_BASES:
             raise ValidationError(
@@ -243,9 +253,98 @@ class VecConst(DslNode):
             )
         source = capture_source_info()
         DslNode.__init__(self, source=source)
-        self.width_expr = _coerce_operand(width, source=source)
-        self.value_expr = _coerce_operand(value, source=source)
+        width_expr = _coerce_operand(width, source=source)
+        value_expr = _coerce_operand(value, source=source)
+        resolved_width = _eval_expr(width_expr)
+        resolved_value = _eval_expr(value_expr)
+        if resolved_width < 1 or resolved_width > 64:
+            raise ValidationError(
+                f"VecConst() width {resolved_width} out of supported range 1..64"
+            )
+        if resolved_value < 0:
+            raise ValidationError(
+                f"VecConst(width={resolved_width}, value={resolved_value}) negative value rejected; "
+                f"value must satisfy 0 <= value <= 2**{resolved_width} - 1 (= {2**resolved_width - 1})"
+            )
+        if resolved_value > 2**resolved_width - 1:
+            raise ValidationError(
+                f"VecConst(width={resolved_width}, value={resolved_value}) overflows; "
+                f"value must satisfy 0 <= value <= 2**{resolved_width} - 1 (= {2**resolved_width - 1})"
+            )
+        self.width = resolved_width
+        self.value = resolved_value
         self.base = base
+        self.width_expr = width_expr
+        self.value_expr = value_expr
+
+    def __add__(self, other: ConstOperand) -> ConstExpr:
+        return _binary_expr("+", self, other)
+
+    def __radd__(self, other: ConstOperand) -> ConstExpr:
+        return _binary_expr("+", other, self)
+
+    def __sub__(self, other: ConstOperand) -> ConstExpr:
+        return _binary_expr("-", self, other)
+
+    def __rsub__(self, other: ConstOperand) -> ConstExpr:
+        return _binary_expr("-", other, self)
+
+    def __mul__(self, other: ConstOperand) -> ConstExpr:
+        return _binary_expr("*", self, other)
+
+    def __rmul__(self, other: ConstOperand) -> ConstExpr:
+        return _binary_expr("*", other, self)
+
+    def __floordiv__(self, other: ConstOperand) -> ConstExpr:
+        return _binary_expr("//", self, other)
+
+    def __rfloordiv__(self, other: ConstOperand) -> ConstExpr:
+        return _binary_expr("//", other, self)
+
+    def __mod__(self, other: ConstOperand) -> ConstExpr:
+        return _binary_expr("%", self, other)
+
+    def __rmod__(self, other: ConstOperand) -> ConstExpr:
+        return _binary_expr("%", other, self)
+
+    def __and__(self, other: ConstOperand) -> ConstExpr:
+        return _binary_expr("&", self, other)
+
+    def __rand__(self, other: ConstOperand) -> ConstExpr:
+        return _binary_expr("&", other, self)
+
+    def __or__(self, other: ConstOperand) -> ConstExpr:
+        return _binary_expr("|", self, other)
+
+    def __ror__(self, other: ConstOperand) -> ConstExpr:
+        return _binary_expr("|", other, self)
+
+    def __xor__(self, other: ConstOperand) -> ConstExpr:
+        return _binary_expr("^", self, other)
+
+    def __rxor__(self, other: ConstOperand) -> ConstExpr:
+        return _binary_expr("^", other, self)
+
+    def __lshift__(self, other: ConstOperand) -> ConstExpr:
+        return _binary_expr("<<", self, other)
+
+    def __rlshift__(self, other: ConstOperand) -> ConstExpr:
+        return _binary_expr("<<", other, self)
+
+    def __rshift__(self, other: ConstOperand) -> ConstExpr:
+        return _binary_expr(">>", self, other)
+
+    def __rrshift__(self, other: ConstOperand) -> ConstExpr:
+        return _binary_expr(">>", other, self)
+
+    def __neg__(self) -> ConstExpr:
+        return _unary_expr("-", self)
+
+    def __pos__(self) -> ConstExpr:
+        return _unary_expr("+", self)
+
+    def __invert__(self) -> ConstExpr:
+        return _unary_expr("~", self)
 
 
 def _binary_expr(op: str, lhs: ConstOperand, rhs: ConstOperand) -> ConstExpr:

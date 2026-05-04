@@ -9,3 +9,7 @@ LP_NIBBLE_F = VecConst(width=4, value=0xF, base="hex")
 LP_PADDED_HEX = VecConst(width=8, value=0x0F, base="hex")
 LP_PADDED_BIN = VecConst(width=8, value=0xF, base="bin")
 LP_AB16 = VecConst(width=16, value=0xAB, base="hex")
+
+# Post-016 follow-up: default base="dec"; VecConst is a ConstOperand.
+F = VecConst(5, 3)
+G = VecConst(5, F * 4)

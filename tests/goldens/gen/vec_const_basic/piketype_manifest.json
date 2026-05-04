@@ -122,6 +122,28 @@
           },
           "value": 171,
           "width": 16
+        },
+        {
+          "base": "dec",
+          "name": "F",
+          "source": {
+            "column": null,
+            "line": 14,
+            "path": "alpha/piketype/vecs.py"
+          },
+          "value": 3,
+          "width": 5
+        },
+        {
+          "base": "dec",
+          "name": "G",
+          "source": {
+            "column": null,
+            "line": 15,
+            "path": "alpha/piketype/vecs.py"
+          },
+          "value": 12,
+          "width": 5
         }
       ]
     }

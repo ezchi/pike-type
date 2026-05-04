@@ -13,4 +13,6 @@ package vecs_pkg;
   localparam logic [7:0] LP_PADDED_HEX = 8'h0F;
   localparam logic [7:0] LP_PADDED_BIN = 8'b00001111;
   localparam logic [15:0] LP_AB16 = 16'h00AB;
+  localparam logic [4:0] F = 5'd3;
+  localparam logic [4:0] G = 5'd12;
 endpackage

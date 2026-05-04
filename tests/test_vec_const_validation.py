@@ -4,8 +4,7 @@ from __future__ import annotations
 
 import unittest
 
-from piketype.dsl import VecConst
-from piketype.dsl.freeze import _freeze_vec_const_storage  # pyright: ignore[reportPrivateUsage]
+from piketype.dsl import Const, VecConst
 from piketype.errors import ValidationError
 from piketype.ir.nodes import (
     ConstIR,
@@ -23,14 +22,13 @@ _DUMMY_SOURCE = SourceSpanIR(path="<test>", line=1, column=None)
 
 
 class VecConstValidationTests(unittest.TestCase):
-    """Cover the storage-level validation rules for VecConst."""
+    """Cover the eager-resolution validation rules for VecConst (post-016 follow-up
+    moved validation from freeze-time to __init__-time)."""
 
     def test_overflow_8bit_300(self) -> None:
         """AC-4: value 300 in width 8 raises with FR-7 three-substring contract."""
         with self.assertRaises(ValidationError) as ctx:
-            _freeze_vec_const_storage(
-                width=8, value=300, base="dec", source=_DUMMY_SOURCE, name="X"
-            )
+            VecConst(8, 300, base="dec")
         message = str(ctx.exception)
         self.assertIn("300", message)
         self.assertIn("8", message)
@@ -39,9 +37,7 @@ class VecConstValidationTests(unittest.TestCase):
     def test_negative_value_rejected(self) -> None:
         """AC-5: negative resolved value raises ValidationError."""
         with self.assertRaises(ValidationError) as ctx:
-            _freeze_vec_const_storage(
-                width=8, value=-1, base="dec", source=_DUMMY_SOURCE, name="X"
-            )
+            VecConst(8, -1, base="dec")
         message = str(ctx.exception)
         self.assertIn("-1", message)
         self.assertIn("negative", message.lower())
@@ -51,16 +47,30 @@ class VecConstValidationTests(unittest.TestCase):
         for bad_width in (0, -1, -64):
             with self.subTest(width=bad_width):
                 with self.assertRaises(ValidationError):
-                    _freeze_vec_const_storage(
-                        width=bad_width, value=0, base="dec", source=_DUMMY_SOURCE, name="X"
-                    )
+                    VecConst(bad_width, 0, base="dec")
 
     def test_width_above_64_rejected(self) -> None:
         """AC-7: width=65 (above the 64-bit cap) raises ValidationError."""
         with self.assertRaises(ValidationError):
-            _freeze_vec_const_storage(
-                width=65, value=0, base="hex", source=_DUMMY_SOURCE, name="X"
-            )
+            VecConst(65, 0, base="hex")
+
+    def test_default_base_is_dec(self) -> None:
+        """Post-016 follow-up: omitting `base` defaults to 'dec'."""
+        v = VecConst(5, 3)
+        self.assertEqual(v.base, "dec")
+        self.assertEqual(v.value, 3)
+        self.assertEqual(v.width, 5)
+
+    def test_vec_const_as_const_operand(self) -> None:
+        """Post-016 follow-up: VecConst is a ConstOperand; arithmetic resolves eagerly."""
+        F = VecConst(5, 3)
+        G = VecConst(5, F * 4)
+        self.assertEqual(G.value, 12)
+        self.assertEqual(G.width, 5)
+
+        # Const accepts VecConst too.
+        K = Const(F * 5)
+        self.assertEqual(K.value, 15)
 
     def test_unsupported_base_rejected(self) -> None:
         """AC-8: base='oct' raises at VecConst construction time."""

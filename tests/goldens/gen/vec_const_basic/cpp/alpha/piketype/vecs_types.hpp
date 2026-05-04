@@ -18,6 +18,8 @@ constexpr std::uint8_t LP_NIBBLE_F = 0xF;
 constexpr std::uint8_t LP_PADDED_HEX = 0x0F;
 constexpr std::uint8_t LP_PADDED_BIN = 0b00001111;
 constexpr std::uint16_t LP_AB16 = 0x00AB;
+constexpr std::uint8_t F = 3;
+constexpr std::uint8_t G = 12;
 
 }  // namespace alpha::vecs
 

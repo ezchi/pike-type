@@ -608,24 +608,21 @@ def _freeze_vec_const(
 ) -> VecConstIR:
     """Freeze a `VecConst` DSL object into a `VecConstIR`.
 
-    Resolves `width_expr` and `value_expr` to ints using the const-expression
-    evaluator (with the cross-module map so a VecConst whose value references
-    a `Const` in another module resolves correctly), then validates width
-    range (1..64) and overflow (0 <= value <= 2**width - 1).
+    `VecConst.__init__` already resolves and validates `width` and `value`
+    eagerly, so this is a thin IR-construction helper.
     """
-    width = _eval_expr_int(expr=vec_const.width_expr, definition_map=const_definition_map)
-    value = _eval_expr_int(expr=vec_const.value_expr, definition_map=const_definition_map)
+    del const_definition_map  # unused; eager resolution happens at VecConst.__init__
     source = SourceSpanIR(
         path=vec_const.source.path,
         line=vec_const.source.line,
         column=vec_const.source.column,
     )
-    return _freeze_vec_const_storage(
-        width=width,
-        value=value,
-        base=vec_const.base,
-        source=source,
+    return VecConstIR(
         name=name,
+        source=source,
+        width=vec_const.width,
+        value=vec_const.value,
+        base=vec_const.base,
     )
 
 

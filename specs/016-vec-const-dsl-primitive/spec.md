@@ -29,7 +29,7 @@ The Project Constitution §Constraints item 5 must be amended to scope its 32/64
 ### Surface
 
 - **FR-1.** A new public DSL constructor MUST be exported as `VecConst` from the same import path users currently use for `Const` (i.e., `from piketype.dsl import VecConst`, alongside `Const`).
-- **FR-2.** The signature MUST be exactly `VecConst(width: int | Const | ConstExpr, value: int | Const | ConstExpr, *, base: str)`. (i.e., `width` and `value` accept the same operand types `Const()` already accepts; `base` is keyword-only.)
+- **FR-2.** The signature MUST be `VecConst(width: ConstOperand, value: ConstOperand, *, base: str = "dec")`. `width` and `value` accept any `ConstOperand` (int, Const, ConstExpr, OR another VecConst — see post-016 follow-up below). `base` is keyword-only and defaults to `"dec"`.
 - **FR-3.** `base` MUST accept exactly the three string values `"hex"`, `"dec"`, `"bin"`. Any other value MUST raise `ValidationError` at construction time with a clear message naming the offending value.
 - **FR-4.** `width` MUST resolve (after evaluating any expression) to a positive int. Width = 0 or negative MUST raise `ValidationError`.
 - **FR-5.** `width` upper bound MUST be 64 — matching the existing 64-bit ceiling on signed scalar widths and the natural SV typed-literal range.
@@ -110,6 +110,7 @@ The Project Constitution §Constraints item 5 must be amended to scope its 32/64
 ## Out of Scope
 
 - **OOS-1.** Signed `VecConst`. The user did not request a `signed=` flag and the request showed only positive values. Two's-complement representation of negative values is OUT for v1; raise `ValidationError` on negative resolved values.
+- **~~OOS-3.~~** ~~VecConst is NOT a ConstOperand.~~ **Lifted post-016**: VecConst IS a ConstOperand and supports the full arithmetic surface (`+`, `-`, `*`, `//`, `%`, `&`, `|`, `^`, `<<`, `>>`, unary `+`/`-`/`~`). Eager resolution at `__init__` makes `VecConst.value` available to `_eval_expr`.
 - **OOS-2.** Width >64. Both `Const` and existing scalar widths cap at 64 for signed; we mirror this. Wider vector constants are rare in practice and not requested.
 - **OOS-3.** Bases other than `hex`/`dec`/`bin`. SV also has `'o` (octal) but it is rare; not requested.
 - **OOS-4.** Don't-care or X/Z digits in the literal (e.g., `8'h?F`, `8'b1x_x_`). Out for v1.
@@ -144,3 +145,4 @@ The Project Constitution §Constraints item 5 must be amended to scope its 32/64
 - [Clarification iter1] FR-5, FR-8, FR-12, FR-18, OOS-1, OOS-2: removed parenthetical Q-references (Q-1, Q-2, Q-3, Q-4 all resolved this round). FR-18 reinforced: legacy `constants` array stays byte-identical (no `kind` discriminator added). No FR/NFR/AC semantics changed.
 - [Clarification iter1] Open Questions section emptied. All four user answers (reject signed / verbatim naming / Option A separate `vec_constants` array / keep width at 64) confirmed existing FR defaults.
 - [Post-016 follow-up] FR-16, FR-17, OOS-9: rewritten/updated. C++ and Python backends now emit `constexpr std::uintN_t LP_X = <literal>;` and `LP_X = <literal>` respectively, honoring the user's `base` choice. Original v1 no-op behavior was lifted at user's direct request after spec 016 retrospect-complete.
+- [Post-016 follow-up #2] FR-2 / OOS-3: signature gains default `base="dec"` (so `VecConst(5, 3)` is valid); OOS-3 lifted — VecConst is a ConstOperand. Width and value resolve eagerly at `__init__` (mirroring `Const`); validation moved from freeze-time to construction-time. Arithmetic operators added. Memory `project_vec_const_value_expr_dep_gap.md` becomes partially obsolete (eager resolution still produces literal output, so the dep-edge gap is now structural rather than a workflow risk).
