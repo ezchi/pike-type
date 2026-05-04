@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import unittest
 
 from piketype.ir.nodes import (
     EnumIR,
@@ -46,10 +45,10 @@ def _ref(*, repo_relative: str, python_module: str, basename: str) -> ModuleRefI
     )
 
 
-class BuildRepoTypeIndexTests(unittest.TestCase):
+class BuildRepoTypeIndexTests:
     def test_empty_repo_returns_empty_index(self) -> None:
         repo = RepoIR(repo_root=".", modules=(), tool_version=None)
-        self.assertEqual(build_repo_type_index(repo), {})
+        assert build_repo_type_index(repo) == {}
 
     def test_single_module_with_one_type(self) -> None:
         ref = _ref(repo_relative="alpha/piketype/foo.py", python_module="alpha.piketype.foo", basename="foo")
@@ -62,8 +61,8 @@ class BuildRepoTypeIndexTests(unittest.TestCase):
         )
         repo = RepoIR(repo_root=".", modules=(module,), tool_version=None)
         index = build_repo_type_index(repo)
-        self.assertEqual(set(index.keys()), {("alpha.piketype.foo", "byte_t")})
-        self.assertIs(index[("alpha.piketype.foo", "byte_t")], module.types[0])
+        assert set(index.keys()) == {("alpha.piketype.foo", "byte_t")}
+        assert index[("alpha.piketype.foo", "byte_t")] is module.types[0]
 
     def test_multi_module_same_type_name_distinct_keys(self) -> None:
         ref_a = _ref(repo_relative="a/piketype/foo.py", python_module="a.piketype.foo", basename="foo")
@@ -72,10 +71,10 @@ class BuildRepoTypeIndexTests(unittest.TestCase):
         mod_b = ModuleIR(ref=ref_b, source=_src(), constants=(), types=(_scalar("shared_t"),), dependencies=())
         repo = RepoIR(repo_root=".", modules=(mod_a, mod_b), tool_version=None)
         index = build_repo_type_index(repo)
-        self.assertEqual(len(index), 2)
-        self.assertIs(index[("a.piketype.foo", "shared_t")], mod_a.types[0])
-        self.assertIs(index[("b.piketype.bar", "shared_t")], mod_b.types[0])
-        self.assertIsNot(index[("a.piketype.foo", "shared_t")], index[("b.piketype.bar", "shared_t")])
+        assert len(index) == 2
+        assert index[("a.piketype.foo", "shared_t")] is mod_a.types[0]
+        assert index[("b.piketype.bar", "shared_t")] is mod_b.types[0]
+        assert index[("a.piketype.foo", "shared_t")] is not index[("b.piketype.bar", "shared_t")]
 
     def test_multiple_type_kinds_indexed(self) -> None:
         ref = _ref(repo_relative="alpha/piketype/foo.py", python_module="alpha.piketype.foo", basename="foo")
@@ -110,10 +109,6 @@ class BuildRepoTypeIndexTests(unittest.TestCase):
         )
         repo = RepoIR(repo_root=".", modules=(module,), tool_version=None)
         index = build_repo_type_index(repo)
-        self.assertEqual(len(index), 4)
+        assert len(index) == 4
         for type_name in ("byte_t", "hdr_t", "perms_t", "cmd_t"):
-            self.assertIn(("alpha.piketype.foo", type_name), index)
-
-
-if __name__ == "__main__":
-    unittest.main()
+            assert ("alpha.piketype.foo", type_name) in index

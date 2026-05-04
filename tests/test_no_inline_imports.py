@@ -20,8 +20,8 @@ After Commit D's template-first refactor, the allowlist is empty.
 from __future__ import annotations
 
 import ast
+import pytest
 import re
-import unittest
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -168,26 +168,26 @@ def _scan(file_path: Path) -> list[tuple[Path, int, str, str]]:
     return visitor.violations
 
 
-class NoInlineImportsTests(unittest.TestCase):
+class NoInlineImportsTests:
     """AC-23 enforcement: backend Python must not construct generated import lines."""
 
     def test_backend_files_have_no_inline_import_construction(self) -> None:
         all_violations: list[tuple[Path, int, str, str]] = []
         for path in INSPECTED_FILES:
-            self.assertTrue(path.exists(), f"inspected file does not exist: {path}")
+            assert path.exists(), f"inspected file does not exist: {path}"
             all_violations.extend(_scan(path))
         if all_violations:
             lines = [
                 f"  {path.name}:{lineno} [{kind}] {snippet!r}"
                 for path, lineno, kind, snippet in all_violations
             ]
-            self.fail(
+            pytest.fail(
                 "found Python-side construction of generated import/include/from-import lines:\n"
                 + "\n".join(lines)
             )
 
 
-class StaticCheckRuleTests(unittest.TestCase):
+class StaticCheckRuleTests:
     """Unit tests for the AC-23 detection rules — both negative (must flag) and positive (must NOT flag)."""
 
     def _scan_source(self, src: str) -> list[tuple[str, str]]:
@@ -201,58 +201,54 @@ class StaticCheckRuleTests(unittest.TestCase):
 
     def test_flags_constant_import_pkg(self) -> None:
         v = self._scan_source('x = "import foo_pkg::*;"')
-        self.assertTrue(any(k == "Constant" for k, _ in v), v)
+        assert any(k == "Constant" for k, _ in v), v
 
     def test_flags_constant_include_quote(self) -> None:
         v = self._scan_source('x = \'#include "alpha/foo.hpp"\'')
-        self.assertTrue(any(k == "Constant" for k, _ in v), v)
+        assert any(k == "Constant" for k, _ in v), v
 
     def test_flags_joined_str_import_pkg(self) -> None:
         v = self._scan_source('x = f"import {target}_pkg::*;"')
-        self.assertTrue(any(k == "JoinedStr" for k, _ in v), v)
+        assert any(k == "JoinedStr" for k, _ in v), v
 
     def test_flags_joined_str_from_types(self) -> None:
         v = self._scan_source('x = f"from {m}_types import {c}"')
-        self.assertTrue(any(k == "JoinedStr" for k, _ in v), v)
+        assert any(k == "JoinedStr" for k, _ in v), v
 
     def test_flags_binop_add_concat(self) -> None:
         v = self._scan_source('x = "import " + target + "_pkg::*;"')
-        self.assertTrue(any(k == "BinOp(Add)" for k, _ in v), v)
+        assert any(k == "BinOp(Add)" for k, _ in v), v
 
     def test_flags_binop_mod_format(self) -> None:
         v = self._scan_source('x = "import %s_pkg::*;" % target')
-        self.assertTrue(any(k == "BinOp(Mod)" for k, _ in v), v)
+        assert any(k == "BinOp(Mod)" for k, _ in v), v
 
     def test_flags_format_method(self) -> None:
         v = self._scan_source('x = "import {}_pkg::*;".format(target)')
-        self.assertTrue(any(k == "Call(format)" for k, _ in v), v)
+        assert any(k == "Call(format)" for k, _ in v), v
 
     def test_flags_join_skeleton(self) -> None:
         v = self._scan_source('x = " ".join(["import", basename, "_pkg::*"])')
-        self.assertTrue(any(k == "Call(join)" for k, _ in v), v)
+        assert any(k == "Call(join)" for k, _ in v), v
 
     # ---- Positive cases (MUST NOT flag) ----
 
     def test_does_not_flag_join_underscore(self) -> None:
         v = self._scan_source('x = "_".join(parts)')
-        self.assertFalse(v, v)
+        assert not v, v
 
     def test_does_not_flag_format_define(self) -> None:
         v = self._scan_source('x = "#define {} {}".format(name, value)')
-        self.assertFalse(v, v)
+        assert not v, v
 
     def test_does_not_flag_arithmetic_mod(self) -> None:
         v = self._scan_source('x = (w + 7) % 8')
-        self.assertFalse(v, v)
+        assert not v, v
 
     def test_does_not_flag_unrelated_constants(self) -> None:
         v = self._scan_source('x = "alignment_bits"; y = "scalar_alias"')
-        self.assertFalse(v, v)
+        assert not v, v
 
     def test_does_not_flag_namespace_join(self) -> None:
         v = self._scan_source('x = "::".join(namespace_parts)')
-        self.assertFalse(v, v)
-
-
-if __name__ == "__main__":
-    unittest.main()
+        assert not v, v

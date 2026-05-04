@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import unittest
 from pathlib import Path
 
 from piketype import __version__
@@ -47,66 +46,59 @@ def _load_fixture_module(fixture_name: str) -> ModuleIR:
         return repo.modules[0]
 
 
-class GuardViewTests(unittest.TestCase):
+class GuardViewTests:
     def test_default_namespace_guard(self) -> None:
         module = _load_fixture_module("scalar_wide")
         view = build_module_view_cpp(module=module)
-        self.assertIsInstance(view.guard, CppGuardView)
-        self.assertTrue(view.guard.macro.endswith("_TYPES_HPP"))
+        assert isinstance(view.guard, CppGuardView)
+        assert view.guard.macro.endswith("_TYPES_HPP")
         # Guard is upper-snake derived from namespace parts.
-        self.assertEqual(view.guard.macro, view.guard.macro.upper())
+        assert view.guard.macro == view.guard.macro.upper()
 
     def test_namespace_override_guard(self) -> None:
         module = _load_fixture_module("scalar_wide")
         view = build_module_view_cpp(module=module, namespace="proj::lib")
-        self.assertEqual(view.guard.macro, "PROJ_LIB_TYPES_TYPES_HPP")
+        assert view.guard.macro == "PROJ_LIB_TYPES_TYPES_HPP"
 
 
-class NamespaceViewTests(unittest.TestCase):
+class NamespaceViewTests:
     def test_default_namespace_strips_piketype(self) -> None:
         module = _load_fixture_module("scalar_wide")
         view = build_module_view_cpp(module=module)
-        self.assertIsInstance(view.namespace, CppNamespaceView)
-        self.assertNotIn("piketype", view.namespace.qualified)
+        assert isinstance(view.namespace, CppNamespaceView)
+        assert "piketype" not in view.namespace.qualified
 
     def test_namespace_override_used_directly(self) -> None:
         module = _load_fixture_module("scalar_wide")
         view = build_module_view_cpp(module=module, namespace="proj::lib")
-        self.assertTrue(view.namespace.qualified.startswith("proj::lib"))
-        self.assertTrue(view.namespace.has_namespace)
-        self.assertTrue(view.namespace.open_line.startswith("namespace "))
+        assert view.namespace.qualified.startswith("proj::lib")
+        assert view.namespace.has_namespace
+        assert view.namespace.open_line.startswith("namespace ")
 
 
-class IncludesAndTypesTests(unittest.TestCase):
+class IncludesAndTypesTests:
     def test_standard_includes_with_types_in_declaration_order(self) -> None:
         module = _load_fixture_module("scalar_wide")
         view = build_module_view_cpp(module=module)
-        self.assertEqual(
-            view.standard_includes,
-            ("<cstdint>", "<cstddef>", "<stdexcept>", "<vector>"),
-        )
+        assert view.standard_includes == ("<cstdint>", "<cstddef>", "<stdexcept>", "<vector>")
 
     def test_module_view_carries_one_type_per_ir_type(self) -> None:
         module = _load_fixture_module("scalar_wide")
         view = build_module_view_cpp(module=module)
-        self.assertEqual(len(view.types), len(module.types))
+        assert len(view.types) == len(module.types)
 
     def test_type_view_kinds_are_recognized(self) -> None:
         module = _load_fixture_module("struct_padded")
         view = build_module_view_cpp(module=module)
         for t in view.types:
-            self.assertIn(t.kind, {"scalar_alias", "struct", "enum", "flags"})
+            assert t.kind in {"scalar_alias", "struct", "enum", "flags"}
 
 
-class ConstViewTests(unittest.TestCase):
+class ConstViewTests:
     def test_constants_have_pre_rendered_expression_text(self) -> None:
         module = _load_fixture_module("const_cpp_wide")
         view = build_module_view_cpp(module=module)
         for c in view.constants:
-            self.assertIsInstance(c.cpp_type, str)
-            self.assertIsInstance(c.value_expr, str)
-            self.assertGreater(len(c.value_expr), 0)
-
-
-if __name__ == "__main__":
-    unittest.main()
+            assert isinstance(c.cpp_type, str)
+            assert isinstance(c.value_expr, str)
+            assert len(c.value_expr) > 0

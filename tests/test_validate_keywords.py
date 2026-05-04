@@ -14,7 +14,6 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
-import unittest
 
 from tests.test_gen_const_sv import (
     FIXTURES_DIR,
@@ -25,7 +24,7 @@ from tests.test_gen_const_sv import (
 )
 
 
-class KeywordValidationTest(unittest.TestCase):
+class KeywordValidationTest:
     """End-to-end CLI tests for the reserved-keyword validator."""
 
     def run_piketype(
@@ -57,7 +56,7 @@ class KeywordValidationTest(unittest.TestCase):
             copy_tree(fixture_root, repo_dir)
             cli_file = repo_dir / "alpha" / "piketype" / "types.py"
             result = self.run_piketype(repo_dir, str(cli_file))
-            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            assert result.returncode == 0, result.stderr
             assert_trees_equal(self, expected_root, repo_dir)
 
     def test_module_name_logic_is_accepted(self) -> None:
@@ -71,7 +70,7 @@ class KeywordValidationTest(unittest.TestCase):
             copy_tree(fixture_root, repo_dir)
             cli_file = repo_dir / "alpha" / "piketype" / "logic.py"
             result = self.run_piketype(repo_dir, str(cli_file))
-            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            assert result.returncode == 0, result.stderr
             assert_trees_equal(self, expected_root, repo_dir)
 
     def test_type_name_class_t_is_accepted(self) -> None:
@@ -85,7 +84,7 @@ class KeywordValidationTest(unittest.TestCase):
             copy_tree(fixture_root, repo_dir)
             cli_file = repo_dir / "alpha" / "piketype" / "types.py"
             result = self.run_piketype(repo_dir, str(cli_file))
-            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            assert result.returncode == 0, result.stderr
             assert_trees_equal(self, expected_root, repo_dir)
 
     def test_enum_value_while_is_accepted(self) -> None:
@@ -98,7 +97,7 @@ class KeywordValidationTest(unittest.TestCase):
             copy_tree(fixture_root, repo_dir)
             cli_file = repo_dir / "alpha" / "piketype" / "types.py"
             result = self.run_piketype(repo_dir, str(cli_file))
-            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            assert result.returncode == 0, result.stderr
             assert_trees_equal(self, expected_root, repo_dir)
 
     # -- Negative tests -----------------------------------------------------
@@ -112,12 +111,11 @@ class KeywordValidationTest(unittest.TestCase):
             copy_tree(fixture_root, repo_dir)
             cli_file = repo_dir / "alpha" / "piketype" / "types.py"
             result = self.run_piketype(repo_dir, str(cli_file))
-            self.assertNotEqual(result.returncode, 0)
-            self.assertIn(
+            assert result.returncode != 0
+            assert (
                 "field 'type' is a reserved keyword in target language(s): "
-                "Python (soft), SystemVerilog",
-                result.stderr,
-            )
+                "Python (soft), SystemVerilog"
+            ) in result.stderr
 
     def test_flags_field_try_is_rejected(self) -> None:
         """AC-6: flags field named ``try`` collides with C++ and Python."""
@@ -127,12 +125,11 @@ class KeywordValidationTest(unittest.TestCase):
             copy_tree(fixture_root, repo_dir)
             cli_file = repo_dir / "alpha" / "piketype" / "types.py"
             result = self.run_piketype(repo_dir, str(cli_file))
-            self.assertNotEqual(result.returncode, 0)
-            self.assertIn(
+            assert result.returncode != 0
+            assert (
                 "flag 'try' is a reserved keyword in target language(s): "
-                "C++, Python",
-                result.stderr,
-            )
+                "C++, Python"
+            ) in result.stderr
 
     def test_constant_for_is_rejected(self) -> None:
         """AC-5: constant ``for`` collides with C++, Python, and SystemVerilog."""
@@ -142,12 +139,11 @@ class KeywordValidationTest(unittest.TestCase):
             copy_tree(fixture_root, repo_dir)
             cli_file = repo_dir / "alpha" / "piketype" / "types.py"
             result = self.run_piketype(repo_dir, str(cli_file))
-            self.assertNotEqual(result.returncode, 0)
-            self.assertIn(
+            assert result.returncode != 0
+            assert (
                 "constant 'for' is a reserved keyword in target language(s): "
-                "C++, Python, SystemVerilog",
-                result.stderr,
-            )
+                "C++, Python, SystemVerilog"
+            ) in result.stderr
 
     def test_module_name_class_is_rejected(self) -> None:
         """AC-4: module file ``class.py`` emits C++ namespace ``class`` and
@@ -159,12 +155,11 @@ class KeywordValidationTest(unittest.TestCase):
             copy_tree(fixture_root, repo_dir)
             cli_file = repo_dir / "alpha" / "piketype" / "class.py"
             result = self.run_piketype(repo_dir, str(cli_file))
-            self.assertNotEqual(result.returncode, 0)
-            self.assertIn(
+            assert result.returncode != 0
+            assert (
                 "module name 'class' is a reserved keyword in target language(s): "
-                "C++, Python",
-                result.stderr,
-            )
+                "C++, Python"
+            ) in result.stderr
 
     def test_uppercase_check_fires_before_keyword_check(self) -> None:
         """AC-11: a lowercase enum value (here ``for``) violates the
@@ -176,6 +171,6 @@ class KeywordValidationTest(unittest.TestCase):
             copy_tree(fixture_root, repo_dir)
             cli_file = repo_dir / "alpha" / "piketype" / "types.py"
             result = self.run_piketype(repo_dir, str(cli_file))
-            self.assertNotEqual(result.returncode, 0)
-            self.assertIn("UPPER_CASE", result.stderr)
-            self.assertNotIn("reserved keyword", result.stderr)
+            assert result.returncode != 0
+            assert "UPPER_CASE" in result.stderr
+            assert "reserved keyword" not in result.stderr

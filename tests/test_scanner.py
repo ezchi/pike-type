@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import tempfile
-import unittest
 from pathlib import Path
 
 from piketype.discovery.scanner import find_piketype_modules
@@ -14,7 +13,7 @@ def _touch(path: Path) -> None:
     path.write_text("")
 
 
-class FindPiketypeModulesTests(unittest.TestCase):
+class FindPiketypeModulesTests:
     """Cover the discovery scanner's exclusion behavior."""
 
     def test_excludes_venv_duplicate(self) -> None:
@@ -34,7 +33,7 @@ class FindPiketypeModulesTests(unittest.TestCase):
             _touch(real)
             _touch(venv_dup)
 
-            self.assertEqual(find_piketype_modules(root), [real])
+            assert find_piketype_modules(root) == [real]
 
     def test_all_six_excluded_names_rejected(self) -> None:
         excluded_names = (".venv", "venv", ".git", "node_modules", ".tox", "__pycache__")
@@ -43,7 +42,7 @@ class FindPiketypeModulesTests(unittest.TestCase):
             for name in excluded_names:
                 _touch(root / name / "piketype" / "foo.py")
 
-            self.assertEqual(find_piketype_modules(root), [])
+            assert find_piketype_modules(root) == []
 
     def test_clean_repo_unchanged(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -51,7 +50,7 @@ class FindPiketypeModulesTests(unittest.TestCase):
             target = root / "src" / "piketype" / "foo.py"
             _touch(target)
 
-            self.assertEqual(find_piketype_modules(root), [target])
+            assert find_piketype_modules(root) == [target]
 
     def test_sorted_output(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -62,9 +61,5 @@ class FindPiketypeModulesTests(unittest.TestCase):
             _touch(aaa)
 
             result = find_piketype_modules(root)
-            self.assertEqual(result, sorted(result))
-            self.assertEqual(result, [aaa, zzz])
-
-
-if __name__ == "__main__":
-    unittest.main()
+            assert result == sorted(result)
+            assert result == [aaa, zzz]

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import unittest
+import pytest
 
 from piketype.errors import ValidationError
 from piketype.ir.nodes import (
@@ -32,7 +32,7 @@ def _ref(*, basename: str) -> ModuleRefIR:
     )
 
 
-class UnknownTypeRejectionTests(unittest.TestCase):
+class UnknownTypeRejectionTests:
     """FR-5: TypeRefIR pointing at an unknown (module, name) is rejected."""
 
     def test_unknown_target_module_raises(self) -> None:
@@ -67,16 +67,16 @@ class UnknownTypeRejectionTests(unittest.TestCase):
         bar_module = ModuleIR(ref=bar_ref, source=_src(), constants=(), types=(struct_in_bar,), dependencies=())
         repo = RepoIR(repo_root=".", modules=(foo_module, bar_module), tool_version=None)
 
-        with self.assertRaises(ValidationError) as ctx:
+        with pytest.raises(ValidationError) as ctx:
             validate_repo(repo)
-        msg = str(ctx.exception)
+        msg = str(ctx.value)
         # Error must include both module and type name.
-        self.assertIn("alpha.piketype.foo", msg)
-        self.assertIn("missing_t", msg)
-        self.assertIn("references unknown type", msg)
+        assert "alpha.piketype.foo" in msg
+        assert "missing_t" in msg
+        assert "references unknown type" in msg
 
 
-class CrossModuleTypeRefAcceptedTests(unittest.TestCase):
+class CrossModuleTypeRefAcceptedTests:
     """FR-5: cross-module TypeRefIR with a known target validates."""
 
     def test_cross_module_scalar_alias_accepted(self) -> None:
@@ -143,7 +143,7 @@ def _struct_with_field(*, name: str, target_module: ModuleRefIR, target_type_nam
     )
 
 
-class CrossModuleStructCycleTests(unittest.TestCase):
+class CrossModuleStructCycleTests:
     """FR-6: cross-module struct cycles are detected."""
 
     def test_two_node_cross_module_cycle(self) -> None:
@@ -155,12 +155,12 @@ class CrossModuleStructCycleTests(unittest.TestCase):
         foo_module = ModuleIR(ref=foo_ref, source=_src(), constants=(), types=(a_t,), dependencies=())
         bar_module = ModuleIR(ref=bar_ref, source=_src(), constants=(), types=(b_t,), dependencies=())
         repo = RepoIR(repo_root=".", modules=(foo_module, bar_module), tool_version=None)
-        with self.assertRaises(ValidationError) as ctx:
+        with pytest.raises(ValidationError) as ctx:
             validate_repo(repo)
-        self.assertIn("recursive cross-module struct dependency detected", str(ctx.exception))
+        assert "recursive cross-module struct dependency detected" in str(ctx.value)
 
 
-class CrossModuleNameCollisionTests(unittest.TestCase):
+class CrossModuleNameCollisionTests:
     """FR-8: name collision rules."""
 
     def test_local_vs_imported_type_name(self) -> None:
@@ -180,10 +180,6 @@ class CrossModuleNameCollisionTests(unittest.TestCase):
         foo_module = ModuleIR(ref=foo_ref, source=_src(), constants=(), types=(foo_byte_t,), dependencies=())
         bar_module = ModuleIR(ref=bar_ref, source=_src(), constants=(), types=(bar_byte_t, bar_t), dependencies=())
         repo = RepoIR(repo_root=".", modules=(foo_module, bar_module), tool_version=None)
-        with self.assertRaises(ValidationError) as ctx:
+        with pytest.raises(ValidationError) as ctx:
             validate_repo(repo)
-        self.assertIn("shadows cross-module reference", str(ctx.exception))
-
-
-if __name__ == "__main__":
-    unittest.main()
+        assert "shadows cross-module reference" in str(ctx.value)

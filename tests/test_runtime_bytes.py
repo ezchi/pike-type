@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import os
+import pytest
 import shutil
 import subprocess
 import sys
 import tempfile
-import unittest
 from pathlib import Path
 
 
@@ -35,14 +35,14 @@ def gen_fixture(fixture_name: str, tmp_dir: Path) -> Path:
     return repo_dir
 
 
-class RuntimeBytesTest(unittest.TestCase):
+class RuntimeBytesTest:
     """Executable runtime tests for to_bytes/from_bytes."""
 
     _tmp_dir: tempfile.TemporaryDirectory[str]
     _gen_roots: dict[str, Path]
 
     @classmethod
-    def setUpClass(cls) -> None:
+    def setup_class(cls) -> None:
         cls._tmp_dir = tempfile.TemporaryDirectory()
         tmp = Path(cls._tmp_dir.name)
         cls._gen_roots = {}
@@ -51,7 +51,7 @@ class RuntimeBytesTest(unittest.TestCase):
             cls._gen_roots[fixture_name] = gen_fixture(fixture_name, tmp)
 
     @classmethod
-    def tearDownClass(cls) -> None:
+    def teardown_class(cls) -> None:
         cls._tmp_dir.cleanup()
 
     def _import_module(self, fixture_name: str) -> object:
@@ -72,7 +72,7 @@ class RuntimeBytesTest(unittest.TestCase):
     def test_struct_padded_to_bytes(self) -> None:
         mod = self._import_module("struct_padded")
         bar = mod.bar_ct(flag_a=1, field_1=0x1FFF, status=0xA, flag_b=0)
-        self.assertEqual(bar.to_bytes(), b"\x01\x1f\xff\x0a\x00")
+        assert bar.to_bytes() == b"\x01\x1f\xff\x0a\x00"
 
     # -- AC-12: from_bytes with nonzero unsigned padding accepted --
 
@@ -80,33 +80,33 @@ class RuntimeBytesTest(unittest.TestCase):
         mod = self._import_module("struct_padded")
         bar1 = mod.bar_ct.from_bytes(b"\x01\x1f\xff\x0a\x00")
         bar2 = mod.bar_ct.from_bytes(b"\x81\x1f\xff\x0a\x00")
-        self.assertEqual(bar1.flag_a, bar2.flag_a)
-        self.assertEqual(bar1.field_1, bar2.field_1)
-        self.assertEqual(bar1.status, bar2.status)
-        self.assertEqual(bar1.flag_b, bar2.flag_b)
+        assert bar1.flag_a == bar2.flag_a
+        assert bar1.field_1 == bar2.field_1
+        assert bar1.status == bar2.status
+        assert bar1.flag_b == bar2.flag_b
 
     # -- AC-15: 13-bit unsigned from_bytes masks padding --
 
     def test_scalar_13bit_from_bytes_masks_padding(self) -> None:
         mod = self._import_module("struct_padded")
         foo = mod.foo_ct.from_bytes(b"\xff\xff")
-        self.assertEqual(foo.value, 0x1FFF)
+        assert foo.value == 0x1FFF
 
     # -- AC-16: signed 5-bit to_bytes/from_bytes --
 
     def test_signed_5bit_negative(self) -> None:
         mod = self._import_module("struct_signed")
         s5 = mod.signed_5_ct(-1)
-        self.assertEqual(s5.to_bytes(), b"\xff")
+        assert s5.to_bytes() == b"\xff"
         rt = mod.signed_5_ct.from_bytes(b"\xff")
-        self.assertEqual(rt.value, -1)
+        assert rt.value == -1
 
     def test_signed_5bit_positive(self) -> None:
         mod = self._import_module("struct_signed")
         s5 = mod.signed_5_ct(5)
-        self.assertEqual(s5.to_bytes(), b"\x05")
+        assert s5.to_bytes() == b"\x05"
         rt = mod.signed_5_ct.from_bytes(b"\x05")
-        self.assertEqual(rt.value, 5)
+        assert rt.value == 5
 
     # -- AC-22: signed 4-bit struct member to_bytes --
 
@@ -114,18 +114,18 @@ class RuntimeBytesTest(unittest.TestCase):
         mod = self._import_module("struct_signed")
         obj = mod.mixed_ct(field_s=-6, field_u=-1)
         raw = obj.to_bytes()
-        self.assertEqual(raw[0], 0xFA)
+        assert raw[0] == 0xFA
 
     # -- AC-23: from_bytes with mismatched signed padding raises error --
 
     def test_signed_4bit_from_bytes_padding_mismatch(self) -> None:
         mod = self._import_module("struct_signed")
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             mod.signed_4_ct.from_bytes(b"\x0a")
 
     def test_signed_5bit_from_bytes_padding_mismatch(self) -> None:
         mod = self._import_module("struct_signed")
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             mod.signed_5_ct.from_bytes(b"\x1f")
 
     # -- AC-24: 65-bit unsigned round-trip --
@@ -134,13 +134,13 @@ class RuntimeBytesTest(unittest.TestCase):
         mod = self._import_module("scalar_wide")
         w = mod.wide_ct(0x1_FFFF_FFFF_FFFF_FFFF)
         expected = b"\x01" + b"\xff" * 8
-        self.assertEqual(w.to_bytes(), expected)
+        assert w.to_bytes() == expected
 
     def test_wide_65bit_from_bytes_masks_padding(self) -> None:
         mod = self._import_module("scalar_wide")
         w = mod.wide_ct.from_bytes(b"\xff" * 9)
         # Wide scalar stores value as bytes; padding masked in MSB byte
-        self.assertEqual(w.value, b"\x01" + b"\xff" * 8)
+        assert w.value == b"\x01" + b"\xff" * 8
 
     # -- AC-25: struct with 65-bit member + 1-bit flag --
 
@@ -151,9 +151,9 @@ class RuntimeBytesTest(unittest.TestCase):
         obj.flag = 1
         obj.extra = b"\x00" * 16
         raw = obj.to_bytes()
-        self.assertEqual(len(raw), 9 + 1 + 16)
-        self.assertEqual(raw[:9], b"\x01" + b"\xff" * 8)
-        self.assertEqual(raw[9], 0x01)
+        assert len(raw) == 9 + 1 + 16
+        assert raw[:9] == b"\x01" + b"\xff" * 8
+        assert raw[9] == 0x01
 
     # -- AC-7: nested struct --
 
@@ -166,8 +166,4 @@ class RuntimeBytesTest(unittest.TestCase):
         pkt.error_code = 0
         raw = pkt.to_bytes()
         header_bytes = header.to_bytes()
-        self.assertEqual(raw[:len(header_bytes)], header_bytes)
-
-
-if __name__ == "__main__":
-    unittest.main()
+        assert raw[:len(header_bytes)] == header_bytes

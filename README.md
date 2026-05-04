@@ -134,13 +134,26 @@ This project targets:
 
 - Python 3.12+
 - `basedpyright` for strict static checking
-- `pytest` for the long-term test runner
+- `pytest` as the test runner
 
 Current local verification commands:
 
 ```bash
 python3 -m compileall src tests
-PYTHONPATH=src python3 -m unittest discover -s tests -v
+pytest
+```
+
+Run a single file or test:
+
+```bash
+pytest tests/test_runtime_pack.py
+pytest tests/test_runtime_pack.py::StructPackTest::test_struct_signed_pack_matches_concat
+```
+
+Parallelize with `pytest-xdist` (already a dev dep):
+
+```bash
+pytest -n auto
 ```
 
 ## Packaging

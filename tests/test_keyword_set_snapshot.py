@@ -12,8 +12,8 @@ separate Python-version-bump PR.
 from __future__ import annotations
 
 import keyword
+import pytest
 import sys
-import unittest
 
 from piketype.validate.keywords import PY_HARD_KEYWORDS, PY_SOFT_KEYWORDS
 
@@ -24,16 +24,12 @@ _PY_312_REASON = (
 )
 
 
-@unittest.skipUnless(sys.version_info[:2] == (3, 12), _PY_312_REASON)
-class PythonKeywordSnapshotTests(unittest.TestCase):
+@pytest.mark.skipif(sys.version_info[:2] != (3, 12), reason=_PY_312_REASON)
+class PythonKeywordSnapshotTests:
     """NFR-3: Python keyword snapshot vs. live ``keyword`` module."""
 
     def test_hard_keyword_snapshot_matches_keyword_kwlist(self) -> None:
-        self.assertEqual(PY_HARD_KEYWORDS, frozenset(keyword.kwlist))
+        assert PY_HARD_KEYWORDS == frozenset(keyword.kwlist)
 
     def test_soft_keyword_snapshot_matches_keyword_softkwlist(self) -> None:
-        self.assertEqual(PY_SOFT_KEYWORDS, frozenset(keyword.softkwlist))
-
-
-if __name__ == "__main__":
-    unittest.main()
+        assert PY_SOFT_KEYWORDS == frozenset(keyword.softkwlist)

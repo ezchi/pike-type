@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import importlib
 import os
+import pytest
 import shutil
 import subprocess
 import sys
 import tempfile
-import unittest
 from pathlib import Path
 
 from piketype.errors import ValidationError
@@ -108,50 +108,50 @@ def _validate_enum(name: str, values: list[tuple[str, int]], width: int | None =
 # ---------------------------------------------------------------------------
 
 
-class EnumDSLTest(unittest.TestCase):
+class EnumDSLTest:
     """Eager DSL-time validation tests."""
 
     def test_rejects_non_upper_case(self) -> None:
         from piketype.dsl import Enum
 
-        with self.assertRaises(ValidationError) as ctx:
+        with pytest.raises(ValidationError) as ctx:
             Enum().add_value("lowercase")
-        self.assertIn("UPPER_CASE", str(ctx.exception))
+        assert "UPPER_CASE" in str(ctx.value)
 
     def test_rejects_duplicate_name(self) -> None:
         from piketype.dsl import Enum
 
-        with self.assertRaises(ValidationError) as ctx:
+        with pytest.raises(ValidationError) as ctx:
             Enum().add_value("A", 0).add_value("A", 1)
-        self.assertIn("duplicate", str(ctx.exception))
+        assert "duplicate" in str(ctx.value)
 
     def test_rejects_negative_value(self) -> None:
         from piketype.dsl import Enum
 
-        with self.assertRaises(ValidationError) as ctx:
+        with pytest.raises(ValidationError) as ctx:
             Enum().add_value("A", -1)
-        self.assertIn("non-negative", str(ctx.exception))
+        assert "non-negative" in str(ctx.value)
 
     def test_rejects_width_zero(self) -> None:
         from piketype.dsl import Enum
 
-        with self.assertRaises(ValidationError) as ctx:
+        with pytest.raises(ValidationError) as ctx:
             Enum(0)
-        self.assertIn("[1, 64]", str(ctx.exception))
+        assert "[1, 64]" in str(ctx.value)
 
     def test_rejects_width_65(self) -> None:
         from piketype.dsl import Enum
 
-        with self.assertRaises(ValidationError) as ctx:
+        with pytest.raises(ValidationError) as ctx:
             Enum(65)
-        self.assertIn("[1, 64]", str(ctx.exception))
+        assert "[1, 64]" in str(ctx.value)
 
     def test_rejects_float_width(self) -> None:
         from piketype.dsl import Enum
 
-        with self.assertRaises(ValidationError) as ctx:
+        with pytest.raises(ValidationError) as ctx:
             Enum(1.5)  # type: ignore[arg-type]
-        self.assertIn("integer", str(ctx.exception))
+        assert "integer" in str(ctx.value)
 
     def test_auto_fill_sequential(self) -> None:
         from piketype.dsl import Enum
@@ -159,19 +159,19 @@ class EnumDSLTest(unittest.TestCase):
 
         e = Enum().add_value("A", 0).add_value("B", 2).add_value("C").add_value("D")
         resolved = _resolve_enum_values(e)
-        self.assertEqual(resolved, [("A", 0), ("B", 2), ("C", 3), ("D", 4)])
+        assert resolved == [("A", 0), ("B", 2), ("C", 3), ("D", 4)]
 
     def test_explicit_width(self) -> None:
         from piketype.dsl import Enum
 
         e = Enum(8).add_value("A", 0)
-        self.assertEqual(e.width, 8)
+        assert e.width == 8
 
     def test_inferred_width(self) -> None:
         from piketype.dsl import Enum
 
         e = Enum().add_value("A", 0).add_value("B", 7)
-        self.assertEqual(e.width, 3)
+        assert e.width == 3
 
 
 # ---------------------------------------------------------------------------
@@ -179,28 +179,28 @@ class EnumDSLTest(unittest.TestCase):
 # ---------------------------------------------------------------------------
 
 
-class EnumValidationTest(unittest.TestCase):
+class EnumValidationTest:
     """IR-level validation tests."""
 
     def test_rejects_empty_enum(self) -> None:
-        with self.assertRaises(ValidationError) as ctx:
+        with pytest.raises(ValidationError) as ctx:
             _validate_enum("empty_t", [])
-        self.assertIn("at least one value", str(ctx.exception))
+        assert "at least one value" in str(ctx.value)
 
     def test_rejects_duplicate_resolved_values(self) -> None:
-        with self.assertRaises(ValidationError) as ctx:
+        with pytest.raises(ValidationError) as ctx:
             _validate_enum("dup_t", [("A", 1), ("B", 1)])
-        self.assertIn("duplicate resolved value", str(ctx.exception))
+        assert "duplicate resolved value" in str(ctx.value)
 
     def test_rejects_missing_t_suffix(self) -> None:
-        with self.assertRaises(ValidationError) as ctx:
+        with pytest.raises(ValidationError) as ctx:
             _validate_enum("no_suffix", [("A", 0)])
-        self.assertIn("must end with _t", str(ctx.exception))
+        assert "must end with _t" in str(ctx.value)
 
     def test_rejects_value_exceeds_width(self) -> None:
-        with self.assertRaises(ValidationError) as ctx:
+        with pytest.raises(ValidationError) as ctx:
             _validate_enum("small_t", [("A", 4)], width=2)
-        self.assertIn("does not fit", str(ctx.exception))
+        assert "does not fit" in str(ctx.value)
 
     def test_accepts_valid_enum(self) -> None:
         _validate_enum("ok_t", [("A", 0), ("B", 1), ("C", 2)])
@@ -236,9 +236,9 @@ class EnumValidationTest(unittest.TestCase):
             dependencies=(),
         )
         repo = RepoIR(repo_root="/tmp/test", modules=(module_ir,), tool_version=None)
-        with self.assertRaises(ValidationError) as ctx:
+        with pytest.raises(ValidationError) as ctx:
             validate_repo(repo)
-        self.assertIn("collides with constant", str(ctx.exception))
+        assert "collides with constant" in str(ctx.value)
 
     def test_rejects_cross_enum_literal_collision(self) -> None:
         """FR-17: Same value name in two different enums."""
@@ -259,9 +259,9 @@ class EnumValidationTest(unittest.TestCase):
             dependencies=(),
         )
         repo = RepoIR(repo_root="/tmp/test", modules=(module_ir,), tool_version=None)
-        with self.assertRaises(ValidationError) as ctx:
+        with pytest.raises(ValidationError) as ctx:
             validate_repo(repo)
-        self.assertIn("collides with value in enum", str(ctx.exception))
+        assert "collides with value in enum" in str(ctx.value)
 
 
 # ---------------------------------------------------------------------------
@@ -269,13 +269,13 @@ class EnumValidationTest(unittest.TestCase):
 # ---------------------------------------------------------------------------
 
 
-class EnumGoldenTest(unittest.TestCase):
+class EnumGoldenTest:
     """Golden file comparison tests."""
 
-    def setUp(self) -> None:
+    def setup_method(self) -> None:
         self.tmp = tempfile.mkdtemp()
 
-    def tearDown(self) -> None:
+    def teardown_method(self) -> None:
         shutil.rmtree(self.tmp)
 
     def test_enum_basic(self) -> None:
@@ -289,10 +289,10 @@ class EnumGoldenTest(unittest.TestCase):
                 continue
             relative = golden_file.relative_to(golden_root)
             generated = gen_root / relative
-            self.assertTrue(generated.exists(), f"missing generated file: {relative}")
+            assert generated.exists(), f"missing generated file: {relative}"
             expected = golden_file.read_text(encoding="utf-8")
             actual = generated.read_text(encoding="utf-8")
-            self.assertEqual(expected, actual, f"mismatch in {relative}")
+            assert expected == actual, f"mismatch in {relative}"
 
     def test_enum_basic_idempotent(self) -> None:
         repo_dir = _gen_fixture("enum_basic", Path(self.tmp))
@@ -317,7 +317,7 @@ class EnumGoldenTest(unittest.TestCase):
         )
         for rel, expected in first_run.items():
             actual = (gen_root / rel).read_text(encoding="utf-8")
-            self.assertEqual(expected, actual, f"idempotency failed for {rel}")
+            assert expected == actual, f"idempotency failed for {rel}"
 
 
 # ---------------------------------------------------------------------------
@@ -325,20 +325,20 @@ class EnumGoldenTest(unittest.TestCase):
 # ---------------------------------------------------------------------------
 
 
-class EnumRuntimeTest(unittest.TestCase):
+class EnumRuntimeTest:
     """Python runtime round-trip tests with explicit byte vectors."""
 
     _tmp_dir: tempfile.TemporaryDirectory[str]
     _gen_py: Path
 
     @classmethod
-    def setUpClass(cls) -> None:
+    def setup_class(cls) -> None:
         cls._tmp_dir = tempfile.TemporaryDirectory()
         tmp = Path(cls._tmp_dir.name)
         cls._gen_py = _gen_fixture("enum_basic", tmp)
 
     @classmethod
-    def tearDownClass(cls) -> None:
+    def teardown_class(cls) -> None:
         cls._tmp_dir.cleanup()
 
     def _import_types(self):
@@ -354,60 +354,60 @@ class EnumRuntimeTest(unittest.TestCase):
     def test_color_to_bytes_red(self) -> None:
         mod = self._import_types()
         obj = mod.color_ct(mod.color_enum_t.RED)
-        self.assertEqual(obj.to_bytes(), b"\x00")
+        assert obj.to_bytes() == b"\x00"
 
     def test_color_to_bytes_blue(self) -> None:
         mod = self._import_types()
         obj = mod.color_ct(mod.color_enum_t.BLUE)
-        self.assertEqual(obj.to_bytes(), b"\x0a")
+        assert obj.to_bytes() == b"\x0a"
 
     def test_color_from_bytes_green(self) -> None:
         mod = self._import_types()
         obj = mod.color_ct.from_bytes(b"\x05")
-        self.assertEqual(obj.value, mod.color_enum_t.GREEN)
+        assert obj.value == mod.color_enum_t.GREEN
 
     def test_color_from_bytes_rejects_unknown(self) -> None:
         mod = self._import_types()
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             mod.color_ct.from_bytes(b"\x03")
 
     def test_color_constructor_rejects_int(self) -> None:
         mod = self._import_types()
-        with self.assertRaises(TypeError):
+        with pytest.raises(TypeError):
             mod.color_ct(5)
 
     def test_color_clone(self) -> None:
         mod = self._import_types()
         obj = mod.color_ct(mod.color_enum_t.GREEN)
         cloned = obj.clone()
-        self.assertEqual(obj, cloned)
-        self.assertIsNot(obj, cloned)
+        assert obj == cloned
+        assert obj is not cloned
 
     def test_color_int(self) -> None:
         mod = self._import_types()
         obj = mod.color_ct(mod.color_enum_t.BLUE)
-        self.assertEqual(int(obj), 10)
+        assert int(obj) == 10
 
     def test_color_repr(self) -> None:
         mod = self._import_types()
         obj = mod.color_ct(mod.color_enum_t.RED)
-        self.assertIn("color_ct", repr(obj))
+        assert "color_ct" in repr(obj)
 
     # -- cmd_t (8-bit explicit width, auto-fill values 0, 5, 6, 7) --
 
     def test_cmd_to_bytes_nop(self) -> None:
         mod = self._import_types()
         obj = mod.cmd_ct(mod.cmd_enum_t.NOP)
-        self.assertEqual(obj.to_bytes(), b"\x00")
+        assert obj.to_bytes() == b"\x00"
 
     def test_cmd_to_bytes_reset(self) -> None:
         mod = self._import_types()
         obj = mod.cmd_ct(mod.cmd_enum_t.RESET)
-        self.assertEqual(obj.to_bytes(), b"\x07")
+        assert obj.to_bytes() == b"\x07"
 
     def test_cmd_from_bytes_rejects_unknown(self) -> None:
         mod = self._import_types()
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             mod.cmd_ct.from_bytes(b"\x08")
 
     # -- flag_t (1-bit, single value SET=0) --
@@ -415,11 +415,11 @@ class EnumRuntimeTest(unittest.TestCase):
     def test_flag_to_bytes(self) -> None:
         mod = self._import_types()
         obj = mod.flag_ct(mod.flag_enum_t.SET)
-        self.assertEqual(obj.to_bytes(), b"\x00")
+        assert obj.to_bytes() == b"\x00"
 
     def test_flag_from_bytes_rejects_unknown(self) -> None:
         mod = self._import_types()
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             mod.flag_ct.from_bytes(b"\x01")
 
     # -- big_t (64-bit, value 2**63) --
@@ -427,25 +427,21 @@ class EnumRuntimeTest(unittest.TestCase):
     def test_big_to_bytes_large(self) -> None:
         mod = self._import_types()
         obj = mod.big_ct(mod.big_enum_t.LARGE)
-        self.assertEqual(obj.to_bytes(), b"\x80\x00\x00\x00\x00\x00\x00\x00")
+        assert obj.to_bytes() == b"\x80\x00\x00\x00\x00\x00\x00\x00"
 
     def test_big_from_bytes_small(self) -> None:
         mod = self._import_types()
         obj = mod.big_ct.from_bytes(b"\x00\x00\x00\x00\x00\x00\x00\x00")
-        self.assertEqual(obj.value, mod.big_enum_t.SMALL)
+        assert obj.value == mod.big_enum_t.SMALL
 
     def test_eq(self) -> None:
         mod = self._import_types()
         a = mod.color_ct(mod.color_enum_t.RED)
         b = mod.color_ct(mod.color_enum_t.RED)
-        self.assertEqual(a, b)
+        assert a == b
 
     def test_neq(self) -> None:
         mod = self._import_types()
         a = mod.color_ct(mod.color_enum_t.RED)
         b = mod.color_ct(mod.color_enum_t.BLUE)
-        self.assertNotEqual(a, b)
-
-
-if __name__ == "__main__":
-    unittest.main()
+        assert a != b

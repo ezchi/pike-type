@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import importlib.util
 import sys
-import unittest
 from pathlib import Path
 from types import ModuleType
 
@@ -32,11 +31,11 @@ def _load_module_from_path(name: str, path: Path) -> ModuleType:
     return module
 
 
-class CrossModuleRuntimeBytesTest(unittest.TestCase):
+class CrossModuleRuntimeBytesTest:
     """End-to-end runtime test for AC-19."""
 
     @classmethod
-    def setUpClass(cls) -> None:
+    def setup_class(cls) -> None:
         # Clear any prior `alpha.*` modules left over from other tests' fixture
         # loads (each fixture has its own `alpha.piketype.*` namespace).
         for name in list(sys.modules):
@@ -53,7 +52,7 @@ class CrossModuleRuntimeBytesTest(unittest.TestCase):
         cls.bar_types = importlib.import_module("alpha.py.bar_types")
 
     @classmethod
-    def tearDownClass(cls) -> None:
+    def teardown_class(cls) -> None:
         if cls._sys_path_entry in sys.path:
             sys.path.remove(cls._sys_path_entry)
         for name in list(sys.modules):
@@ -62,9 +61,9 @@ class CrossModuleRuntimeBytesTest(unittest.TestCase):
 
     def test_byte_t_round_trip(self) -> None:
         b = self.foo_types.byte_ct(0xAB)
-        self.assertEqual(b.to_bytes(), b"\xab")
+        assert b.to_bytes() == b"\xab"
         round_tripped = self.foo_types.byte_ct.from_bytes(b"\xab")
-        self.assertEqual(round_tripped.value, 0xAB)
+        assert round_tripped.value == 0xAB
 
     def test_bar_t_to_bytes_two_byte_fields(self) -> None:
         """Construct bar_t with two cross-module byte_ct fields; assert exact bytes for those fields.
@@ -75,10 +74,10 @@ class CrossModuleRuntimeBytesTest(unittest.TestCase):
         bar.field1 = self.foo_types.byte_ct(0xAB)
         bar.field2 = self.foo_types.byte_ct(0xCD)
         raw = bar.to_bytes()
-        self.assertEqual(len(raw), self.bar_types.bar_ct.BYTE_COUNT)
+        assert len(raw) == self.bar_types.bar_ct.BYTE_COUNT
         # The first two bytes are the two cross-module byte_ct fields.
-        self.assertEqual(raw[0], 0xAB)
-        self.assertEqual(raw[1], 0xCD)
+        assert raw[0] == 0xAB
+        assert raw[1] == 0xCD
 
     def test_bar_t_round_trip_full(self) -> None:
         """Full round-trip: build bar_t, to_bytes, from_bytes, compare."""
@@ -87,9 +86,5 @@ class CrossModuleRuntimeBytesTest(unittest.TestCase):
         bar.field2 = self.foo_types.byte_ct(0xCD)
         raw = bar.to_bytes()
         restored = self.bar_types.bar_ct.from_bytes(raw)
-        self.assertEqual(restored.field1.value, 0xAB)
-        self.assertEqual(restored.field2.value, 0xCD)
-
-
-if __name__ == "__main__":
-    unittest.main()
+        assert restored.field1.value == 0xAB
+        assert restored.field2.value == 0xCD

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import tempfile
 import textwrap
-import unittest
 from pathlib import Path
 
 from piketype import __version__
@@ -55,7 +54,7 @@ def _freeze_repo(root: Path):
         return freeze_repo(repo_root=root, frozen_modules=frozen, tool_version=__version__)
 
 
-class CrossModuleTypeRefTests(unittest.TestCase):
+class CrossModuleTypeRefTests:
     def test_struct_field_referencing_other_module_produces_type_ref(self) -> None:
         root = _build_two_module_fixture(
             foo_body=textwrap.dedent("""\
@@ -72,13 +71,13 @@ class CrossModuleTypeRefTests(unittest.TestCase):
         bar_module = next(m for m in repo.modules if m.ref.basename == "bar")
         struct_ir = bar_module.types[0]
         field = struct_ir.fields[0]
-        self.assertIsInstance(field.type_ir, TypeRefIR)
+        assert isinstance(field.type_ir, TypeRefIR)
         assert isinstance(field.type_ir, TypeRefIR)  # narrow for type checker
-        self.assertEqual(field.type_ir.module.python_module_name, "alpha.piketype.foo")
-        self.assertEqual(field.type_ir.name, "byte_t")
+        assert field.type_ir.module.python_module_name == "alpha.piketype.foo"
+        assert field.type_ir.name == "byte_t"
 
 
-class ModuleDependenciesTests(unittest.TestCase):
+class ModuleDependenciesTests:
     def test_cross_module_type_ref_produces_dependency(self) -> None:
         root = _build_two_module_fixture(
             foo_body=textwrap.dedent("""\
@@ -94,9 +93,9 @@ class ModuleDependenciesTests(unittest.TestCase):
         repo = _freeze_repo(root)
         bar_module = next(m for m in repo.modules if m.ref.basename == "bar")
         deps = bar_module.dependencies
-        self.assertEqual(len(deps), 1)
-        self.assertEqual(deps[0].kind, "type_ref")
-        self.assertEqual(deps[0].target.python_module_name, "alpha.piketype.foo")
+        assert len(deps) == 1
+        assert deps[0].kind == "type_ref"
+        assert deps[0].target.python_module_name == "alpha.piketype.foo"
 
     def test_same_module_ref_produces_no_dependency(self) -> None:
         root = _build_two_module_fixture(
@@ -111,7 +110,7 @@ class ModuleDependenciesTests(unittest.TestCase):
         )
         repo = _freeze_repo(root)
         for module in repo.modules:
-            self.assertEqual(module.dependencies, ())
+            assert module.dependencies == ()
 
     def test_dependencies_sorted_deterministically(self) -> None:
         # bar depends on foo for both type_ref and a constant. The result
@@ -133,13 +132,13 @@ class ModuleDependenciesTests(unittest.TestCase):
         bar_module = next(m for m in repo.modules if m.ref.basename == "bar")
         deps = bar_module.dependencies
         # Two distinct kinds → two entries.
-        self.assertEqual(len(deps), 2)
+        assert len(deps) == 2
         # Sorted by (module, kind): const_ref then type_ref (alphabetical).
         kinds = [d.kind for d in deps]
-        self.assertEqual(kinds, sorted(kinds))
+        assert kinds == sorted(kinds)
 
 
-class CrossModuleConstRefTests(unittest.TestCase):
+class CrossModuleConstRefTests:
     def test_scalar_alias_width_expr_const_ref(self) -> None:
         root = _build_two_module_fixture(
             foo_body=textwrap.dedent("""\
@@ -156,10 +155,6 @@ class CrossModuleConstRefTests(unittest.TestCase):
         bar_module = next(m for m in repo.modules if m.ref.basename == "bar")
         wide_t = bar_module.types[0]
         # Width expr should be a cross-module ConstRefExprIR.
-        self.assertIsInstance(wide_t.width_expr, ConstRefExprIR)
         assert isinstance(wide_t.width_expr, ConstRefExprIR)
-        self.assertEqual(wide_t.width_expr.module.python_module_name, "alpha.piketype.foo")
-
-
-if __name__ == "__main__":
-    unittest.main()
+        assert isinstance(wide_t.width_expr, ConstRefExprIR)
+        assert wide_t.width_expr.module.python_module_name == "alpha.piketype.foo"

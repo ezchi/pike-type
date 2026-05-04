@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import importlib
 import os
+import pytest
 import shutil
 import subprocess
 import sys
 import tempfile
-import unittest
 from pathlib import Path
 
 from piketype.dsl import Flags, Struct, Bit
@@ -44,25 +44,25 @@ def gen_fixture(fixture_name: str, tmp_dir: Path) -> Path:
 # ---------------------------------------------------------------------------
 
 
-class StructFlagsMemberDSLTest(unittest.TestCase):
+class StructFlagsMemberDSLTest:
     """DSL acceptance tests for Flags as struct member."""
 
     def test_add_flags_member_accepted(self) -> None:
         """AC-1: Struct().add_member() accepts FlagsType."""
         flags_t = Flags().add_flag("a").add_flag("b")
         s = Struct().add_member("f", flags_t)
-        self.assertEqual(len(s.members), 1)
-        self.assertEqual(s.members[0].name, "f")
+        assert len(s.members) == 1
+        assert s.members[0].name == "f"
 
     def test_add_flags_and_scalar_member(self) -> None:
         """Struct can have both Flags and scalar members."""
         flags_t = Flags().add_flag("x")
         s = Struct().add_member("flags", flags_t).add_member("val", Bit(5))
-        self.assertEqual(len(s.members), 2)
+        assert len(s.members) == 2
 
     def test_reject_invalid_type(self) -> None:
         """Non-DSL types are still rejected."""
-        with self.assertRaises(ValidationError):
+        with pytest.raises(ValidationError):
             Struct().add_member("bad", 42)  # type: ignore[arg-type]
 
 
@@ -71,13 +71,13 @@ class StructFlagsMemberDSLTest(unittest.TestCase):
 # ---------------------------------------------------------------------------
 
 
-class StructFlagsMemberGoldenTest(unittest.TestCase):
+class StructFlagsMemberGoldenTest:
     """Golden file comparison tests for struct_flags_member fixture."""
 
-    def setUp(self) -> None:
+    def setup_method(self) -> None:
         self.tmp = tempfile.mkdtemp()
 
-    def tearDown(self) -> None:
+    def teardown_method(self) -> None:
         shutil.rmtree(self.tmp)
 
     def test_golden_match(self) -> None:
@@ -92,10 +92,10 @@ class StructFlagsMemberGoldenTest(unittest.TestCase):
                 continue
             relative = golden_file.relative_to(golden_root)
             generated = gen_root / relative
-            self.assertTrue(generated.exists(), f"missing generated file: {relative}")
+            assert generated.exists(), f"missing generated file: {relative}"
             expected = golden_file.read_text(encoding="utf-8")
             actual = generated.read_text(encoding="utf-8")
-            self.assertEqual(expected, actual, f"mismatch in {relative}")
+            assert expected == actual, f"mismatch in {relative}"
 
     def test_idempotent(self) -> None:
         """AC-21: piketype gen is idempotent."""
@@ -121,7 +121,7 @@ class StructFlagsMemberGoldenTest(unittest.TestCase):
         )
         for rel, expected in first_run.items():
             actual = (gen_root / rel).read_text(encoding="utf-8")
-            self.assertEqual(expected, actual, f"idempotency failed for {rel}")
+            assert expected == actual, f"idempotency failed for {rel}"
 
 
 # ---------------------------------------------------------------------------
@@ -129,20 +129,20 @@ class StructFlagsMemberGoldenTest(unittest.TestCase):
 # ---------------------------------------------------------------------------
 
 
-class StructFlagsMemberRuntimeTest(unittest.TestCase):
+class StructFlagsMemberRuntimeTest:
     """Python runtime tests for struct with Flags member."""
 
     _tmp_dir: tempfile.TemporaryDirectory[str]
     _gen_py: Path
 
     @classmethod
-    def setUpClass(cls) -> None:
+    def setup_class(cls) -> None:
         cls._tmp_dir = tempfile.TemporaryDirectory()
         tmp = Path(cls._tmp_dir.name)
         cls._gen_py = gen_fixture("struct_flags_member", tmp)
 
     @classmethod
-    def tearDownClass(cls) -> None:
+    def teardown_class(cls) -> None:
         cls._tmp_dir.cleanup()
 
     def _import_types(self):
@@ -162,10 +162,10 @@ class StructFlagsMemberRuntimeTest(unittest.TestCase):
         report.code = 21
         raw = report.to_bytes()
         restored = mod.report_ct.from_bytes(raw)
-        self.assertTrue(restored.status.error)
-        self.assertFalse(restored.status.warning)
-        self.assertTrue(restored.status.ready)
-        self.assertEqual(restored.code, 21)
+        assert restored.status.error
+        assert not restored.status.warning
+        assert restored.status.ready
+        assert restored.code == 21
 
     def test_expected_bytes_report(self) -> None:
         """AC-19: to_bytes produces specific expected byte values."""
@@ -179,24 +179,24 @@ class StructFlagsMemberRuntimeTest(unittest.TestCase):
         # Unsigned 5-bit value 21 in 1 byte: pad=000, val=10101 -> 0x15
         report.code = 21
         raw = report.to_bytes()
-        self.assertEqual(len(raw), 2)
+        assert len(raw) == 2
         # First byte: status flags (error=1, warning=0, ready=1, pad=00000) = 0xA0
-        self.assertEqual(raw[0], 0xA0)
+        assert raw[0] == 0xA0
         # Second byte: code=21 (5 bits) padded to byte = 0b000_10101 = 0x15
-        self.assertEqual(raw[1], 0x15)
+        assert raw[1] == 0x15
 
     def test_flags_field_not_nullable(self) -> None:
         """AC-10: Flags field coercer rejects None."""
         mod = self._import_types()
         report = mod.report_ct()
-        with self.assertRaises(TypeError):
+        with pytest.raises(TypeError):
             report.status = None  # type: ignore[assignment]
 
     def test_flags_field_rejects_wrong_type(self) -> None:
         """AC-10: Flags field coercer rejects wrong type."""
         mod = self._import_types()
         report = mod.report_ct()
-        with self.assertRaises(TypeError):
+        with pytest.raises(TypeError):
             report.status = 42  # type: ignore[assignment]
 
     def test_multiple_of_byte_count(self) -> None:
@@ -206,7 +206,7 @@ class StructFlagsMemberRuntimeTest(unittest.TestCase):
         raw = aligned.to_bytes()
         # aligned_report_t: flags (1 byte) + data (1 byte) = 2 bytes natural
         # multiple_of(32) -> 4 bytes
-        self.assertEqual(len(raw), 4)
+        assert len(raw) == 4
 
     def test_multiple_of_round_trip(self) -> None:
         """Round-trip for multiple_of struct with Flags member."""
@@ -216,13 +216,9 @@ class StructFlagsMemberRuntimeTest(unittest.TestCase):
         aligned.flags.warning = True
         aligned.data = 5
         raw = aligned.to_bytes()
-        self.assertEqual(len(raw), 4)
+        assert len(raw) == 4
         restored = mod.aligned_report_ct.from_bytes(raw)
-        self.assertTrue(restored.flags.error)
-        self.assertTrue(restored.flags.warning)
-        self.assertFalse(restored.flags.ready)
-        self.assertEqual(restored.data, 5)
-
-
-if __name__ == "__main__":
-    unittest.main()
+        assert restored.flags.error
+        assert restored.flags.warning
+        assert not restored.flags.ready
+        assert restored.data == 5
