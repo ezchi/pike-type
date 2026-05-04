@@ -32,6 +32,13 @@ class color_ct:
             raise ValueError("color_ct.unpack unknown enum value")
         return cls(enum_val)
 
+    def to_lv(self) -> int:
+        return int.from_bytes(self.to_bytes(), "big", signed=False)
+
+    @classmethod
+    def from_lv(cls, value: int) -> "color_ct":
+        return cls.from_bytes((value & ((1 << (cls.BYTE_COUNT * 8)) - 1)).to_bytes(cls.BYTE_COUNT, "big", signed=False))
+
     def to_bytes(self) -> bytes:
         return int(self.value).to_bytes(1, "big", signed=False)
 
@@ -95,6 +102,13 @@ class cmd_ct:
             raise ValueError("cmd_ct.unpack unknown enum value")
         return cls(enum_val)
 
+    def to_lv(self) -> int:
+        return int.from_bytes(self.to_bytes(), "big", signed=False)
+
+    @classmethod
+    def from_lv(cls, value: int) -> "cmd_ct":
+        return cls.from_bytes((value & ((1 << (cls.BYTE_COUNT * 8)) - 1)).to_bytes(cls.BYTE_COUNT, "big", signed=False))
+
     def to_bytes(self) -> bytes:
         return int(self.value).to_bytes(1, "big", signed=False)
 
@@ -154,6 +168,13 @@ class flag_ct:
         except ValueError:
             raise ValueError("flag_ct.unpack unknown enum value")
         return cls(enum_val)
+
+    def to_lv(self) -> int:
+        return int.from_bytes(self.to_bytes(), "big", signed=False)
+
+    @classmethod
+    def from_lv(cls, value: int) -> "flag_ct":
+        return cls.from_bytes((value & ((1 << (cls.BYTE_COUNT * 8)) - 1)).to_bytes(cls.BYTE_COUNT, "big", signed=False))
 
     def to_bytes(self) -> bytes:
         return int(self.value).to_bytes(1, "big", signed=False)
@@ -215,6 +236,13 @@ class big_ct:
         except ValueError:
             raise ValueError("big_ct.unpack unknown enum value")
         return cls(enum_val)
+
+    def to_lv(self) -> int:
+        return int.from_bytes(self.to_bytes(), "big", signed=False)
+
+    @classmethod
+    def from_lv(cls, value: int) -> "big_ct":
+        return cls.from_bytes((value & ((1 << (cls.BYTE_COUNT * 8)) - 1)).to_bytes(cls.BYTE_COUNT, "big", signed=False))
 
     def to_bytes(self) -> bytes:
         return int(self.value).to_bytes(8, "big", signed=False)

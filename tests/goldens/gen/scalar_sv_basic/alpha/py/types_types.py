@@ -27,6 +27,13 @@ class addr_ct:
     def unpack(cls, packed: int) -> "addr_ct":
         return cls(packed & cls.MAX_VALUE)
 
+    def to_lv(self) -> int:
+        return int.from_bytes(self.to_bytes(), "big", signed=False)
+
+    @classmethod
+    def from_lv(cls, value: int) -> "addr_ct":
+        return cls.from_bytes((value & ((1 << (cls.BYTE_COUNT * 8)) - 1)).to_bytes(cls.BYTE_COUNT, "big", signed=False))
+
     def to_bytes(self) -> bytes:
         return self.value.to_bytes(self.BYTE_COUNT, "big", signed=False)
 
@@ -83,6 +90,13 @@ class mask_ct:
         value = packed & cls.MASK
         signed_value = value - (1 << cls.WIDTH) if (value & cls.SIGN_BIT) else value
         return cls(signed_value)
+
+    def to_lv(self) -> int:
+        return int.from_bytes(self.to_bytes(), "big", signed=False)
+
+    @classmethod
+    def from_lv(cls, value: int) -> "mask_ct":
+        return cls.from_bytes((value & ((1 << (cls.BYTE_COUNT * 8)) - 1)).to_bytes(cls.BYTE_COUNT, "big", signed=False))
 
     def to_bytes(self) -> bytes:
         mask = self.MASK
@@ -146,6 +160,13 @@ class flag_ct:
     @classmethod
     def unpack(cls, packed: int) -> "flag_ct":
         return cls(packed & cls.MAX_VALUE)
+
+    def to_lv(self) -> int:
+        return int.from_bytes(self.to_bytes(), "big", signed=False)
+
+    @classmethod
+    def from_lv(cls, value: int) -> "flag_ct":
+        return cls.from_bytes((value & ((1 << (cls.BYTE_COUNT * 8)) - 1)).to_bytes(cls.BYTE_COUNT, "big", signed=False))
 
     def to_bytes(self) -> bytes:
         return self.value.to_bytes(self.BYTE_COUNT, "big", signed=False)

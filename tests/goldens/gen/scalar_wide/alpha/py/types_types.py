@@ -25,6 +25,13 @@ class narrow_ct:
     def unpack(cls, packed: int) -> "narrow_ct":
         return cls(packed & cls.MAX_VALUE)
 
+    def to_lv(self) -> int:
+        return int.from_bytes(self.to_bytes(), "big", signed=False)
+
+    @classmethod
+    def from_lv(cls, value: int) -> "narrow_ct":
+        return cls.from_bytes((value & ((1 << (cls.BYTE_COUNT * 8)) - 1)).to_bytes(cls.BYTE_COUNT, "big", signed=False))
+
     def to_bytes(self) -> bytes:
         return self.value.to_bytes(self.BYTE_COUNT, "big", signed=False)
 
@@ -85,6 +92,13 @@ class wide_ct:
     def unpack(cls, packed: int) -> "wide_ct":
         return cls((packed & cls.MAX_VALUE).to_bytes(cls.BYTE_COUNT, "big", signed=False))
 
+    def to_lv(self) -> int:
+        return int.from_bytes(self.to_bytes(), "big", signed=False)
+
+    @classmethod
+    def from_lv(cls, value: int) -> "wide_ct":
+        return cls.from_bytes((value & ((1 << (cls.BYTE_COUNT * 8)) - 1)).to_bytes(cls.BYTE_COUNT, "big", signed=False))
+
     def to_bytes(self) -> bytes:
         return self.value
 
@@ -139,6 +153,13 @@ class very_wide_ct:
     @classmethod
     def unpack(cls, packed: int) -> "very_wide_ct":
         return cls((packed & cls.MAX_VALUE).to_bytes(cls.BYTE_COUNT, "big", signed=False))
+
+    def to_lv(self) -> int:
+        return int.from_bytes(self.to_bytes(), "big", signed=False)
+
+    @classmethod
+    def from_lv(cls, value: int) -> "very_wide_ct":
+        return cls.from_bytes((value & ((1 << (cls.BYTE_COUNT * 8)) - 1)).to_bytes(cls.BYTE_COUNT, "big", signed=False))
 
     def to_bytes(self) -> bytes:
         return self.value

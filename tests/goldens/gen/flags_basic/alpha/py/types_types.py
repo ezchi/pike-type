@@ -31,6 +31,13 @@ class single_ct:
         obj._value = (packed & 1) << 7
         return obj
 
+    def to_lv(self) -> int:
+        return int.from_bytes(self.to_bytes(), "big", signed=False)
+
+    @classmethod
+    def from_lv(cls, value: int) -> "single_ct":
+        return cls.from_bytes((value & ((1 << (cls.BYTE_COUNT * 8)) - 1)).to_bytes(cls.BYTE_COUNT, "big", signed=False))
+
     def to_bytes(self) -> bytes:
         return (self._value & 128).to_bytes(1, "big")
 
@@ -103,6 +110,13 @@ class triple_ct:
         obj = cls()
         obj._value = (packed & 7) << 5
         return obj
+
+    def to_lv(self) -> int:
+        return int.from_bytes(self.to_bytes(), "big", signed=False)
+
+    @classmethod
+    def from_lv(cls, value: int) -> "triple_ct":
+        return cls.from_bytes((value & ((1 << (cls.BYTE_COUNT * 8)) - 1)).to_bytes(cls.BYTE_COUNT, "big", signed=False))
 
     def to_bytes(self) -> bytes:
         return (self._value & 224).to_bytes(1, "big")
@@ -231,6 +245,13 @@ class byte_ct:
         obj = cls()
         obj._value = (packed & 255) << 0
         return obj
+
+    def to_lv(self) -> int:
+        return int.from_bytes(self.to_bytes(), "big", signed=False)
+
+    @classmethod
+    def from_lv(cls, value: int) -> "byte_ct":
+        return cls.from_bytes((value & ((1 << (cls.BYTE_COUNT * 8)) - 1)).to_bytes(cls.BYTE_COUNT, "big", signed=False))
 
     def to_bytes(self) -> bytes:
         return (self._value & 255).to_bytes(1, "big")
@@ -370,6 +391,13 @@ class wide_ct:
         obj = cls()
         obj._value = (packed & 511) << 7
         return obj
+
+    def to_lv(self) -> int:
+        return int.from_bytes(self.to_bytes(), "big", signed=False)
+
+    @classmethod
+    def from_lv(cls, value: int) -> "wide_ct":
+        return cls.from_bytes((value & ((1 << (cls.BYTE_COUNT * 8)) - 1)).to_bytes(cls.BYTE_COUNT, "big", signed=False))
 
     def to_bytes(self) -> bytes:
         return (self._value & 65408).to_bytes(2, "big")
@@ -773,6 +801,13 @@ class very_wide_ct:
         obj = cls()
         obj._value = (packed & 8589934591) << 7
         return obj
+
+    def to_lv(self) -> int:
+        return int.from_bytes(self.to_bytes(), "big", signed=False)
+
+    @classmethod
+    def from_lv(cls, value: int) -> "very_wide_ct":
+        return cls.from_bytes((value & ((1 << (cls.BYTE_COUNT * 8)) - 1)).to_bytes(cls.BYTE_COUNT, "big", signed=False))
 
     def to_bytes(self) -> bytes:
         return (self._value & 1099511627648).to_bytes(5, "big")

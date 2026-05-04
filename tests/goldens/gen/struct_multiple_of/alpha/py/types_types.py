@@ -49,6 +49,13 @@ class aligned_ct:
         obj.b = (packed >> 0) & 4095
         return obj
 
+    def to_lv(self) -> int:
+        return int.from_bytes(self.to_bytes(), "big", signed=False)
+
+    @classmethod
+    def from_lv(cls, value: int) -> "aligned_ct":
+        return cls.from_bytes((value & ((1 << (cls.BYTE_COUNT * 8)) - 1)).to_bytes(cls.BYTE_COUNT, "big", signed=False))
+
     def to_bytes(self) -> bytes:
         result = bytearray()
         _packed_a = self.a & 31
@@ -119,6 +126,13 @@ class no_extra_pad_ct:
         obj.b = (packed >> 0) & 4095
         return obj
 
+    def to_lv(self) -> int:
+        return int.from_bytes(self.to_bytes(), "big", signed=False)
+
+    @classmethod
+    def from_lv(cls, value: int) -> "no_extra_pad_ct":
+        return cls.from_bytes((value & ((1 << (cls.BYTE_COUNT * 8)) - 1)).to_bytes(cls.BYTE_COUNT, "big", signed=False))
+
     def to_bytes(self) -> bytes:
         result = bytearray()
         _packed_a = self.a & 31
@@ -174,6 +188,13 @@ class inner_ct:
         obj = cls()
         obj.x = (packed >> 0) & 7
         return obj
+
+    def to_lv(self) -> int:
+        return int.from_bytes(self.to_bytes(), "big", signed=False)
+
+    @classmethod
+    def from_lv(cls, value: int) -> "inner_ct":
+        return cls.from_bytes((value & ((1 << (cls.BYTE_COUNT * 8)) - 1)).to_bytes(cls.BYTE_COUNT, "big", signed=False))
 
     def to_bytes(self) -> bytes:
         result = bytearray()
@@ -242,6 +263,13 @@ class outer_ct:
         obj.inner = inner_ct.unpack((packed >> 8) & 7)
         obj.y = (packed >> 0) & 255
         return obj
+
+    def to_lv(self) -> int:
+        return int.from_bytes(self.to_bytes(), "big", signed=False)
+
+    @classmethod
+    def from_lv(cls, value: int) -> "outer_ct":
+        return cls.from_bytes((value & ((1 << (cls.BYTE_COUNT * 8)) - 1)).to_bytes(cls.BYTE_COUNT, "big", signed=False))
 
     def to_bytes(self) -> bytes:
         result = bytearray()

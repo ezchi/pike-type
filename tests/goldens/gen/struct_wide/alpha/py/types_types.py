@@ -68,6 +68,13 @@ class big_ct:
         obj.extra = _slice_extra.to_bytes(16, "big", signed=False)
         return obj
 
+    def to_lv(self) -> int:
+        return int.from_bytes(self.to_bytes(), "big", signed=False)
+
+    @classmethod
+    def from_lv(cls, value: int) -> "big_ct":
+        return cls.from_bytes((value & ((1 << (cls.BYTE_COUNT * 8)) - 1)).to_bytes(cls.BYTE_COUNT, "big", signed=False))
+
     def to_bytes(self) -> bytes:
         result = bytearray()
         result.extend(self.data)

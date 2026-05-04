@@ -347,5 +347,161 @@ class StructPackTest(_RuntimeBase):
         self.assertNotEqual(obj.pack(), int.from_bytes(obj.to_bytes(), "big"))
 
 
+class ScalarAliasLvTest(_RuntimeBase):
+
+    def test_narrow_unsigned_to_lv_equals_value(self) -> None:
+        mod = self._import("scalar_sv_basic", "alpha.py.types_types")
+        # addr_t — 13-bit unsigned, byte_count=2. to_lv = byte interpretation = self.value.
+        a = mod.addr_ct(0x1ABC)
+        self.assertEqual(a.to_lv(), 0x1ABC)
+
+    def test_narrow_unsigned_from_lv_round_trip(self) -> None:
+        mod = self._import("scalar_sv_basic", "alpha.py.types_types")
+        a = mod.addr_ct(0x1ABC)
+        rt = mod.addr_ct.from_lv(a.to_lv())
+        self.assertEqual(rt.value, 0x1ABC)
+
+    def test_narrow_signed_to_lv_includes_sign_extension(self) -> None:
+        mod = self._import("struct_signed", "alpha.py.types_types")
+        # signed_4_t with -3: pack=0xD (4 bits), to_lv=0xFD (8 bits, sign-extended).
+        s = mod.signed_4_ct(-3)
+        self.assertEqual(s.pack(), 0xD)
+        self.assertEqual(s.to_lv(), 0xFD)
+
+    def test_narrow_signed_from_lv_decodes_sign_extension(self) -> None:
+        mod = self._import("struct_signed", "alpha.py.types_types")
+        rt = mod.signed_4_ct.from_lv(0xFD)
+        self.assertEqual(rt.value, -3)
+
+    def test_narrow_signed_from_lv_rejects_invalid_padding(self) -> None:
+        mod = self._import("struct_signed", "alpha.py.types_types")
+        # Sign bit of data is 1 but padding bits are 0 → from_bytes raises.
+        with self.assertRaises(ValueError):
+            mod.signed_4_ct.from_lv(0x0D)
+
+    def test_wide_unsigned_to_lv_round_trip(self) -> None:
+        mod = self._import("scalar_wide", "alpha.py.types_types")
+        v = (1 << 65) - 1
+        w = mod.wide_ct(v)
+        self.assertEqual(w.to_lv(), v)
+        rt = mod.wide_ct.from_lv(v)
+        self.assertEqual(rt.value, w.value)
+
+    def test_from_lv_masks_excess_bits(self) -> None:
+        mod = self._import("scalar_sv_basic", "alpha.py.types_types")
+        # Bytes representation is 16 bits. Excess high bits are masked.
+        # 0x1FF1ABC & 0xFFFF = 0x1ABC. Then from_bytes masks data bits to 0x1FFF? No,
+        # 0x1ABC fits in 13 bits.
+        rt = mod.addr_ct.from_lv(0x1FF1ABC)
+        self.assertEqual(rt.value, 0x1ABC)
+
+
+class EnumLvTest(_RuntimeBase):
+
+    def test_to_lv_equals_int_value(self) -> None:
+        mod = self._import("enum_basic", "foo.py.defs_types")
+        c = mod.color_ct(mod.color_enum_t.GREEN)
+        self.assertEqual(c.to_lv(), 5)
+
+    def test_from_lv_round_trip(self) -> None:
+        mod = self._import("enum_basic", "foo.py.defs_types")
+        rt = mod.color_ct.from_lv(10)
+        self.assertEqual(rt.value, mod.color_enum_t.BLUE)
+
+    def test_from_lv_rejects_unknown(self) -> None:
+        mod = self._import("enum_basic", "foo.py.defs_types")
+        with self.assertRaises(ValueError):
+            mod.color_ct.from_lv(3)
+
+
+class FlagsLvTest(_RuntimeBase):
+
+    def test_to_lv_keeps_alignment_bits_zero(self) -> None:
+        mod = self._import("flags_basic", "alpha.py.types_types")
+        # triple_t — 3 flags, alignment_bits=5. Setting all flags:
+        # _value bits: a=bit7, b=bit6, c=bit5 → 0b11100000 = 0xE0
+        f = mod.triple_ct()
+        f.a = True
+        f.b = True
+        f.c = True
+        self.assertEqual(f.to_lv(), 0xE0)
+        # pack returns the data-only int = 0b111 = 7
+        self.assertEqual(f.pack(), 7)
+
+    def test_from_lv_round_trip(self) -> None:
+        mod = self._import("flags_basic", "alpha.py.types_types")
+        rt = mod.triple_ct.from_lv(0xA0)
+        # 0xA0 = 0b10100000 → bit 7 (a) = 1, bit 6 (b) = 0, bit 5 (c) = 1
+        self.assertTrue(rt.a)
+        self.assertFalse(rt.b)
+        self.assertTrue(rt.c)
+
+    def test_from_lv_masks_alignment_bits(self) -> None:
+        mod = self._import("flags_basic", "alpha.py.types_types")
+        # Bits in the alignment region (lower 5) are silently masked by from_bytes.
+        rt = mod.triple_ct.from_lv(0xBF)  # 0b10111111: bit 7=1, bit 6=0, bit 5=1
+        self.assertTrue(rt.a)
+        self.assertFalse(rt.b)
+        self.assertTrue(rt.c)
+
+
+class StructLvTest(_RuntimeBase):
+
+    def test_struct_signed_to_lv_includes_padding(self) -> None:
+        mod = self._import("struct_signed", "alpha.py.types_types")
+        # mixed_t fields: field_s (signed 4-bit, sign-extended into byte) + field_u (signed 5-bit).
+        # field_s = -6 → byte 0xFA; field_u = -1 → byte 0xFF.
+        # to_bytes = b"\xFA\xFF" → to_lv = 0xFAFF
+        obj = mod.mixed_ct(field_s=-6, field_u=-1)
+        self.assertEqual(obj.to_lv(), 0xFAFF)
+        # pack returns 9 bits only.
+        self.assertEqual(obj.pack(), 0x15F)
+
+    def test_struct_signed_from_lv_round_trip(self) -> None:
+        mod = self._import("struct_signed", "alpha.py.types_types")
+        rt = mod.mixed_ct.from_lv(0xFAFF)
+        self.assertEqual(rt.field_s.value, -6)
+        self.assertEqual(rt.field_u, -1)
+
+    def test_struct_padded_to_lv_includes_alignment_bytes(self) -> None:
+        mod = self._import("struct_padded", "alpha.py.types_types")
+        obj = mod.bar_ct(flag_a=1, field_1=0x1FFF, status=0xA, flag_b=0)
+        # to_bytes = b"\x01\x1f\xff\x0a\x00" (5 bytes incl. alignment).
+        self.assertEqual(obj.to_lv(), int.from_bytes(b"\x01\x1f\xff\x0a\x00", "big"))
+
+    def test_struct_padded_from_lv_round_trip(self) -> None:
+        mod = self._import("struct_padded", "alpha.py.types_types")
+        obj = mod.bar_ct(flag_a=1, field_1=0x1FFF, status=0xA, flag_b=0)
+        rt = mod.bar_ct.from_lv(obj.to_lv())
+        self.assertEqual(rt.flag_a, obj.flag_a)
+        self.assertEqual(rt.field_1, obj.field_1)
+        self.assertEqual(rt.status, obj.status)
+        self.assertEqual(rt.flag_b, obj.flag_b)
+
+    def test_nested_struct_to_lv_round_trip(self) -> None:
+        mod = self._import("nested_struct_sv_basic", "alpha.py.types_types")
+        header = mod.header_ct(addr=0x1FFF, enable=1)
+        pkt = mod.packet_ct()
+        pkt.header = header
+        pkt.mode = 2
+        pkt.error_code = 5
+        rt = mod.packet_ct.from_lv(pkt.to_lv())
+        self.assertEqual(rt.header.addr.value, 0x1FFF)
+        self.assertEqual(rt.header.enable.value, 1)
+        self.assertEqual(rt.mode, 2)
+        self.assertEqual(rt.error_code, 5)
+
+    def test_struct_to_lv_equals_to_bytes_int(self) -> None:
+        mod = self._import("struct_padded", "alpha.py.types_types")
+        obj = mod.bar_ct(flag_a=1, field_1=0x0ABC, status=0x3, flag_b=1)
+        self.assertEqual(obj.to_lv(), int.from_bytes(obj.to_bytes(), "big"))
+
+    def test_to_lv_differs_from_pack_when_padding_present(self) -> None:
+        mod = self._import("struct_signed", "alpha.py.types_types")
+        # mixed_t has signed-narrow fields with byte alignment → to_lv > pack typically.
+        obj = mod.mixed_ct(field_s=-1, field_u=-1)
+        self.assertNotEqual(obj.pack(), obj.to_lv())
+
+
 if __name__ == "__main__":
     unittest.main()

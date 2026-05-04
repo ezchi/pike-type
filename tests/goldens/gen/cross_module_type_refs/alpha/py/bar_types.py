@@ -87,6 +87,13 @@ class bar_ct:
         obj.perm = perms_ct.unpack((packed >> 0) & 3)
         return obj
 
+    def to_lv(self) -> int:
+        return int.from_bytes(self.to_bytes(), "big", signed=False)
+
+    @classmethod
+    def from_lv(cls, value: int) -> "bar_ct":
+        return cls.from_bytes((value & ((1 << (cls.BYTE_COUNT * 8)) - 1)).to_bytes(cls.BYTE_COUNT, "big", signed=False))
+
     def to_bytes(self) -> bytes:
         result = bytearray()
         result.extend(self.field1.to_bytes())

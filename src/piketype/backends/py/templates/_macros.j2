@@ -28,6 +28,13 @@ class {{ view.class_name }}:
     def unpack(cls, packed: int) -> "{{ view.class_name }}":
         return cls((packed & cls.MAX_VALUE).to_bytes(cls.BYTE_COUNT, "big", signed=False))
 
+    def to_lv(self) -> int:
+        return int.from_bytes(self.to_bytes(), "big", signed=False)
+
+    @classmethod
+    def from_lv(cls, value: int) -> "{{ view.class_name }}":
+        return cls.from_bytes((value & ((1 << (cls.BYTE_COUNT * 8)) - 1)).to_bytes(cls.BYTE_COUNT, "big", signed=False))
+
     def to_bytes(self) -> bytes:
         return self.value
 
@@ -75,6 +82,13 @@ class {{ view.class_name }}:
         value = packed & cls.MASK
         signed_value = value - (1 << cls.WIDTH) if (value & cls.SIGN_BIT) else value
         return cls(signed_value)
+
+    def to_lv(self) -> int:
+        return int.from_bytes(self.to_bytes(), "big", signed=False)
+
+    @classmethod
+    def from_lv(cls, value: int) -> "{{ view.class_name }}":
+        return cls.from_bytes((value & ((1 << (cls.BYTE_COUNT * 8)) - 1)).to_bytes(cls.BYTE_COUNT, "big", signed=False))
 
     def to_bytes(self) -> bytes:
         mask = self.MASK
@@ -134,6 +148,13 @@ class {{ view.class_name }}:
     @classmethod
     def unpack(cls, packed: int) -> "{{ view.class_name }}":
         return cls(packed & cls.MAX_VALUE)
+
+    def to_lv(self) -> int:
+        return int.from_bytes(self.to_bytes(), "big", signed=False)
+
+    @classmethod
+    def from_lv(cls, value: int) -> "{{ view.class_name }}":
+        return cls.from_bytes((value & ((1 << (cls.BYTE_COUNT * 8)) - 1)).to_bytes(cls.BYTE_COUNT, "big", signed=False))
 
     def to_bytes(self) -> bytes:
         return self.value.to_bytes(self.BYTE_COUNT, "big", signed=False)
@@ -196,6 +217,13 @@ class {{ view.class_name }}:
         except ValueError:
             raise ValueError("{{ view.class_name }}.unpack unknown enum value")
         return cls(enum_val)
+
+    def to_lv(self) -> int:
+        return int.from_bytes(self.to_bytes(), "big", signed=False)
+
+    @classmethod
+    def from_lv(cls, value: int) -> "{{ view.class_name }}":
+        return cls.from_bytes((value & ((1 << (cls.BYTE_COUNT * 8)) - 1)).to_bytes(cls.BYTE_COUNT, "big", signed=False))
 
     def to_bytes(self) -> bytes:
         return int(self.value).to_bytes({{ view.byte_count }}, "big", signed=False)
@@ -264,6 +292,13 @@ class {{ view.class_name }}:
         obj = cls()
         obj._value = (packed & {{ view.flag_mask }}) << {{ view.alignment_bits }}
         return obj
+
+    def to_lv(self) -> int:
+        return int.from_bytes(self.to_bytes(), "big", signed=False)
+
+    @classmethod
+    def from_lv(cls, value: int) -> "{{ view.class_name }}":
+        return cls.from_bytes((value & ((1 << (cls.BYTE_COUNT * 8)) - 1)).to_bytes(cls.BYTE_COUNT, "big", signed=False))
 
     def to_bytes(self) -> bytes:
         return (self._value & {{ view.data_mask }}).to_bytes({{ view.byte_count }}, "big")
@@ -375,6 +410,13 @@ class {{ view.class_name }}:
 {% endif %}
 {% endfor %}
         return obj
+
+    def to_lv(self) -> int:
+        return int.from_bytes(self.to_bytes(), "big", signed=False)
+
+    @classmethod
+    def from_lv(cls, value: int) -> "{{ view.class_name }}":
+        return cls.from_bytes((value & ((1 << (cls.BYTE_COUNT * 8)) - 1)).to_bytes(cls.BYTE_COUNT, "big", signed=False))
 
     def to_bytes(self) -> bytes:
         result = bytearray()

@@ -55,6 +55,13 @@ class status_ct:
         obj._value = (packed & 7) << 5
         return obj
 
+    def to_lv(self) -> int:
+        return int.from_bytes(self.to_bytes(), "big", signed=False)
+
+    @classmethod
+    def from_lv(cls, value: int) -> "status_ct":
+        return cls.from_bytes((value & ((1 << (cls.BYTE_COUNT * 8)) - 1)).to_bytes(cls.BYTE_COUNT, "big", signed=False))
+
     def to_bytes(self) -> bytes:
         return (self._value & 224).to_bytes(1, "big")
 
@@ -119,6 +126,13 @@ class report_ct:
         obj.status = status_ct.unpack((packed >> 5) & 7)
         obj.code = (packed >> 0) & 31
         return obj
+
+    def to_lv(self) -> int:
+        return int.from_bytes(self.to_bytes(), "big", signed=False)
+
+    @classmethod
+    def from_lv(cls, value: int) -> "report_ct":
+        return cls.from_bytes((value & ((1 << (cls.BYTE_COUNT * 8)) - 1)).to_bytes(cls.BYTE_COUNT, "big", signed=False))
 
     def to_bytes(self) -> bytes:
         result = bytearray()
@@ -185,6 +199,13 @@ class aligned_report_ct:
         obj.flags = status_ct.unpack((packed >> 3) & 7)
         obj.data = (packed >> 0) & 7
         return obj
+
+    def to_lv(self) -> int:
+        return int.from_bytes(self.to_bytes(), "big", signed=False)
+
+    @classmethod
+    def from_lv(cls, value: int) -> "aligned_report_ct":
+        return cls.from_bytes((value & ((1 << (cls.BYTE_COUNT * 8)) - 1)).to_bytes(cls.BYTE_COUNT, "big", signed=False))
 
     def to_bytes(self) -> bytes:
         result = bytearray()
