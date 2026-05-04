@@ -18,12 +18,12 @@ class narrow_ct:
             raise ValueError("narrow_ct value out of range")
         self.value = value
 
-    def _to_packed_int(self) -> int:
+    def pack(self) -> int:
         return self.value
 
     @classmethod
-    def _from_packed_int(cls, packed: int) -> "narrow_ct":
-        return cls(packed)
+    def unpack(cls, packed: int) -> "narrow_ct":
+        return cls(packed & cls.MAX_VALUE)
 
     def to_bytes(self) -> bytes:
         return self.value.to_bytes(self.BYTE_COUNT, "big", signed=False)
@@ -78,12 +78,12 @@ class wide_ct:
             raise ValueError("wide_ct value size mismatch")
         self.value = raw
 
-    def _to_packed_int(self) -> int:
+    def pack(self) -> int:
         return int.from_bytes(self.value, "big", signed=False)
 
     @classmethod
-    def _from_packed_int(cls, packed: int) -> "wide_ct":
-        return cls(packed.to_bytes(cls.BYTE_COUNT, "big", signed=False))
+    def unpack(cls, packed: int) -> "wide_ct":
+        return cls((packed & cls.MAX_VALUE).to_bytes(cls.BYTE_COUNT, "big", signed=False))
 
     def to_bytes(self) -> bytes:
         return self.value
@@ -133,12 +133,12 @@ class very_wide_ct:
             raise ValueError("very_wide_ct value size mismatch")
         self.value = raw
 
-    def _to_packed_int(self) -> int:
+    def pack(self) -> int:
         return int.from_bytes(self.value, "big", signed=False)
 
     @classmethod
-    def _from_packed_int(cls, packed: int) -> "very_wide_ct":
-        return cls(packed.to_bytes(cls.BYTE_COUNT, "big", signed=False))
+    def unpack(cls, packed: int) -> "very_wide_ct":
+        return cls((packed & cls.MAX_VALUE).to_bytes(cls.BYTE_COUNT, "big", signed=False))
 
     def to_bytes(self) -> bytes:
         return self.value

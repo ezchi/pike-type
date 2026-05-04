@@ -19,6 +19,18 @@ class state_ct:
             raise TypeError("state_ct value must be state_enum_t")
         self.value = value
 
+    def pack(self) -> int:
+        return int(self.value)
+
+    @classmethod
+    def unpack(cls, packed: int) -> "state_ct":
+        masked = packed & 1
+        try:
+            enum_val = state_enum_t(masked)
+        except ValueError:
+            raise ValueError("state_ct.unpack unknown enum value")
+        return cls(enum_val)
+
     def to_bytes(self) -> bytes:
         return int(self.value).to_bytes(1, "big", signed=False)
 

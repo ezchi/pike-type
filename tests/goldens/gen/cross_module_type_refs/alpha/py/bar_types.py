@@ -66,6 +66,27 @@ class bar_ct:
             return value
         raise TypeError("bar_ct.perm must be perms_ct")
 
+    def pack(self) -> int:
+        result = 0
+        result = (result << 8) | self.field1.pack()
+        result = (result << 8) | self.field2.pack()
+        if self.hdr is None:
+            raise ValueError("hdr cannot be None during packing")
+        result = (result << 16) | self.hdr.pack()
+        result = (result << 2) | self.op.pack()
+        result = (result << 2) | self.perm.pack()
+        return result
+
+    @classmethod
+    def unpack(cls, packed: int) -> "bar_ct":
+        obj = cls()
+        obj.field1 = byte_ct.unpack((packed >> 28) & 255)
+        obj.field2 = byte_ct.unpack((packed >> 20) & 255)
+        obj.hdr = addr_ct.unpack((packed >> 4) & 65535)
+        obj.op = cmd_ct.unpack((packed >> 2) & 3)
+        obj.perm = perms_ct.unpack((packed >> 0) & 3)
+        return obj
+
     def to_bytes(self) -> bytes:
         result = bytearray()
         result.extend(self.field1.to_bytes())

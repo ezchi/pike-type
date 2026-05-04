@@ -20,12 +20,12 @@ class addr_ct:
             raise ValueError("addr_ct value out of range")
         self.value = value
 
-    def _to_packed_int(self) -> int:
+    def pack(self) -> int:
         return self.value
 
     @classmethod
-    def _from_packed_int(cls, packed: int) -> "addr_ct":
-        return cls(packed)
+    def unpack(cls, packed: int) -> "addr_ct":
+        return cls(packed & cls.MAX_VALUE)
 
     def to_bytes(self) -> bytes:
         return self.value.to_bytes(self.BYTE_COUNT, "big", signed=False)
@@ -75,11 +75,11 @@ class mask_ct:
             raise ValueError("mask_ct value out of range")
         self.value = value
 
-    def _to_packed_int(self) -> int:
+    def pack(self) -> int:
         return self.value & self.MASK
 
     @classmethod
-    def _from_packed_int(cls, packed: int) -> "mask_ct":
+    def unpack(cls, packed: int) -> "mask_ct":
         value = packed & cls.MASK
         signed_value = value - (1 << cls.WIDTH) if (value & cls.SIGN_BIT) else value
         return cls(signed_value)
@@ -105,7 +105,7 @@ class mask_ct:
         expected_padding = ((1 << 0) - 1) if sign_bit else 0
         if padding != expected_padding:
             raise ValueError("mask_ct.from_bytes signed padding mismatch")
-        return cls._from_packed_int(data_bits)
+        return cls.unpack(data_bits)
 
     def clone(self) -> "mask_ct":
         return type(self)(self.value)
@@ -140,12 +140,12 @@ class flag_ct:
             raise ValueError("flag_ct value out of range")
         self.value = value
 
-    def _to_packed_int(self) -> int:
+    def pack(self) -> int:
         return self.value
 
     @classmethod
-    def _from_packed_int(cls, packed: int) -> "flag_ct":
-        return cls(packed)
+    def unpack(cls, packed: int) -> "flag_ct":
+        return cls(packed & cls.MAX_VALUE)
 
     def to_bytes(self) -> bytes:
         return self.value.to_bytes(self.BYTE_COUNT, "big", signed=False)

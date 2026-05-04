@@ -51,6 +51,23 @@ class big_ct:
             raise ValueError("big_ct.extra size mismatch")
         return value
 
+    def pack(self) -> int:
+        result = 0
+        result = (result << 65) | (int.from_bytes(self.data, "big", signed=False) & 36893488147419103231)
+        result = (result << 1) | (self.flag & 1)
+        result = (result << 128) | (int.from_bytes(self.extra, "big", signed=False) & 340282366920938463463374607431768211455)
+        return result
+
+    @classmethod
+    def unpack(cls, packed: int) -> "big_ct":
+        obj = cls()
+        _slice_data = (packed >> 129) & 36893488147419103231
+        obj.data = _slice_data.to_bytes(9, "big", signed=False)
+        obj.flag = (packed >> 128) & 1
+        _slice_extra = (packed >> 0) & 340282366920938463463374607431768211455
+        obj.extra = _slice_extra.to_bytes(16, "big", signed=False)
+        return obj
+
     def to_bytes(self) -> bytes:
         result = bytearray()
         result.extend(self.data)

@@ -22,11 +22,11 @@ class signed_4_ct:
             raise ValueError("signed_4_ct value out of range")
         self.value = value
 
-    def _to_packed_int(self) -> int:
+    def pack(self) -> int:
         return self.value & self.MASK
 
     @classmethod
-    def _from_packed_int(cls, packed: int) -> "signed_4_ct":
+    def unpack(cls, packed: int) -> "signed_4_ct":
         value = packed & cls.MASK
         signed_value = value - (1 << cls.WIDTH) if (value & cls.SIGN_BIT) else value
         return cls(signed_value)
@@ -52,7 +52,7 @@ class signed_4_ct:
         expected_padding = ((1 << 4) - 1) if sign_bit else 0
         if padding != expected_padding:
             raise ValueError("signed_4_ct.from_bytes signed padding mismatch")
-        return cls._from_packed_int(data_bits)
+        return cls.unpack(data_bits)
 
     def clone(self) -> "signed_4_ct":
         return type(self)(self.value)
@@ -89,11 +89,11 @@ class signed_5_ct:
             raise ValueError("signed_5_ct value out of range")
         self.value = value
 
-    def _to_packed_int(self) -> int:
+    def pack(self) -> int:
         return self.value & self.MASK
 
     @classmethod
-    def _from_packed_int(cls, packed: int) -> "signed_5_ct":
+    def unpack(cls, packed: int) -> "signed_5_ct":
         value = packed & cls.MASK
         signed_value = value - (1 << cls.WIDTH) if (value & cls.SIGN_BIT) else value
         return cls(signed_value)
@@ -119,7 +119,7 @@ class signed_5_ct:
         expected_padding = ((1 << 3) - 1) if sign_bit else 0
         if padding != expected_padding:
             raise ValueError("signed_5_ct.from_bytes signed padding mismatch")
-        return cls._from_packed_int(data_bits)
+        return cls.unpack(data_bits)
 
     def clone(self) -> "signed_5_ct":
         return type(self)(self.value)
@@ -167,6 +167,20 @@ class mixed_ct:
         if value < -16 or value > 15:
             raise ValueError("mixed_ct.field_u value out of range")
         return value
+
+    def pack(self) -> int:
+        result = 0
+        result = (result << 4) | self.field_s.pack()
+        result = (result << 5) | (self.field_u & 31)
+        return result
+
+    @classmethod
+    def unpack(cls, packed: int) -> "mixed_ct":
+        obj = cls()
+        obj.field_s = signed_4_ct.unpack((packed >> 5) & 15)
+        _slice_field_u = (packed >> 0) & 31
+        obj.field_u = _slice_field_u - 32 if (_slice_field_u & 16) else _slice_field_u
+        return obj
 
     def to_bytes(self) -> bytes:
         result = bytearray()

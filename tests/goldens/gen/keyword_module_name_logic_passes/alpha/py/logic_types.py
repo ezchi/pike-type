@@ -36,6 +36,19 @@ class handler_ct:
             raise ValueError("handler_ct.b value out of range")
         return value
 
+    def pack(self) -> int:
+        result = 0
+        result = (result << 2) | (self.a & 3)
+        result = (result << 2) | (self.b & 3)
+        return result
+
+    @classmethod
+    def unpack(cls, packed: int) -> "handler_ct":
+        obj = cls()
+        obj.a = (packed >> 2) & 3
+        obj.b = (packed >> 0) & 3
+        return obj
+
     def to_bytes(self) -> bytes:
         result = bytearray()
         _packed_a = self.a & 3

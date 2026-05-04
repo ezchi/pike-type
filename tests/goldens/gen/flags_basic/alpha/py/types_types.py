@@ -22,6 +22,15 @@ class single_ct:
         else:
             self._value &= ~128
 
+    def pack(self) -> int:
+        return (self._value & 128) >> 7
+
+    @classmethod
+    def unpack(cls, packed: int) -> "single_ct":
+        obj = cls()
+        obj._value = (packed & 1) << 7
+        return obj
+
     def to_bytes(self) -> bytes:
         return (self._value & 128).to_bytes(1, "big")
 
@@ -85,6 +94,15 @@ class triple_ct:
             self._value |= 32
         else:
             self._value &= ~32
+
+    def pack(self) -> int:
+        return (self._value & 224) >> 5
+
+    @classmethod
+    def unpack(cls, packed: int) -> "triple_ct":
+        obj = cls()
+        obj._value = (packed & 7) << 5
+        return obj
 
     def to_bytes(self) -> bytes:
         return (self._value & 224).to_bytes(1, "big")
@@ -204,6 +222,15 @@ class byte_ct:
             self._value |= 1
         else:
             self._value &= ~1
+
+    def pack(self) -> int:
+        return (self._value & 255) >> 0
+
+    @classmethod
+    def unpack(cls, packed: int) -> "byte_ct":
+        obj = cls()
+        obj._value = (packed & 255) << 0
+        return obj
 
     def to_bytes(self) -> bytes:
         return (self._value & 255).to_bytes(1, "big")
@@ -334,6 +361,15 @@ class wide_ct:
             self._value |= 128
         else:
             self._value &= ~128
+
+    def pack(self) -> int:
+        return (self._value & 65408) >> 7
+
+    @classmethod
+    def unpack(cls, packed: int) -> "wide_ct":
+        obj = cls()
+        obj._value = (packed & 511) << 7
+        return obj
 
     def to_bytes(self) -> bytes:
         return (self._value & 65408).to_bytes(2, "big")
@@ -728,6 +764,15 @@ class very_wide_ct:
             self._value |= 128
         else:
             self._value &= ~128
+
+    def pack(self) -> int:
+        return (self._value & 1099511627648) >> 7
+
+    @classmethod
+    def unpack(cls, packed: int) -> "very_wide_ct":
+        obj = cls()
+        obj._value = (packed & 8589934591) << 7
+        return obj
 
     def to_bytes(self) -> bytes:
         return (self._value & 1099511627648).to_bytes(5, "big")

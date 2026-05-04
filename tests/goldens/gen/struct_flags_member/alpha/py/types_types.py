@@ -46,6 +46,15 @@ class status_ct:
         else:
             self._value &= ~32
 
+    def pack(self) -> int:
+        return (self._value & 224) >> 5
+
+    @classmethod
+    def unpack(cls, packed: int) -> "status_ct":
+        obj = cls()
+        obj._value = (packed & 7) << 5
+        return obj
+
     def to_bytes(self) -> bytes:
         return (self._value & 224).to_bytes(1, "big")
 
@@ -97,6 +106,19 @@ class report_ct:
         if value < 0 or value > 31:
             raise ValueError("report_ct.code value out of range")
         return value
+
+    def pack(self) -> int:
+        result = 0
+        result = (result << 3) | self.status.pack()
+        result = (result << 5) | (self.code & 31)
+        return result
+
+    @classmethod
+    def unpack(cls, packed: int) -> "report_ct":
+        obj = cls()
+        obj.status = status_ct.unpack((packed >> 5) & 7)
+        obj.code = (packed >> 0) & 31
+        return obj
 
     def to_bytes(self) -> bytes:
         result = bytearray()
@@ -150,6 +172,19 @@ class aligned_report_ct:
         if value < 0 or value > 7:
             raise ValueError("aligned_report_ct.data value out of range")
         return value
+
+    def pack(self) -> int:
+        result = 0
+        result = (result << 3) | self.flags.pack()
+        result = (result << 3) | (self.data & 7)
+        return result
+
+    @classmethod
+    def unpack(cls, packed: int) -> "aligned_report_ct":
+        obj = cls()
+        obj.flags = status_ct.unpack((packed >> 3) & 7)
+        obj.data = (packed >> 0) & 7
+        return obj
 
     def to_bytes(self) -> bytes:
         result = bytearray()

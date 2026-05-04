@@ -36,6 +36,19 @@ class class_ct:
             raise ValueError("class_ct.payload value out of range")
         return value
 
+    def pack(self) -> int:
+        result = 0
+        result = (result << 8) | (self.addr & 255)
+        result = (result << 16) | (self.payload & 65535)
+        return result
+
+    @classmethod
+    def unpack(cls, packed: int) -> "class_ct":
+        obj = cls()
+        obj.addr = (packed >> 16) & 255
+        obj.payload = (packed >> 0) & 65535
+        return obj
+
     def to_bytes(self) -> bytes:
         result = bytearray()
         _packed_addr = self.addr & 255

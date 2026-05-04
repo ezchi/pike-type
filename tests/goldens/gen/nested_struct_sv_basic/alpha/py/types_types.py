@@ -22,12 +22,12 @@ class addr_ct:
             raise ValueError("addr_ct value out of range")
         self.value = value
 
-    def _to_packed_int(self) -> int:
+    def pack(self) -> int:
         return self.value
 
     @classmethod
-    def _from_packed_int(cls, packed: int) -> "addr_ct":
-        return cls(packed)
+    def unpack(cls, packed: int) -> "addr_ct":
+        return cls(packed & cls.MAX_VALUE)
 
     def to_bytes(self) -> bytes:
         return self.value.to_bytes(self.BYTE_COUNT, "big", signed=False)
@@ -75,12 +75,12 @@ class flag_ct:
             raise ValueError("flag_ct value out of range")
         self.value = value
 
-    def _to_packed_int(self) -> int:
+    def pack(self) -> int:
         return self.value
 
     @classmethod
-    def _from_packed_int(cls, packed: int) -> "flag_ct":
-        return cls(packed)
+    def unpack(cls, packed: int) -> "flag_ct":
+        return cls(packed & cls.MAX_VALUE)
 
     def to_bytes(self) -> bytes:
         return self.value.to_bytes(self.BYTE_COUNT, "big", signed=False)
@@ -139,6 +139,19 @@ class header_ct:
         if isinstance(value, flag_ct):
             return value
         return flag_ct(value)
+
+    def pack(self) -> int:
+        result = 0
+        result = (result << 13) | self.addr.pack()
+        result = (result << 1) | self.enable.pack()
+        return result
+
+    @classmethod
+    def unpack(cls, packed: int) -> "header_ct":
+        obj = cls()
+        obj.addr = addr_ct.unpack((packed >> 1) & 8191)
+        obj.enable = flag_ct.unpack((packed >> 0) & 1)
+        return obj
 
     def to_bytes(self) -> bytes:
         result = bytearray()
@@ -204,6 +217,23 @@ class packet_ct:
         if value < 0 or value > 7:
             raise ValueError("packet_ct.error_code value out of range")
         return value
+
+    def pack(self) -> int:
+        result = 0
+        if self.header is None:
+            raise ValueError("header cannot be None during packing")
+        result = (result << 14) | self.header.pack()
+        result = (result << 2) | (self.mode & 3)
+        result = (result << 3) | (self.error_code & 7)
+        return result
+
+    @classmethod
+    def unpack(cls, packed: int) -> "packet_ct":
+        obj = cls()
+        obj.header = header_ct.unpack((packed >> 5) & 16383)
+        obj.mode = (packed >> 3) & 3
+        obj.error_code = (packed >> 0) & 7
+        return obj
 
     def to_bytes(self) -> bytes:
         result = bytearray()

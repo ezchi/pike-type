@@ -18,12 +18,12 @@ class byte_ct:
             raise ValueError("byte_ct value out of range")
         self.value = value
 
-    def _to_packed_int(self) -> int:
+    def pack(self) -> int:
         return self.value
 
     @classmethod
-    def _from_packed_int(cls, packed: int) -> "byte_ct":
-        return cls(packed)
+    def unpack(cls, packed: int) -> "byte_ct":
+        return cls(packed & cls.MAX_VALUE)
 
     def to_bytes(self) -> bytes:
         return self.value.to_bytes(self.BYTE_COUNT, "big", signed=False)

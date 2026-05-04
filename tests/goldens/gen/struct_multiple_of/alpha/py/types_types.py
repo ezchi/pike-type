@@ -36,6 +36,19 @@ class aligned_ct:
             raise ValueError("aligned_ct.b value out of range")
         return value
 
+    def pack(self) -> int:
+        result = 0
+        result = (result << 5) | (self.a & 31)
+        result = (result << 12) | (self.b & 4095)
+        return result
+
+    @classmethod
+    def unpack(cls, packed: int) -> "aligned_ct":
+        obj = cls()
+        obj.a = (packed >> 12) & 31
+        obj.b = (packed >> 0) & 4095
+        return obj
+
     def to_bytes(self) -> bytes:
         result = bytearray()
         _packed_a = self.a & 31
@@ -93,6 +106,19 @@ class no_extra_pad_ct:
             raise ValueError("no_extra_pad_ct.b value out of range")
         return value
 
+    def pack(self) -> int:
+        result = 0
+        result = (result << 5) | (self.a & 31)
+        result = (result << 12) | (self.b & 4095)
+        return result
+
+    @classmethod
+    def unpack(cls, packed: int) -> "no_extra_pad_ct":
+        obj = cls()
+        obj.a = (packed >> 12) & 31
+        obj.b = (packed >> 0) & 4095
+        return obj
+
     def to_bytes(self) -> bytes:
         result = bytearray()
         _packed_a = self.a & 31
@@ -137,6 +163,17 @@ class inner_ct:
         if value < 0 or value > 7:
             raise ValueError("inner_ct.x value out of range")
         return value
+
+    def pack(self) -> int:
+        result = 0
+        result = (result << 3) | (self.x & 7)
+        return result
+
+    @classmethod
+    def unpack(cls, packed: int) -> "inner_ct":
+        obj = cls()
+        obj.x = (packed >> 0) & 7
+        return obj
 
     def to_bytes(self) -> bytes:
         result = bytearray()
@@ -190,6 +227,21 @@ class outer_ct:
         if value < 0 or value > 255:
             raise ValueError("outer_ct.y value out of range")
         return value
+
+    def pack(self) -> int:
+        result = 0
+        if self.inner is None:
+            raise ValueError("inner cannot be None during packing")
+        result = (result << 3) | self.inner.pack()
+        result = (result << 8) | (self.y & 255)
+        return result
+
+    @classmethod
+    def unpack(cls, packed: int) -> "outer_ct":
+        obj = cls()
+        obj.inner = inner_ct.unpack((packed >> 8) & 7)
+        obj.y = (packed >> 0) & 255
+        return obj
 
     def to_bytes(self) -> bytes:
         result = bytearray()

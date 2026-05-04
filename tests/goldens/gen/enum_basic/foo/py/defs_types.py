@@ -20,6 +20,18 @@ class color_ct:
             raise TypeError("color_ct value must be color_enum_t")
         self.value = value
 
+    def pack(self) -> int:
+        return int(self.value)
+
+    @classmethod
+    def unpack(cls, packed: int) -> "color_ct":
+        masked = packed & 15
+        try:
+            enum_val = color_enum_t(masked)
+        except ValueError:
+            raise ValueError("color_ct.unpack unknown enum value")
+        return cls(enum_val)
+
     def to_bytes(self) -> bytes:
         return int(self.value).to_bytes(1, "big", signed=False)
 
@@ -71,6 +83,18 @@ class cmd_ct:
             raise TypeError("cmd_ct value must be cmd_enum_t")
         self.value = value
 
+    def pack(self) -> int:
+        return int(self.value)
+
+    @classmethod
+    def unpack(cls, packed: int) -> "cmd_ct":
+        masked = packed & 255
+        try:
+            enum_val = cmd_enum_t(masked)
+        except ValueError:
+            raise ValueError("cmd_ct.unpack unknown enum value")
+        return cls(enum_val)
+
     def to_bytes(self) -> bytes:
         return int(self.value).to_bytes(1, "big", signed=False)
 
@@ -118,6 +142,18 @@ class flag_ct:
         if not isinstance(value, flag_enum_t):
             raise TypeError("flag_ct value must be flag_enum_t")
         self.value = value
+
+    def pack(self) -> int:
+        return int(self.value)
+
+    @classmethod
+    def unpack(cls, packed: int) -> "flag_ct":
+        masked = packed & 1
+        try:
+            enum_val = flag_enum_t(masked)
+        except ValueError:
+            raise ValueError("flag_ct.unpack unknown enum value")
+        return cls(enum_val)
 
     def to_bytes(self) -> bytes:
         return int(self.value).to_bytes(1, "big", signed=False)
@@ -167,6 +203,18 @@ class big_ct:
         if not isinstance(value, big_enum_t):
             raise TypeError("big_ct value must be big_enum_t")
         self.value = value
+
+    def pack(self) -> int:
+        return int(self.value)
+
+    @classmethod
+    def unpack(cls, packed: int) -> "big_ct":
+        masked = packed & 18446744073709551615
+        try:
+            enum_val = big_enum_t(masked)
+        except ValueError:
+            raise ValueError("big_ct.unpack unknown enum value")
+        return cls(enum_val)
 
     def to_bytes(self) -> bytes:
         return int(self.value).to_bytes(8, "big", signed=False)

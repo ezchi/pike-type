@@ -20,12 +20,12 @@ class foo_ct:
             raise ValueError("foo_ct value out of range")
         self.value = value
 
-    def _to_packed_int(self) -> int:
+    def pack(self) -> int:
         return self.value
 
     @classmethod
-    def _from_packed_int(cls, packed: int) -> "foo_ct":
-        return cls(packed)
+    def unpack(cls, packed: int) -> "foo_ct":
+        return cls(packed & cls.MAX_VALUE)
 
     def to_bytes(self) -> bytes:
         return self.value.to_bytes(self.BYTE_COUNT, "big", signed=False)
@@ -108,6 +108,23 @@ class bar_ct:
         if value < 0 or value > 1:
             raise ValueError("bar_ct.flag_b value out of range")
         return value
+
+    def pack(self) -> int:
+        result = 0
+        result = (result << 1) | (self.flag_a & 1)
+        result = (result << 13) | self.field_1.pack()
+        result = (result << 4) | (self.status & 15)
+        result = (result << 1) | (self.flag_b & 1)
+        return result
+
+    @classmethod
+    def unpack(cls, packed: int) -> "bar_ct":
+        obj = cls()
+        obj.flag_a = (packed >> 18) & 1
+        obj.field_1 = foo_ct.unpack((packed >> 5) & 8191)
+        obj.status = (packed >> 1) & 15
+        obj.flag_b = (packed >> 0) & 1
+        return obj
 
     def to_bytes(self) -> bytes:
         result = bytearray()

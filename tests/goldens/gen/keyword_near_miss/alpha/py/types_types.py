@@ -36,6 +36,19 @@ class near_miss_ct:
             raise ValueError("near_miss_ct.payload value out of range")
         return value
 
+    def pack(self) -> int:
+        result = 0
+        result = (result << 2) | (self.type_id & 3)
+        result = (result << 8) | (self.payload & 255)
+        return result
+
+    @classmethod
+    def unpack(cls, packed: int) -> "near_miss_ct":
+        obj = cls()
+        obj.type_id = (packed >> 8) & 3
+        obj.payload = (packed >> 0) & 255
+        return obj
+
     def to_bytes(self) -> bytes:
         result = bytearray()
         _packed_type_id = self.type_id & 3

@@ -22,12 +22,12 @@ class byte_ct:
             raise ValueError("byte_ct value out of range")
         self.value = value
 
-    def _to_packed_int(self) -> int:
+    def pack(self) -> int:
         return self.value
 
     @classmethod
-    def _from_packed_int(cls, packed: int) -> "byte_ct":
-        return cls(packed)
+    def unpack(cls, packed: int) -> "byte_ct":
+        return cls(packed & cls.MAX_VALUE)
 
     def to_bytes(self) -> bytes:
         return self.value.to_bytes(self.BYTE_COUNT, "big", signed=False)
@@ -91,6 +91,19 @@ class addr_ct:
             raise ValueError("addr_ct.lo value out of range")
         return value
 
+    def pack(self) -> int:
+        result = 0
+        result = (result << 8) | (self.hi & 255)
+        result = (result << 8) | (self.lo & 255)
+        return result
+
+    @classmethod
+    def unpack(cls, packed: int) -> "addr_ct":
+        obj = cls()
+        obj.hi = (packed >> 8) & 255
+        obj.lo = (packed >> 0) & 255
+        return obj
+
     def to_bytes(self) -> bytes:
         result = bytearray()
         _packed_hi = self.hi & 255
@@ -130,6 +143,18 @@ class cmd_ct:
         if not isinstance(value, cmd_enum_t):
             raise TypeError("cmd_ct value must be cmd_enum_t")
         self.value = value
+
+    def pack(self) -> int:
+        return int(self.value)
+
+    @classmethod
+    def unpack(cls, packed: int) -> "cmd_ct":
+        masked = packed & 3
+        try:
+            enum_val = cmd_enum_t(masked)
+        except ValueError:
+            raise ValueError("cmd_ct.unpack unknown enum value")
+        return cls(enum_val)
 
     def to_bytes(self) -> bytes:
         return int(self.value).to_bytes(1, "big", signed=False)
@@ -195,6 +220,15 @@ class perms_ct:
             self._value |= 64
         else:
             self._value &= ~64
+
+    def pack(self) -> int:
+        return (self._value & 192) >> 6
+
+    @classmethod
+    def unpack(cls, packed: int) -> "perms_ct":
+        obj = cls()
+        obj._value = (packed & 3) << 6
+        return obj
 
     def to_bytes(self) -> bytes:
         return (self._value & 192).to_bytes(1, "big")

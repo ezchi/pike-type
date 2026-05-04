@@ -104,6 +104,8 @@ class FlagsView:
     byte_count: int
     total_bits: int  # byte_count * 8
     data_mask: int  # ((1 << num_flags) - 1) << alignment_bits
+    alignment_bits: int  # total_bits - num_flags
+    flag_mask: int  # (1 << num_flags) - 1 — flat data-only mask used by pack/unpack
     fields: tuple[FlagFieldView, ...]
 
 
@@ -133,6 +135,11 @@ class StructFieldView:
     # Pre-computed shift / range values used by signed-narrow from_bytes.
     sign_bit_index: int  # width - 1 (signed narrow); 0 otherwise
     full_range: int  # 2 ** width = 1 << width (signed narrow); 0 otherwise
+    # Pack/unpack data — data-only width across all field kinds and the
+    # LSB-aligned slice position inside the struct's packed int.
+    data_width: int  # data width for pack/unpack (full data width for type refs)
+    data_mask: int  # (1 << data_width) - 1
+    unpack_slice_low: int  # LSB position of this field inside the packed int
 
 
 @dataclass(frozen=True, slots=True)
@@ -144,6 +151,7 @@ class StructView:
     alignment_bytes: int
     fields: tuple[StructFieldView, ...]
     has_struct_field: bool  # at least one field.is_struct_ref
+    pack_total_width: int  # sum of field data widths — width of the pack() int
 
 
 type TypeView = ScalarAliasView | StructView | EnumView | FlagsView
@@ -381,15 +389,21 @@ def build_flags_view(*, type_ir: FlagsIR) -> FlagsView:
         byte_count=bc,
         total_bits=total_bits,
         data_mask=data_mask,
+        alignment_bits=type_ir.alignment_bits,
+        flag_mask=(1 << num_flags) - 1,
         fields=fields,
     )
 
 
 def _build_struct_field_view(
-    *, field_ir: StructFieldIR, repo_type_index: dict[tuple[str, str], TypeDefIR]
+    *,
+    field_ir: StructFieldIR,
+    repo_type_index: dict[tuple[str, str], TypeDefIR],
+    unpack_slice_low: int,
 ) -> StructFieldView:
     fbc = _field_byte_count(field_ir=field_ir, repo_type_index=repo_type_index)
     pack_bits = fbc * 8
+    data_width = _resolved_field_width(field_type=field_ir.type_ir, repo_type_index=repo_type_index)
 
     # Defaults — overwritten by branches below.
     annotation = ""
@@ -476,13 +490,37 @@ def _build_struct_field_view(
         msb_byte_mask=msb_byte_mask,
         sign_bit_index=sign_bit_index,
         full_range=full_range,
+        data_width=data_width,
+        data_mask=(1 << data_width) - 1,
+        unpack_slice_low=unpack_slice_low,
     )
 
 
 def build_struct_view(*, type_ir: StructIR, repo_type_index: dict[tuple[str, str], TypeDefIR]) -> StructView:
     width = _resolved_type_width(type_ir=type_ir, repo_type_index=repo_type_index)
+
+    # First pass: compute each field's data width so we know the LSB
+    # position of every slice inside the packed int.
+    field_data_widths = [
+        _resolved_field_width(field_type=f.type_ir, repo_type_index=repo_type_index)
+        for f in type_ir.fields
+    ]
+    pack_total_width = sum(field_data_widths)
+
+    # Field at index i is at the highest bits not yet consumed by fields 0..i.
+    # slice_low(i) = sum of data widths of fields after i.
+    cumulative_after: list[int] = []
+    running = 0
+    for dw in reversed(field_data_widths):
+        cumulative_after.append(running)
+        running += dw
+    cumulative_after.reverse()
+
     fields = tuple(
-        _build_struct_field_view(field_ir=f, repo_type_index=repo_type_index) for f in type_ir.fields
+        _build_struct_field_view(
+            field_ir=f, repo_type_index=repo_type_index, unpack_slice_low=cumulative_after[i],
+        )
+        for i, f in enumerate(type_ir.fields)
     )
     struct_byte_count = (
         sum(_field_byte_count(field_ir=f, repo_type_index=repo_type_index) for f in type_ir.fields)
@@ -496,6 +534,7 @@ def build_struct_view(*, type_ir: StructIR, repo_type_index: dict[tuple[str, str
         alignment_bytes=type_ir.alignment_bits // 8,
         fields=fields,
         has_struct_field=any(f.is_struct_ref for f in fields),
+        pack_total_width=pack_total_width,
     )
 
 

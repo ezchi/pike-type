@@ -22,12 +22,12 @@ class addr_ct:
             raise ValueError("addr_ct value out of range")
         self.value = value
 
-    def _to_packed_int(self) -> int:
+    def pack(self) -> int:
         return self.value
 
     @classmethod
-    def _from_packed_int(cls, packed: int) -> "addr_ct":
-        return cls(packed)
+    def unpack(cls, packed: int) -> "addr_ct":
+        return cls(packed & cls.MAX_VALUE)
 
     def to_bytes(self) -> bytes:
         return self.value.to_bytes(self.BYTE_COUNT, "big", signed=False)
@@ -75,12 +75,12 @@ class flag_ct:
             raise ValueError("flag_ct value out of range")
         self.value = value
 
-    def _to_packed_int(self) -> int:
+    def pack(self) -> int:
         return self.value
 
     @classmethod
-    def _from_packed_int(cls, packed: int) -> "flag_ct":
-        return cls(packed)
+    def unpack(cls, packed: int) -> "flag_ct":
+        return cls(packed & cls.MAX_VALUE)
 
     def to_bytes(self) -> bytes:
         return self.value.to_bytes(self.BYTE_COUNT, "big", signed=False)
@@ -150,6 +150,21 @@ class header_ct:
         if value < 0 or value > 3:
             raise ValueError("header_ct.mode value out of range")
         return value
+
+    def pack(self) -> int:
+        result = 0
+        result = (result << 13) | self.addr.pack()
+        result = (result << 1) | self.enable.pack()
+        result = (result << 2) | (self.mode & 3)
+        return result
+
+    @classmethod
+    def unpack(cls, packed: int) -> "header_ct":
+        obj = cls()
+        obj.addr = addr_ct.unpack((packed >> 3) & 8191)
+        obj.enable = flag_ct.unpack((packed >> 2) & 1)
+        obj.mode = (packed >> 0) & 3
+        return obj
 
     def to_bytes(self) -> bytes:
         result = bytearray()

@@ -43,6 +43,21 @@ class bar_ct:
             return value
         return byte_ct(value)
 
+    def pack(self) -> int:
+        result = 0
+        result = (result << 8) | self.a.pack()
+        result = (result << 8) | self.b.pack()
+        result = (result << 8) | self.c.pack()
+        return result
+
+    @classmethod
+    def unpack(cls, packed: int) -> "bar_ct":
+        obj = cls()
+        obj.a = byte_ct.unpack((packed >> 16) & 255)
+        obj.b = byte_ct.unpack((packed >> 8) & 255)
+        obj.c = byte_ct.unpack((packed >> 0) & 255)
+        return obj
+
     def to_bytes(self) -> bytes:
         result = bytearray()
         result.extend(self.a.to_bytes())

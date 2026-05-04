@@ -22,6 +22,18 @@ class cmd_ct:
             raise TypeError("cmd_ct value must be cmd_enum_t")
         self.value = value
 
+    def pack(self) -> int:
+        return int(self.value)
+
+    @classmethod
+    def unpack(cls, packed: int) -> "cmd_ct":
+        masked = packed & 3
+        try:
+            enum_val = cmd_enum_t(masked)
+        except ValueError:
+            raise ValueError("cmd_ct.unpack unknown enum value")
+        return cls(enum_val)
+
     def to_bytes(self) -> bytes:
         return int(self.value).to_bytes(1, "big", signed=False)
 
@@ -86,6 +98,19 @@ class pkt_ct:
             raise ValueError("pkt_ct.data value out of range")
         return value
 
+    def pack(self) -> int:
+        result = 0
+        result = (result << 2) | self.cmd.pack()
+        result = (result << 8) | (self.data & 255)
+        return result
+
+    @classmethod
+    def unpack(cls, packed: int) -> "pkt_ct":
+        obj = cls()
+        obj.cmd = cmd_ct.unpack((packed >> 8) & 3)
+        obj.data = (packed >> 0) & 255
+        return obj
+
     def to_bytes(self) -> bytes:
         result = bytearray()
         result.extend(self.cmd.to_bytes())
@@ -138,6 +163,19 @@ class aligned_pkt_ct:
         if value < 0 or value > 255:
             raise ValueError("aligned_pkt_ct.data value out of range")
         return value
+
+    def pack(self) -> int:
+        result = 0
+        result = (result << 2) | self.cmd.pack()
+        result = (result << 8) | (self.data & 255)
+        return result
+
+    @classmethod
+    def unpack(cls, packed: int) -> "aligned_pkt_ct":
+        obj = cls()
+        obj.cmd = cmd_ct.unpack((packed >> 8) & 3)
+        obj.data = (packed >> 0) & 255
+        return obj
 
     def to_bytes(self) -> bytes:
         result = bytearray()
