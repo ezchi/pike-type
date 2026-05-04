@@ -50,6 +50,12 @@ class addr_ct:
     def clone(self) -> "addr_ct":
         return type(self)(self.value)
 
+    def compare(self, other: object, msg: str = "") -> None:
+        assert isinstance(other, addr_ct), "Expected addr_ct, got " + str(type(other))
+        if self.value != other.value:
+            prefix = msg + ": " if msg else ""
+            raise AssertionError(prefix + repr(self) + " != " + repr(other))
+
     def __int__(self) -> int:
         return self.value
 
@@ -124,6 +130,12 @@ class mask_ct:
     def clone(self) -> "mask_ct":
         return type(self)(self.value)
 
+    def compare(self, other: object, msg: str = "") -> None:
+        assert isinstance(other, mask_ct), "Expected mask_ct, got " + str(type(other))
+        if self.value != other.value:
+            prefix = msg + ": " if msg else ""
+            raise AssertionError(prefix + repr(self) + " != " + repr(other))
+
     def __int__(self) -> int:
         return self.value
 
@@ -183,6 +195,12 @@ class flag_ct:
 
     def clone(self) -> "flag_ct":
         return type(self)(self.value)
+
+    def compare(self, other: object, msg: str = "") -> None:
+        assert isinstance(other, flag_ct), "Expected flag_ct, got " + str(type(other))
+        if self.value != other.value:
+            prefix = msg + ": " if msg else ""
+            raise AssertionError(prefix + repr(self) + " != " + repr(other))
 
     def __int__(self) -> int:
         return self.value

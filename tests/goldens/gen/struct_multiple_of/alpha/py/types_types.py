@@ -83,6 +83,17 @@ class aligned_ct:
     def clone(self) -> "aligned_ct":
         return type(self).from_bytes(self.to_bytes())
 
+    def compare(self, other: object, msg: str = "") -> None:
+        assert isinstance(other, aligned_ct), "Expected aligned_ct, got " + str(type(other))
+        diffs = []
+        if self.a != other.a:
+            diffs.append("a: expected 0x{:02x}, got 0x{:02x}".format(self.a, other.a))
+        if self.b != other.b:
+            diffs.append("b: expected 0x{:03x}, got 0x{:03x}".format(self.b, other.b))
+        if diffs:
+            prefix = msg + ": " if msg else ""
+            raise AssertionError(prefix + repr(self) + " != " + repr(other) + " — " + ", ".join(diffs))
+
 @dataclass
 class no_extra_pad_ct:
     WIDTH = 17
@@ -159,6 +170,17 @@ class no_extra_pad_ct:
     def clone(self) -> "no_extra_pad_ct":
         return type(self).from_bytes(self.to_bytes())
 
+    def compare(self, other: object, msg: str = "") -> None:
+        assert isinstance(other, no_extra_pad_ct), "Expected no_extra_pad_ct, got " + str(type(other))
+        diffs = []
+        if self.a != other.a:
+            diffs.append("a: expected 0x{:02x}, got 0x{:02x}".format(self.a, other.a))
+        if self.b != other.b:
+            diffs.append("b: expected 0x{:03x}, got 0x{:03x}".format(self.b, other.b))
+        if diffs:
+            prefix = msg + ": " if msg else ""
+            raise AssertionError(prefix + repr(self) + " != " + repr(other) + " — " + ", ".join(diffs))
+
 @dataclass
 class inner_ct:
     WIDTH = 3
@@ -218,6 +240,15 @@ class inner_ct:
 
     def clone(self) -> "inner_ct":
         return type(self).from_bytes(self.to_bytes())
+
+    def compare(self, other: object, msg: str = "") -> None:
+        assert isinstance(other, inner_ct), "Expected inner_ct, got " + str(type(other))
+        diffs = []
+        if self.x != other.x:
+            diffs.append("x: expected 0x{:01x}, got 0x{:01x}".format(self.x, other.x))
+        if diffs:
+            prefix = msg + ": " if msg else ""
+            raise AssertionError(prefix + repr(self) + " != " + repr(other) + " — " + ", ".join(diffs))
 
 @dataclass
 class outer_ct:
@@ -297,3 +328,17 @@ class outer_ct:
 
     def clone(self) -> "outer_ct":
         return type(self).from_bytes(self.to_bytes())
+
+    def compare(self, other: object, msg: str = "") -> None:
+        assert isinstance(other, outer_ct), "Expected outer_ct, got " + str(type(other))
+        diffs = []
+        if self.inner is None or other.inner is None:
+            if self.inner is not other.inner:
+                diffs.append("inner: expected {!r}, got {!r}".format(self.inner, other.inner))
+        elif self.inner != other.inner:
+            diffs.append("inner: expected {!r}, got {!r}".format(self.inner, other.inner))
+        if self.y != other.y:
+            diffs.append("y: expected 0x{:02x}, got 0x{:02x}".format(self.y, other.y))
+        if diffs:
+            prefix = msg + ": " if msg else ""
+            raise AssertionError(prefix + repr(self) + " != " + repr(other) + " — " + ", ".join(diffs))

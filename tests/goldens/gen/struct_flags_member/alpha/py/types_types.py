@@ -81,6 +81,23 @@ class status_ct:
         obj._value = self._value & 224
         return obj
 
+    def compare(self, other: object, msg: str = "") -> None:
+        assert isinstance(other, status_ct), "Expected status_ct, got " + str(type(other))
+        diffs = []
+        if self.error != other.error:
+            diffs.append("error: expected {}, got {}".format(self.error, other.error))
+        if self.warning != other.warning:
+            diffs.append("warning: expected {}, got {}".format(self.warning, other.warning))
+        if self.ready != other.ready:
+            diffs.append("ready: expected {}, got {}".format(self.ready, other.ready))
+        if diffs:
+            prefix = msg + ": " if msg else ""
+            raise AssertionError(prefix + repr(self) + " != " + repr(other) + " — " + ", ".join(diffs))
+
+    def __repr__(self) -> str:
+        parts = ["error=" + repr(self.error), "warning=" + repr(self.warning), "ready=" + repr(self.ready)]
+        return "status_ct(" + ", ".join(parts) + ")"
+
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, status_ct):
             return NotImplemented
@@ -159,6 +176,17 @@ class report_ct:
     def clone(self) -> "report_ct":
         return type(self).from_bytes(self.to_bytes())
 
+    def compare(self, other: object, msg: str = "") -> None:
+        assert isinstance(other, report_ct), "Expected report_ct, got " + str(type(other))
+        diffs = []
+        if self.status != other.status:
+            diffs.append("status: expected {!r}, got {!r}".format(self.status, other.status))
+        if self.code != other.code:
+            diffs.append("code: expected 0x{:02x}, got 0x{:02x}".format(self.code, other.code))
+        if diffs:
+            prefix = msg + ": " if msg else ""
+            raise AssertionError(prefix + repr(self) + " != " + repr(other) + " — " + ", ".join(diffs))
+
 @dataclass
 class aligned_report_ct:
     WIDTH = 6
@@ -232,3 +260,14 @@ class aligned_report_ct:
 
     def clone(self) -> "aligned_report_ct":
         return type(self).from_bytes(self.to_bytes())
+
+    def compare(self, other: object, msg: str = "") -> None:
+        assert isinstance(other, aligned_report_ct), "Expected aligned_report_ct, got " + str(type(other))
+        diffs = []
+        if self.flags != other.flags:
+            diffs.append("flags: expected {!r}, got {!r}".format(self.flags, other.flags))
+        if self.data != other.data:
+            diffs.append("data: expected 0x{:01x}, got 0x{:01x}".format(self.data, other.data))
+        if diffs:
+            prefix = msg + ": " if msg else ""
+            raise AssertionError(prefix + repr(self) + " != " + repr(other) + " — " + ", ".join(diffs))

@@ -57,6 +57,19 @@ class single_ct:
         obj._value = self._value & 128
         return obj
 
+    def compare(self, other: object, msg: str = "") -> None:
+        assert isinstance(other, single_ct), "Expected single_ct, got " + str(type(other))
+        diffs = []
+        if self.flag != other.flag:
+            diffs.append("flag: expected {}, got {}".format(self.flag, other.flag))
+        if diffs:
+            prefix = msg + ": " if msg else ""
+            raise AssertionError(prefix + repr(self) + " != " + repr(other) + " — " + ", ".join(diffs))
+
+    def __repr__(self) -> str:
+        parts = ["flag=" + repr(self.flag)]
+        return "single_ct(" + ", ".join(parts) + ")"
+
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, single_ct):
             return NotImplemented
@@ -136,6 +149,23 @@ class triple_ct:
         obj = self.__class__()
         obj._value = self._value & 224
         return obj
+
+    def compare(self, other: object, msg: str = "") -> None:
+        assert isinstance(other, triple_ct), "Expected triple_ct, got " + str(type(other))
+        diffs = []
+        if self.a != other.a:
+            diffs.append("a: expected {}, got {}".format(self.a, other.a))
+        if self.b != other.b:
+            diffs.append("b: expected {}, got {}".format(self.b, other.b))
+        if self.c != other.c:
+            diffs.append("c: expected {}, got {}".format(self.c, other.c))
+        if diffs:
+            prefix = msg + ": " if msg else ""
+            raise AssertionError(prefix + repr(self) + " != " + repr(other) + " — " + ", ".join(diffs))
+
+    def __repr__(self) -> str:
+        parts = ["a=" + repr(self.a), "b=" + repr(self.b), "c=" + repr(self.c)]
+        return "triple_ct(" + ", ".join(parts) + ")"
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, triple_ct):
@@ -271,6 +301,33 @@ class byte_ct:
         obj = self.__class__()
         obj._value = self._value & 255
         return obj
+
+    def compare(self, other: object, msg: str = "") -> None:
+        assert isinstance(other, byte_ct), "Expected byte_ct, got " + str(type(other))
+        diffs = []
+        if self.f0 != other.f0:
+            diffs.append("f0: expected {}, got {}".format(self.f0, other.f0))
+        if self.f1 != other.f1:
+            diffs.append("f1: expected {}, got {}".format(self.f1, other.f1))
+        if self.f2 != other.f2:
+            diffs.append("f2: expected {}, got {}".format(self.f2, other.f2))
+        if self.f3 != other.f3:
+            diffs.append("f3: expected {}, got {}".format(self.f3, other.f3))
+        if self.f4 != other.f4:
+            diffs.append("f4: expected {}, got {}".format(self.f4, other.f4))
+        if self.f5 != other.f5:
+            diffs.append("f5: expected {}, got {}".format(self.f5, other.f5))
+        if self.f6 != other.f6:
+            diffs.append("f6: expected {}, got {}".format(self.f6, other.f6))
+        if self.f7 != other.f7:
+            diffs.append("f7: expected {}, got {}".format(self.f7, other.f7))
+        if diffs:
+            prefix = msg + ": " if msg else ""
+            raise AssertionError(prefix + repr(self) + " != " + repr(other) + " — " + ", ".join(diffs))
+
+    def __repr__(self) -> str:
+        parts = ["f0=" + repr(self.f0), "f1=" + repr(self.f1), "f2=" + repr(self.f2), "f3=" + repr(self.f3), "f4=" + repr(self.f4), "f5=" + repr(self.f5), "f6=" + repr(self.f6), "f7=" + repr(self.f7)]
+        return "byte_ct(" + ", ".join(parts) + ")"
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, byte_ct):
@@ -417,6 +474,35 @@ class wide_ct:
         obj = self.__class__()
         obj._value = self._value & 65408
         return obj
+
+    def compare(self, other: object, msg: str = "") -> None:
+        assert isinstance(other, wide_ct), "Expected wide_ct, got " + str(type(other))
+        diffs = []
+        if self.f0 != other.f0:
+            diffs.append("f0: expected {}, got {}".format(self.f0, other.f0))
+        if self.f1 != other.f1:
+            diffs.append("f1: expected {}, got {}".format(self.f1, other.f1))
+        if self.f2 != other.f2:
+            diffs.append("f2: expected {}, got {}".format(self.f2, other.f2))
+        if self.f3 != other.f3:
+            diffs.append("f3: expected {}, got {}".format(self.f3, other.f3))
+        if self.f4 != other.f4:
+            diffs.append("f4: expected {}, got {}".format(self.f4, other.f4))
+        if self.f5 != other.f5:
+            diffs.append("f5: expected {}, got {}".format(self.f5, other.f5))
+        if self.f6 != other.f6:
+            diffs.append("f6: expected {}, got {}".format(self.f6, other.f6))
+        if self.f7 != other.f7:
+            diffs.append("f7: expected {}, got {}".format(self.f7, other.f7))
+        if self.f8 != other.f8:
+            diffs.append("f8: expected {}, got {}".format(self.f8, other.f8))
+        if diffs:
+            prefix = msg + ": " if msg else ""
+            raise AssertionError(prefix + repr(self) + " != " + repr(other) + " — " + ", ".join(diffs))
+
+    def __repr__(self) -> str:
+        parts = ["f0=" + repr(self.f0), "f1=" + repr(self.f1), "f2=" + repr(self.f2), "f3=" + repr(self.f3), "f4=" + repr(self.f4), "f5=" + repr(self.f5), "f6=" + repr(self.f6), "f7=" + repr(self.f7), "f8=" + repr(self.f8)]
+        return "wide_ct(" + ", ".join(parts) + ")"
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, wide_ct):
@@ -827,6 +913,83 @@ class very_wide_ct:
         obj = self.__class__()
         obj._value = self._value & 1099511627648
         return obj
+
+    def compare(self, other: object, msg: str = "") -> None:
+        assert isinstance(other, very_wide_ct), "Expected very_wide_ct, got " + str(type(other))
+        diffs = []
+        if self.f0 != other.f0:
+            diffs.append("f0: expected {}, got {}".format(self.f0, other.f0))
+        if self.f1 != other.f1:
+            diffs.append("f1: expected {}, got {}".format(self.f1, other.f1))
+        if self.f2 != other.f2:
+            diffs.append("f2: expected {}, got {}".format(self.f2, other.f2))
+        if self.f3 != other.f3:
+            diffs.append("f3: expected {}, got {}".format(self.f3, other.f3))
+        if self.f4 != other.f4:
+            diffs.append("f4: expected {}, got {}".format(self.f4, other.f4))
+        if self.f5 != other.f5:
+            diffs.append("f5: expected {}, got {}".format(self.f5, other.f5))
+        if self.f6 != other.f6:
+            diffs.append("f6: expected {}, got {}".format(self.f6, other.f6))
+        if self.f7 != other.f7:
+            diffs.append("f7: expected {}, got {}".format(self.f7, other.f7))
+        if self.f8 != other.f8:
+            diffs.append("f8: expected {}, got {}".format(self.f8, other.f8))
+        if self.f9 != other.f9:
+            diffs.append("f9: expected {}, got {}".format(self.f9, other.f9))
+        if self.f10 != other.f10:
+            diffs.append("f10: expected {}, got {}".format(self.f10, other.f10))
+        if self.f11 != other.f11:
+            diffs.append("f11: expected {}, got {}".format(self.f11, other.f11))
+        if self.f12 != other.f12:
+            diffs.append("f12: expected {}, got {}".format(self.f12, other.f12))
+        if self.f13 != other.f13:
+            diffs.append("f13: expected {}, got {}".format(self.f13, other.f13))
+        if self.f14 != other.f14:
+            diffs.append("f14: expected {}, got {}".format(self.f14, other.f14))
+        if self.f15 != other.f15:
+            diffs.append("f15: expected {}, got {}".format(self.f15, other.f15))
+        if self.f16 != other.f16:
+            diffs.append("f16: expected {}, got {}".format(self.f16, other.f16))
+        if self.f17 != other.f17:
+            diffs.append("f17: expected {}, got {}".format(self.f17, other.f17))
+        if self.f18 != other.f18:
+            diffs.append("f18: expected {}, got {}".format(self.f18, other.f18))
+        if self.f19 != other.f19:
+            diffs.append("f19: expected {}, got {}".format(self.f19, other.f19))
+        if self.f20 != other.f20:
+            diffs.append("f20: expected {}, got {}".format(self.f20, other.f20))
+        if self.f21 != other.f21:
+            diffs.append("f21: expected {}, got {}".format(self.f21, other.f21))
+        if self.f22 != other.f22:
+            diffs.append("f22: expected {}, got {}".format(self.f22, other.f22))
+        if self.f23 != other.f23:
+            diffs.append("f23: expected {}, got {}".format(self.f23, other.f23))
+        if self.f24 != other.f24:
+            diffs.append("f24: expected {}, got {}".format(self.f24, other.f24))
+        if self.f25 != other.f25:
+            diffs.append("f25: expected {}, got {}".format(self.f25, other.f25))
+        if self.f26 != other.f26:
+            diffs.append("f26: expected {}, got {}".format(self.f26, other.f26))
+        if self.f27 != other.f27:
+            diffs.append("f27: expected {}, got {}".format(self.f27, other.f27))
+        if self.f28 != other.f28:
+            diffs.append("f28: expected {}, got {}".format(self.f28, other.f28))
+        if self.f29 != other.f29:
+            diffs.append("f29: expected {}, got {}".format(self.f29, other.f29))
+        if self.f30 != other.f30:
+            diffs.append("f30: expected {}, got {}".format(self.f30, other.f30))
+        if self.f31 != other.f31:
+            diffs.append("f31: expected {}, got {}".format(self.f31, other.f31))
+        if self.f32 != other.f32:
+            diffs.append("f32: expected {}, got {}".format(self.f32, other.f32))
+        if diffs:
+            prefix = msg + ": " if msg else ""
+            raise AssertionError(prefix + repr(self) + " != " + repr(other) + " — " + ", ".join(diffs))
+
+    def __repr__(self) -> str:
+        parts = ["f0=" + repr(self.f0), "f1=" + repr(self.f1), "f2=" + repr(self.f2), "f3=" + repr(self.f3), "f4=" + repr(self.f4), "f5=" + repr(self.f5), "f6=" + repr(self.f6), "f7=" + repr(self.f7), "f8=" + repr(self.f8), "f9=" + repr(self.f9), "f10=" + repr(self.f10), "f11=" + repr(self.f11), "f12=" + repr(self.f12), "f13=" + repr(self.f13), "f14=" + repr(self.f14), "f15=" + repr(self.f15), "f16=" + repr(self.f16), "f17=" + repr(self.f17), "f18=" + repr(self.f18), "f19=" + repr(self.f19), "f20=" + repr(self.f20), "f21=" + repr(self.f21), "f22=" + repr(self.f22), "f23=" + repr(self.f23), "f24=" + repr(self.f24), "f25=" + repr(self.f25), "f26=" + repr(self.f26), "f27=" + repr(self.f27), "f28=" + repr(self.f28), "f29=" + repr(self.f29), "f30=" + repr(self.f30), "f31=" + repr(self.f31), "f32=" + repr(self.f32)]
+        return "very_wide_ct(" + ", ".join(parts) + ")"
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, very_wide_ct):

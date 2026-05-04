@@ -48,6 +48,12 @@ class narrow_ct:
     def clone(self) -> "narrow_ct":
         return type(self)(self.value)
 
+    def compare(self, other: object, msg: str = "") -> None:
+        assert isinstance(other, narrow_ct), "Expected narrow_ct, got " + str(type(other))
+        if self.value != other.value:
+            prefix = msg + ": " if msg else ""
+            raise AssertionError(prefix + repr(self) + " != " + repr(other))
+
     def __int__(self) -> int:
         return self.value
 
@@ -116,6 +122,12 @@ class wide_ct:
     def clone(self) -> "wide_ct":
         return type(self)(self.value)
 
+    def compare(self, other: object, msg: str = "") -> None:
+        assert isinstance(other, wide_ct), "Expected wide_ct, got " + str(type(other))
+        if self.value != other.value:
+            prefix = msg + ": " if msg else ""
+            raise AssertionError(prefix + repr(self) + " != " + repr(other))
+
     def __eq__(self, other: object) -> bool:
         if isinstance(other, type(self)):
             return self.value == other.value
@@ -177,6 +189,12 @@ class very_wide_ct:
 
     def clone(self) -> "very_wide_ct":
         return type(self)(self.value)
+
+    def compare(self, other: object, msg: str = "") -> None:
+        assert isinstance(other, very_wide_ct), "Expected very_wide_ct, got " + str(type(other))
+        if self.value != other.value:
+            prefix = msg + ": " if msg else ""
+            raise AssertionError(prefix + repr(self) + " != " + repr(other))
 
     def __eq__(self, other: object) -> bool:
         if isinstance(other, type(self)):

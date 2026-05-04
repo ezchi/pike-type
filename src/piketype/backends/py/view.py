@@ -140,6 +140,9 @@ class StructFieldView:
     data_width: int  # data width for pack/unpack (full data width for type refs)
     data_mask: int  # (1 << data_width) - 1
     unpack_slice_low: int  # LSB position of this field inside the packed int
+    # Number of hex digits needed to represent data_width: (data_width + 3) // 4.
+    # Used by the compare() template to format narrow-unsigned and wide fields.
+    hex_width: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -493,6 +496,7 @@ def _build_struct_field_view(
         data_width=data_width,
         data_mask=(1 << data_width) - 1,
         unpack_slice_low=unpack_slice_low,
+        hex_width=(data_width + 3) // 4,
     )
 
 

@@ -61,6 +61,12 @@ class cmd_ct:
     def clone(self) -> "cmd_ct":
         return type(self)(self.value)
 
+    def compare(self, other: object, msg: str = "") -> None:
+        assert isinstance(other, cmd_ct), "Expected cmd_ct, got " + str(type(other))
+        if self.value != other.value:
+            prefix = msg + ": " if msg else ""
+            raise AssertionError(prefix + repr(self) + " != " + repr(other))
+
     def __int__(self) -> int:
         return int(self.value)
 
@@ -150,6 +156,17 @@ class pkt_ct:
     def clone(self) -> "pkt_ct":
         return type(self).from_bytes(self.to_bytes())
 
+    def compare(self, other: object, msg: str = "") -> None:
+        assert isinstance(other, pkt_ct), "Expected pkt_ct, got " + str(type(other))
+        diffs = []
+        if self.cmd != other.cmd:
+            diffs.append("cmd: expected {!r}, got {!r}".format(self.cmd, other.cmd))
+        if self.data != other.data:
+            diffs.append("data: expected 0x{:02x}, got 0x{:02x}".format(self.data, other.data))
+        if diffs:
+            prefix = msg + ": " if msg else ""
+            raise AssertionError(prefix + repr(self) + " != " + repr(other) + " — " + ", ".join(diffs))
+
 @dataclass
 class aligned_pkt_ct:
     WIDTH = 10
@@ -223,3 +240,14 @@ class aligned_pkt_ct:
 
     def clone(self) -> "aligned_pkt_ct":
         return type(self).from_bytes(self.to_bytes())
+
+    def compare(self, other: object, msg: str = "") -> None:
+        assert isinstance(other, aligned_pkt_ct), "Expected aligned_pkt_ct, got " + str(type(other))
+        diffs = []
+        if self.cmd != other.cmd:
+            diffs.append("cmd: expected {!r}, got {!r}".format(self.cmd, other.cmd))
+        if self.data != other.data:
+            diffs.append("data: expected 0x{:02x}, got 0x{:02x}".format(self.data, other.data))
+        if diffs:
+            prefix = msg + ": " if msg else ""
+            raise AssertionError(prefix + repr(self) + " != " + repr(other) + " — " + ", ".join(diffs))

@@ -81,3 +81,14 @@ class class_ct:
 
     def clone(self) -> "class_ct":
         return type(self).from_bytes(self.to_bytes())
+
+    def compare(self, other: object, msg: str = "") -> None:
+        assert isinstance(other, class_ct), "Expected class_ct, got " + str(type(other))
+        diffs = []
+        if self.addr != other.addr:
+            diffs.append("addr: expected 0x{:02x}, got 0x{:02x}".format(self.addr, other.addr))
+        if self.payload != other.payload:
+            diffs.append("payload: expected 0x{:04x}, got 0x{:04x}".format(self.payload, other.payload))
+        if diffs:
+            prefix = msg + ": " if msg else ""
+            raise AssertionError(prefix + repr(self) + " != " + repr(other) + " — " + ", ".join(diffs))

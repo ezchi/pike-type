@@ -52,6 +52,12 @@ class {{ view.class_name }}:
     def clone(self) -> "{{ view.class_name }}":
         return type(self)(self.value)
 
+    def compare(self, other: object, msg: str = "") -> None:
+        assert isinstance(other, {{ view.class_name }}), "Expected {{ view.class_name }}, got " + str(type(other))
+        if self.value != other.value:
+            prefix = msg + ": " if msg else ""
+            raise AssertionError(prefix + repr(self) + " != " + repr(other))
+
     def __eq__(self, other: object) -> bool:
         if isinstance(other, type(self)):
             return self.value == other.value
@@ -116,6 +122,12 @@ class {{ view.class_name }}:
     def clone(self) -> "{{ view.class_name }}":
         return type(self)(self.value)
 
+    def compare(self, other: object, msg: str = "") -> None:
+        assert isinstance(other, {{ view.class_name }}), "Expected {{ view.class_name }}, got " + str(type(other))
+        if self.value != other.value:
+            prefix = msg + ": " if msg else ""
+            raise AssertionError(prefix + repr(self) + " != " + repr(other))
+
     def __int__(self) -> int:
         return self.value
 
@@ -171,6 +183,12 @@ class {{ view.class_name }}:
 
     def clone(self) -> "{{ view.class_name }}":
         return type(self)(self.value)
+
+    def compare(self, other: object, msg: str = "") -> None:
+        assert isinstance(other, {{ view.class_name }}), "Expected {{ view.class_name }}, got " + str(type(other))
+        if self.value != other.value:
+            prefix = msg + ": " if msg else ""
+            raise AssertionError(prefix + repr(self) + " != " + repr(other))
 
     def __int__(self) -> int:
         return self.value
@@ -245,6 +263,12 @@ class {{ view.class_name }}:
     def clone(self) -> "{{ view.class_name }}":
         return type(self)(self.value)
 
+    def compare(self, other: object, msg: str = "") -> None:
+        assert isinstance(other, {{ view.class_name }}), "Expected {{ view.class_name }}, got " + str(type(other))
+        if self.value != other.value:
+            prefix = msg + ": " if msg else ""
+            raise AssertionError(prefix + repr(self) + " != " + repr(other))
+
     def __int__(self) -> int:
         return int(self.value)
 
@@ -318,6 +342,21 @@ class {{ view.class_name }}:
         obj = self.__class__()
         obj._value = self._value & {{ view.data_mask }}
         return obj
+
+    def compare(self, other: object, msg: str = "") -> None:
+        assert isinstance(other, {{ view.class_name }}), "Expected {{ view.class_name }}, got " + str(type(other))
+        diffs = []
+{% for f in view.fields %}
+        if self.{{ f.name }} != other.{{ f.name }}:
+            diffs.append("{{ f.name }}: expected {}, got {}".format(self.{{ f.name }}, other.{{ f.name }}))
+{% endfor %}
+        if diffs:
+            prefix = msg + ": " if msg else ""
+            raise AssertionError(prefix + repr(self) + " != " + repr(other) + " — " + ", ".join(diffs))
+
+    def __repr__(self) -> str:
+        parts = [{% for f in view.fields %}"{{ f.name }}=" + repr(self.{{ f.name }}){% if not loop.last %}, {% endif %}{% endfor %}]
+        return "{{ view.class_name }}(" + ", ".join(parts) + ")"
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, {{ view.class_name }}):
@@ -481,4 +520,32 @@ class {{ view.class_name }}:
 
     def clone(self) -> "{{ view.class_name }}":
         return type(self).from_bytes(self.to_bytes())
+
+    def compare(self, other: object, msg: str = "") -> None:
+        assert isinstance(other, {{ view.class_name }}), "Expected {{ view.class_name }}, got " + str(type(other))
+        diffs = []
+{% for f in view.fields %}
+{% if f.is_struct_ref %}
+        if self.{{ f.name }} is None or other.{{ f.name }} is None:
+            if self.{{ f.name }} is not other.{{ f.name }}:
+                diffs.append("{{ f.name }}: expected {!r}, got {!r}".format(self.{{ f.name }}, other.{{ f.name }}))
+        elif self.{{ f.name }} != other.{{ f.name }}:
+            diffs.append("{{ f.name }}: expected {!r}, got {!r}".format(self.{{ f.name }}, other.{{ f.name }}))
+{% elif f.is_flags_ref or f.is_enum_ref or f.is_scalar_ref %}
+        if self.{{ f.name }} != other.{{ f.name }}:
+            diffs.append("{{ f.name }}: expected {!r}, got {!r}".format(self.{{ f.name }}, other.{{ f.name }}))
+{% elif f.is_narrow_scalar and f.signed %}
+        if self.{{ f.name }} != other.{{ f.name }}:
+            diffs.append("{{ f.name }}: expected {}, got {}".format(self.{{ f.name }}, other.{{ f.name }}))
+{% elif f.is_narrow_scalar %}
+        if self.{{ f.name }} != other.{{ f.name }}:
+            diffs.append("{{ f.name }}: expected 0x{:0{{ f.hex_width }}x}, got 0x{:0{{ f.hex_width }}x}".format(self.{{ f.name }}, other.{{ f.name }}))
+{% elif f.is_wide_scalar %}
+        if self.{{ f.name }} != other.{{ f.name }}:
+            diffs.append("{{ f.name }}: expected 0x{}, got 0x{}".format(self.{{ f.name }}.hex(), other.{{ f.name }}.hex()))
+{% endif %}
+{% endfor %}
+        if diffs:
+            prefix = msg + ": " if msg else ""
+            raise AssertionError(prefix + repr(self) + " != " + repr(other) + " — " + ", ".join(diffs))
 {%- endmacro %}

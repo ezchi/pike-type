@@ -50,6 +50,12 @@ class foo_ct:
     def clone(self) -> "foo_ct":
         return type(self)(self.value)
 
+    def compare(self, other: object, msg: str = "") -> None:
+        assert isinstance(other, foo_ct), "Expected foo_ct, got " + str(type(other))
+        if self.value != other.value:
+            prefix = msg + ": " if msg else ""
+            raise AssertionError(prefix + repr(self) + " != " + repr(other))
+
     def __int__(self) -> int:
         return self.value
 
@@ -172,3 +178,18 @@ class bar_ct:
 
     def clone(self) -> "bar_ct":
         return type(self).from_bytes(self.to_bytes())
+
+    def compare(self, other: object, msg: str = "") -> None:
+        assert isinstance(other, bar_ct), "Expected bar_ct, got " + str(type(other))
+        diffs = []
+        if self.flag_a != other.flag_a:
+            diffs.append("flag_a: expected 0x{:01x}, got 0x{:01x}".format(self.flag_a, other.flag_a))
+        if self.field_1 != other.field_1:
+            diffs.append("field_1: expected {!r}, got {!r}".format(self.field_1, other.field_1))
+        if self.status != other.status:
+            diffs.append("status: expected 0x{:01x}, got 0x{:01x}".format(self.status, other.status))
+        if self.flag_b != other.flag_b:
+            diffs.append("flag_b: expected 0x{:01x}, got 0x{:01x}".format(self.flag_b, other.flag_b))
+        if diffs:
+            prefix = msg + ": " if msg else ""
+            raise AssertionError(prefix + repr(self) + " != " + repr(other) + " — " + ", ".join(diffs))

@@ -128,3 +128,23 @@ class bar_ct:
 
     def clone(self) -> "bar_ct":
         return type(self).from_bytes(self.to_bytes())
+
+    def compare(self, other: object, msg: str = "") -> None:
+        assert isinstance(other, bar_ct), "Expected bar_ct, got " + str(type(other))
+        diffs = []
+        if self.field1 != other.field1:
+            diffs.append("field1: expected {!r}, got {!r}".format(self.field1, other.field1))
+        if self.field2 != other.field2:
+            diffs.append("field2: expected {!r}, got {!r}".format(self.field2, other.field2))
+        if self.hdr is None or other.hdr is None:
+            if self.hdr is not other.hdr:
+                diffs.append("hdr: expected {!r}, got {!r}".format(self.hdr, other.hdr))
+        elif self.hdr != other.hdr:
+            diffs.append("hdr: expected {!r}, got {!r}".format(self.hdr, other.hdr))
+        if self.op != other.op:
+            diffs.append("op: expected {!r}, got {!r}".format(self.op, other.op))
+        if self.perm != other.perm:
+            diffs.append("perm: expected {!r}, got {!r}".format(self.perm, other.perm))
+        if diffs:
+            prefix = msg + ": " if msg else ""
+            raise AssertionError(prefix + repr(self) + " != " + repr(other) + " — " + ", ".join(diffs))

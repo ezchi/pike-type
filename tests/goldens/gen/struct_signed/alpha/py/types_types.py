@@ -64,6 +64,12 @@ class signed_4_ct:
     def clone(self) -> "signed_4_ct":
         return type(self)(self.value)
 
+    def compare(self, other: object, msg: str = "") -> None:
+        assert isinstance(other, signed_4_ct), "Expected signed_4_ct, got " + str(type(other))
+        if self.value != other.value:
+            prefix = msg + ": " if msg else ""
+            raise AssertionError(prefix + repr(self) + " != " + repr(other))
+
     def __int__(self) -> int:
         return self.value
 
@@ -137,6 +143,12 @@ class signed_5_ct:
 
     def clone(self) -> "signed_5_ct":
         return type(self)(self.value)
+
+    def compare(self, other: object, msg: str = "") -> None:
+        assert isinstance(other, signed_5_ct), "Expected signed_5_ct, got " + str(type(other))
+        if self.value != other.value:
+            prefix = msg + ": " if msg else ""
+            raise AssertionError(prefix + repr(self) + " != " + repr(other))
 
     def __int__(self) -> int:
         return self.value
@@ -237,3 +249,14 @@ class mixed_ct:
 
     def clone(self) -> "mixed_ct":
         return type(self).from_bytes(self.to_bytes())
+
+    def compare(self, other: object, msg: str = "") -> None:
+        assert isinstance(other, mixed_ct), "Expected mixed_ct, got " + str(type(other))
+        diffs = []
+        if self.field_s != other.field_s:
+            diffs.append("field_s: expected {!r}, got {!r}".format(self.field_s, other.field_s))
+        if self.field_u != other.field_u:
+            diffs.append("field_u: expected {}, got {}".format(self.field_u, other.field_u))
+        if diffs:
+            prefix = msg + ": " if msg else ""
+            raise AssertionError(prefix + repr(self) + " != " + repr(other) + " — " + ", ".join(diffs))

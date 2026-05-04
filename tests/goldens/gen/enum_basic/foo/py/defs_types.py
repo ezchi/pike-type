@@ -59,6 +59,12 @@ class color_ct:
     def clone(self) -> "color_ct":
         return type(self)(self.value)
 
+    def compare(self, other: object, msg: str = "") -> None:
+        assert isinstance(other, color_ct), "Expected color_ct, got " + str(type(other))
+        if self.value != other.value:
+            prefix = msg + ": " if msg else ""
+            raise AssertionError(prefix + repr(self) + " != " + repr(other))
+
     def __int__(self) -> int:
         return int(self.value)
 
@@ -129,6 +135,12 @@ class cmd_ct:
     def clone(self) -> "cmd_ct":
         return type(self)(self.value)
 
+    def compare(self, other: object, msg: str = "") -> None:
+        assert isinstance(other, cmd_ct), "Expected cmd_ct, got " + str(type(other))
+        if self.value != other.value:
+            prefix = msg + ": " if msg else ""
+            raise AssertionError(prefix + repr(self) + " != " + repr(other))
+
     def __int__(self) -> int:
         return int(self.value)
 
@@ -195,6 +207,12 @@ class flag_ct:
 
     def clone(self) -> "flag_ct":
         return type(self)(self.value)
+
+    def compare(self, other: object, msg: str = "") -> None:
+        assert isinstance(other, flag_ct), "Expected flag_ct, got " + str(type(other))
+        if self.value != other.value:
+            prefix = msg + ": " if msg else ""
+            raise AssertionError(prefix + repr(self) + " != " + repr(other))
 
     def __int__(self) -> int:
         return int(self.value)
@@ -263,6 +281,12 @@ class big_ct:
 
     def clone(self) -> "big_ct":
         return type(self)(self.value)
+
+    def compare(self, other: object, msg: str = "") -> None:
+        assert isinstance(other, big_ct), "Expected big_ct, got " + str(type(other))
+        if self.value != other.value:
+            prefix = msg + ": " if msg else ""
+            raise AssertionError(prefix + repr(self) + " != " + repr(other))
 
     def __int__(self) -> int:
         return int(self.value)

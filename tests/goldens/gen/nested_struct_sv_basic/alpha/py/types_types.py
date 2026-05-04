@@ -52,6 +52,12 @@ class addr_ct:
     def clone(self) -> "addr_ct":
         return type(self)(self.value)
 
+    def compare(self, other: object, msg: str = "") -> None:
+        assert isinstance(other, addr_ct), "Expected addr_ct, got " + str(type(other))
+        if self.value != other.value:
+            prefix = msg + ": " if msg else ""
+            raise AssertionError(prefix + repr(self) + " != " + repr(other))
+
     def __int__(self) -> int:
         return self.value
 
@@ -111,6 +117,12 @@ class flag_ct:
 
     def clone(self) -> "flag_ct":
         return type(self)(self.value)
+
+    def compare(self, other: object, msg: str = "") -> None:
+        assert isinstance(other, flag_ct), "Expected flag_ct, got " + str(type(other))
+        if self.value != other.value:
+            prefix = msg + ": " if msg else ""
+            raise AssertionError(prefix + repr(self) + " != " + repr(other))
 
     def __int__(self) -> int:
         return self.value
@@ -197,6 +209,17 @@ class header_ct:
 
     def clone(self) -> "header_ct":
         return type(self).from_bytes(self.to_bytes())
+
+    def compare(self, other: object, msg: str = "") -> None:
+        assert isinstance(other, header_ct), "Expected header_ct, got " + str(type(other))
+        diffs = []
+        if self.addr != other.addr:
+            diffs.append("addr: expected {!r}, got {!r}".format(self.addr, other.addr))
+        if self.enable != other.enable:
+            diffs.append("enable: expected {!r}, got {!r}".format(self.enable, other.enable))
+        if diffs:
+            prefix = msg + ": " if msg else ""
+            raise AssertionError(prefix + repr(self) + " != " + repr(other) + " — " + ", ".join(diffs))
 
 @dataclass
 class packet_ct:
@@ -293,3 +316,19 @@ class packet_ct:
 
     def clone(self) -> "packet_ct":
         return type(self).from_bytes(self.to_bytes())
+
+    def compare(self, other: object, msg: str = "") -> None:
+        assert isinstance(other, packet_ct), "Expected packet_ct, got " + str(type(other))
+        diffs = []
+        if self.header is None or other.header is None:
+            if self.header is not other.header:
+                diffs.append("header: expected {!r}, got {!r}".format(self.header, other.header))
+        elif self.header != other.header:
+            diffs.append("header: expected {!r}, got {!r}".format(self.header, other.header))
+        if self.mode != other.mode:
+            diffs.append("mode: expected 0x{:01x}, got 0x{:01x}".format(self.mode, other.mode))
+        if self.error_code != other.error_code:
+            diffs.append("error_code: expected 0x{:01x}, got 0x{:01x}".format(self.error_code, other.error_code))
+        if diffs:
+            prefix = msg + ": " if msg else ""
+            raise AssertionError(prefix + repr(self) + " != " + repr(other) + " — " + ", ".join(diffs))

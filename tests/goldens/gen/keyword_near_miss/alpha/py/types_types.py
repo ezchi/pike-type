@@ -81,3 +81,14 @@ class near_miss_ct:
 
     def clone(self) -> "near_miss_ct":
         return type(self).from_bytes(self.to_bytes())
+
+    def compare(self, other: object, msg: str = "") -> None:
+        assert isinstance(other, near_miss_ct), "Expected near_miss_ct, got " + str(type(other))
+        diffs = []
+        if self.type_id != other.type_id:
+            diffs.append("type_id: expected 0x{:01x}, got 0x{:01x}".format(self.type_id, other.type_id))
+        if self.payload != other.payload:
+            diffs.append("payload: expected 0x{:02x}, got 0x{:02x}".format(self.payload, other.payload))
+        if diffs:
+            prefix = msg + ": " if msg else ""
+            raise AssertionError(prefix + repr(self) + " != " + repr(other) + " — " + ", ".join(diffs))

@@ -52,6 +52,12 @@ class byte_ct:
     def clone(self) -> "byte_ct":
         return type(self)(self.value)
 
+    def compare(self, other: object, msg: str = "") -> None:
+        assert isinstance(other, byte_ct), "Expected byte_ct, got " + str(type(other))
+        if self.value != other.value:
+            prefix = msg + ": " if msg else ""
+            raise AssertionError(prefix + repr(self) + " != " + repr(other))
+
     def __int__(self) -> int:
         return self.value
 
@@ -144,6 +150,17 @@ class addr_ct:
     def clone(self) -> "addr_ct":
         return type(self).from_bytes(self.to_bytes())
 
+    def compare(self, other: object, msg: str = "") -> None:
+        assert isinstance(other, addr_ct), "Expected addr_ct, got " + str(type(other))
+        diffs = []
+        if self.hi != other.hi:
+            diffs.append("hi: expected 0x{:02x}, got 0x{:02x}".format(self.hi, other.hi))
+        if self.lo != other.lo:
+            diffs.append("lo: expected 0x{:02x}, got 0x{:02x}".format(self.lo, other.lo))
+        if diffs:
+            prefix = msg + ": " if msg else ""
+            raise AssertionError(prefix + repr(self) + " != " + repr(other) + " — " + ", ".join(diffs))
+
 class cmd_enum_t(IntEnum):
     IDLE = 0
     READ = 1
@@ -196,6 +213,12 @@ class cmd_ct:
 
     def clone(self) -> "cmd_ct":
         return type(self)(self.value)
+
+    def compare(self, other: object, msg: str = "") -> None:
+        assert isinstance(other, cmd_ct), "Expected cmd_ct, got " + str(type(other))
+        if self.value != other.value:
+            prefix = msg + ": " if msg else ""
+            raise AssertionError(prefix + repr(self) + " != " + repr(other))
 
     def __int__(self) -> int:
         return int(self.value)
@@ -276,6 +299,21 @@ class perms_ct:
         obj = self.__class__()
         obj._value = self._value & 192
         return obj
+
+    def compare(self, other: object, msg: str = "") -> None:
+        assert isinstance(other, perms_ct), "Expected perms_ct, got " + str(type(other))
+        diffs = []
+        if self.read != other.read:
+            diffs.append("read: expected {}, got {}".format(self.read, other.read))
+        if self.write != other.write:
+            diffs.append("write: expected {}, got {}".format(self.write, other.write))
+        if diffs:
+            prefix = msg + ": " if msg else ""
+            raise AssertionError(prefix + repr(self) + " != " + repr(other) + " — " + ", ".join(diffs))
+
+    def __repr__(self) -> str:
+        parts = ["read=" + repr(self.read), "write=" + repr(self.write)]
+        return "perms_ct(" + ", ".join(parts) + ")"
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, perms_ct):

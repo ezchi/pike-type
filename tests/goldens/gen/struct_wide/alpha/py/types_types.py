@@ -104,3 +104,16 @@ class big_ct:
 
     def clone(self) -> "big_ct":
         return type(self).from_bytes(self.to_bytes())
+
+    def compare(self, other: object, msg: str = "") -> None:
+        assert isinstance(other, big_ct), "Expected big_ct, got " + str(type(other))
+        diffs = []
+        if self.data != other.data:
+            diffs.append("data: expected 0x{}, got 0x{}".format(self.data.hex(), other.data.hex()))
+        if self.flag != other.flag:
+            diffs.append("flag: expected 0x{:01x}, got 0x{:01x}".format(self.flag, other.flag))
+        if self.extra != other.extra:
+            diffs.append("extra: expected 0x{}, got 0x{}".format(self.extra.hex(), other.extra.hex()))
+        if diffs:
+            prefix = msg + ": " if msg else ""
+            raise AssertionError(prefix + repr(self) + " != " + repr(other) + " — " + ", ".join(diffs))
