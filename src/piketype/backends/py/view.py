@@ -194,18 +194,29 @@ def _type_class_name(type_name: str) -> str:
     return f"{type_name}_ct"
 
 
-def _py_types_module_path(module_ref: ModuleRefIR) -> str:
-    """Return the Python import path for a module's generated _types.py.
+def _py_types_module_path(*, source_module: ModuleRefIR, target_module: ModuleRefIR) -> str:
+    """Return the Python import path for the target module's generated _types.py.
 
     For DSL at ``<prefix>/piketype/<name>.py`` the generated file is at
-    ``<prefix>/py/<name>_types.py``; the Python import path is
+    ``<prefix>/py/<name>_types.py``. When source and target share the same
+    generated package (same ``<prefix>``), return a relative dotted path
+    like ``.<name>_types``. Otherwise fall back to the absolute path
     ``<prefix>.py.<name>_types``.
     """
-    parts = module_ref.namespace_parts
-    if len(parts) < 2 or parts[-2] != "piketype":
+    tgt_parts = target_module.namespace_parts
+    src_parts = source_module.namespace_parts
+    if (
+        len(src_parts) >= 2
+        and len(tgt_parts) >= 2
+        and src_parts[-2] == "piketype"
+        and tgt_parts[-2] == "piketype"
+        and src_parts[:-2] == tgt_parts[:-2]
+    ):
+        return f".{tgt_parts[-1]}_types"
+    if len(tgt_parts) < 2 or tgt_parts[-2] != "piketype":
         # Should be unreachable post-validation, but keep a defensive fallback.
-        return ".".join(parts) + "_types"
-    new_parts = parts[:-2] + ("py", f"{parts[-1]}_types")
+        return ".".join(tgt_parts) + "_types"
+    new_parts = tgt_parts[:-2] + ("py", f"{tgt_parts[-1]}_types")
     return ".".join(new_parts)
 
 
@@ -605,7 +616,9 @@ def _collect_py_cross_module_imports(
                     if target_module.python_module_name == module.ref.python_module_name:
                         continue
                     target = repo_type_index[(target_module.python_module_name, field.type_ir.name)]
-                    target_types_module = _py_types_module_path(target_module)
+                    target_types_module = _py_types_module_path(
+                        source_module=module.ref, target_module=target_module
+                    )
                     wrapper = _type_class_name(target.name)
                     key = (target_types_module, wrapper)
                     if key in seen:

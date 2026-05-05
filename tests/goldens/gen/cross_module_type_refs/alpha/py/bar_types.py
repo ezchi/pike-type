@@ -6,10 +6,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from alpha.py.foo_types import addr_ct
-from alpha.py.foo_types import byte_ct
-from alpha.py.foo_types import cmd_ct
-from alpha.py.foo_types import perms_ct
+from .foo_types import addr_ct
+from .foo_types import byte_ct
+from .foo_types import cmd_ct
+from .foo_types import perms_ct
 
 @dataclass
 class bar_ct:
