@@ -21,12 +21,19 @@ class {{ view.class_name }}:
             raise ValueError("{{ view.class_name }} value size mismatch")
         self.value = raw
 
-    def _to_packed_int(self) -> int:
+    def pack(self) -> int:
         return int.from_bytes(self.value, "big", signed=False)
 
     @classmethod
-    def _from_packed_int(cls, packed: int) -> "{{ view.class_name }}":
-        return cls(packed.to_bytes(cls.BYTE_COUNT, "big", signed=False))
+    def unpack(cls, packed: int) -> "{{ view.class_name }}":
+        return cls((packed & cls.MAX_VALUE).to_bytes(cls.BYTE_COUNT, "big", signed=False))
+
+    def to_lv(self) -> int:
+        return int.from_bytes(self.to_bytes(), "big", signed=False)
+
+    @classmethod
+    def from_lv(cls, value: int) -> "{{ view.class_name }}":
+        return cls.from_bytes((value & ((1 << (cls.BYTE_COUNT * 8)) - 1)).to_bytes(cls.BYTE_COUNT, "big", signed=False))
 
     def to_bytes(self) -> bytes:
         return self.value
@@ -44,6 +51,12 @@ class {{ view.class_name }}:
 
     def clone(self) -> "{{ view.class_name }}":
         return type(self)(self.value)
+
+    def compare(self, other: object, msg: str = "") -> None:
+        assert isinstance(other, {{ view.class_name }}), "Expected {{ view.class_name }}, got " + str(type(other))
+        if self.value != other.value:
+            prefix = msg + ": " if msg else ""
+            raise AssertionError(prefix + repr(self) + " != " + repr(other))
 
     def __eq__(self, other: object) -> bool:
         if isinstance(other, type(self)):
@@ -67,14 +80,21 @@ class {{ view.class_name }}:
             raise ValueError("{{ view.class_name }} value out of range")
         self.value = value
 
-    def _to_packed_int(self) -> int:
+    def pack(self) -> int:
         return self.value & self.MASK
 
     @classmethod
-    def _from_packed_int(cls, packed: int) -> "{{ view.class_name }}":
+    def unpack(cls, packed: int) -> "{{ view.class_name }}":
         value = packed & cls.MASK
         signed_value = value - (1 << cls.WIDTH) if (value & cls.SIGN_BIT) else value
         return cls(signed_value)
+
+    def to_lv(self) -> int:
+        return int.from_bytes(self.to_bytes(), "big", signed=False)
+
+    @classmethod
+    def from_lv(cls, value: int) -> "{{ view.class_name }}":
+        return cls.from_bytes((value & ((1 << (cls.BYTE_COUNT * 8)) - 1)).to_bytes(cls.BYTE_COUNT, "big", signed=False))
 
     def to_bytes(self) -> bytes:
         mask = self.MASK
@@ -97,10 +117,16 @@ class {{ view.class_name }}:
         expected_padding = ((1 << {{ view.pad_bits }}) - 1) if sign_bit else 0
         if padding != expected_padding:
             raise ValueError("{{ view.class_name }}.from_bytes signed padding mismatch")
-        return cls._from_packed_int(data_bits)
+        return cls.unpack(data_bits)
 
     def clone(self) -> "{{ view.class_name }}":
         return type(self)(self.value)
+
+    def compare(self, other: object, msg: str = "") -> None:
+        assert isinstance(other, {{ view.class_name }}), "Expected {{ view.class_name }}, got " + str(type(other))
+        if self.value != other.value:
+            prefix = msg + ": " if msg else ""
+            raise AssertionError(prefix + repr(self) + " != " + repr(other))
 
     def __int__(self) -> int:
         return self.value
@@ -128,12 +154,19 @@ class {{ view.class_name }}:
             raise ValueError("{{ view.class_name }} value out of range")
         self.value = value
 
-    def _to_packed_int(self) -> int:
+    def pack(self) -> int:
         return self.value
 
     @classmethod
-    def _from_packed_int(cls, packed: int) -> "{{ view.class_name }}":
-        return cls(packed)
+    def unpack(cls, packed: int) -> "{{ view.class_name }}":
+        return cls(packed & cls.MAX_VALUE)
+
+    def to_lv(self) -> int:
+        return int.from_bytes(self.to_bytes(), "big", signed=False)
+
+    @classmethod
+    def from_lv(cls, value: int) -> "{{ view.class_name }}":
+        return cls.from_bytes((value & ((1 << (cls.BYTE_COUNT * 8)) - 1)).to_bytes(cls.BYTE_COUNT, "big", signed=False))
 
     def to_bytes(self) -> bytes:
         return self.value.to_bytes(self.BYTE_COUNT, "big", signed=False)
@@ -150,6 +183,12 @@ class {{ view.class_name }}:
 
     def clone(self) -> "{{ view.class_name }}":
         return type(self)(self.value)
+
+    def compare(self, other: object, msg: str = "") -> None:
+        assert isinstance(other, {{ view.class_name }}), "Expected {{ view.class_name }}, got " + str(type(other))
+        if self.value != other.value:
+            prefix = msg + ": " if msg else ""
+            raise AssertionError(prefix + repr(self) + " != " + repr(other))
 
     def __int__(self) -> int:
         return self.value
@@ -185,6 +224,25 @@ class {{ view.class_name }}:
             raise TypeError("{{ view.class_name }} value must be {{ view.enum_class_name }}")
         self.value = value
 
+    def pack(self) -> int:
+        return int(self.value)
+
+    @classmethod
+    def unpack(cls, packed: int) -> "{{ view.class_name }}":
+        masked = packed & {{ view.mask }}
+        try:
+            enum_val = {{ view.enum_class_name }}(masked)
+        except ValueError:
+            raise ValueError("{{ view.class_name }}.unpack unknown enum value")
+        return cls(enum_val)
+
+    def to_lv(self) -> int:
+        return int.from_bytes(self.to_bytes(), "big", signed=False)
+
+    @classmethod
+    def from_lv(cls, value: int) -> "{{ view.class_name }}":
+        return cls.from_bytes((value & ((1 << (cls.BYTE_COUNT * 8)) - 1)).to_bytes(cls.BYTE_COUNT, "big", signed=False))
+
     def to_bytes(self) -> bytes:
         return int(self.value).to_bytes({{ view.byte_count }}, "big", signed=False)
 
@@ -204,6 +262,12 @@ class {{ view.class_name }}:
 
     def clone(self) -> "{{ view.class_name }}":
         return type(self)(self.value)
+
+    def compare(self, other: object, msg: str = "") -> None:
+        assert isinstance(other, {{ view.class_name }}), "Expected {{ view.class_name }}, got " + str(type(other))
+        if self.value != other.value:
+            prefix = msg + ": " if msg else ""
+            raise AssertionError(prefix + repr(self) + " != " + repr(other))
 
     def __int__(self) -> int:
         return int(self.value)
@@ -244,6 +308,22 @@ class {{ view.class_name }}:
             self._value &= ~{{ f.bit_mask }}
 
 {% endfor %}
+    def pack(self) -> int:
+        return (self._value & {{ view.data_mask }}) >> {{ view.alignment_bits }}
+
+    @classmethod
+    def unpack(cls, packed: int) -> "{{ view.class_name }}":
+        obj = cls()
+        obj._value = (packed & {{ view.flag_mask }}) << {{ view.alignment_bits }}
+        return obj
+
+    def to_lv(self) -> int:
+        return int.from_bytes(self.to_bytes(), "big", signed=False)
+
+    @classmethod
+    def from_lv(cls, value: int) -> "{{ view.class_name }}":
+        return cls.from_bytes((value & ((1 << (cls.BYTE_COUNT * 8)) - 1)).to_bytes(cls.BYTE_COUNT, "big", signed=False))
+
     def to_bytes(self) -> bytes:
         return (self._value & {{ view.data_mask }}).to_bytes({{ view.byte_count }}, "big")
 
@@ -262,6 +342,21 @@ class {{ view.class_name }}:
         obj = self.__class__()
         obj._value = self._value & {{ view.data_mask }}
         return obj
+
+    def compare(self, other: object, msg: str = "") -> None:
+        assert isinstance(other, {{ view.class_name }}), "Expected {{ view.class_name }}, got " + str(type(other))
+        diffs = []
+{% for f in view.fields %}
+        if self.{{ f.name }} != other.{{ f.name }}:
+            diffs.append("{{ f.name }}: expected {}, got {}".format(self.{{ f.name }}, other.{{ f.name }}))
+{% endfor %}
+        if diffs:
+            prefix = msg + ": " if msg else ""
+            raise AssertionError(prefix + repr(self) + " != " + repr(other) + " — " + ", ".join(diffs))
+
+    def __repr__(self) -> str:
+        parts = [{% for f in view.fields %}"{{ f.name }}=" + repr(self.{{ f.name }}){% if not loop.last %}, {% endif %}{% endfor %}]
+        return "{{ view.class_name }}(" + ", ".join(parts) + ")"
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, {{ view.class_name }}):
@@ -320,6 +415,48 @@ class {{ view.class_name }}:
 {% endif %}
 
 {% endfor %}
+    def pack(self) -> int:
+        result = 0
+{% for f in view.fields %}
+{% if f.is_struct_ref %}
+        if self.{{ f.name }} is None:
+            raise ValueError("{{ f.name }} cannot be None during packing")
+        result = (result << {{ f.data_width }}) | self.{{ f.name }}.pack()
+{% elif f.is_flags_ref or f.is_enum_ref or f.is_scalar_ref %}
+        result = (result << {{ f.data_width }}) | self.{{ f.name }}.pack()
+{% elif f.is_narrow_scalar %}
+        result = (result << {{ f.data_width }}) | (self.{{ f.name }} & {{ f.data_mask }})
+{% elif f.is_wide_scalar %}
+        result = (result << {{ f.data_width }}) | (int.from_bytes(self.{{ f.name }}, "big", signed=False) & {{ f.data_mask }})
+{% endif %}
+{% endfor %}
+        return result
+
+    @classmethod
+    def unpack(cls, packed: int) -> "{{ view.class_name }}":
+        obj = cls()
+{% for f in view.fields %}
+{% if f.is_struct_ref or f.is_flags_ref or f.is_enum_ref or f.is_scalar_ref %}
+        obj.{{ f.name }} = {{ f.target_class }}.unpack((packed >> {{ f.unpack_slice_low }}) & {{ f.data_mask }})
+{% elif f.is_narrow_scalar and f.signed %}
+        _slice_{{ f.name }} = (packed >> {{ f.unpack_slice_low }}) & {{ f.mask }}
+        obj.{{ f.name }} = _slice_{{ f.name }} - {{ f.full_range }} if (_slice_{{ f.name }} & {{ f.sign_bit_value }}) else _slice_{{ f.name }}
+{% elif f.is_narrow_scalar %}
+        obj.{{ f.name }} = (packed >> {{ f.unpack_slice_low }}) & {{ f.mask }}
+{% elif f.is_wide_scalar %}
+        _slice_{{ f.name }} = (packed >> {{ f.unpack_slice_low }}) & {{ f.data_mask }}
+        obj.{{ f.name }} = _slice_{{ f.name }}.to_bytes({{ f.byte_count }}, "big", signed=False)
+{% endif %}
+{% endfor %}
+        return obj
+
+    def to_lv(self) -> int:
+        return int.from_bytes(self.to_bytes(), "big", signed=False)
+
+    @classmethod
+    def from_lv(cls, value: int) -> "{{ view.class_name }}":
+        return cls.from_bytes((value & ((1 << (cls.BYTE_COUNT * 8)) - 1)).to_bytes(cls.BYTE_COUNT, "big", signed=False))
+
     def to_bytes(self) -> bytes:
         result = bytearray()
 {% for f in view.fields %}
@@ -383,4 +520,32 @@ class {{ view.class_name }}:
 
     def clone(self) -> "{{ view.class_name }}":
         return type(self).from_bytes(self.to_bytes())
+
+    def compare(self, other: object, msg: str = "") -> None:
+        assert isinstance(other, {{ view.class_name }}), "Expected {{ view.class_name }}, got " + str(type(other))
+        diffs = []
+{% for f in view.fields %}
+{% if f.is_struct_ref %}
+        if self.{{ f.name }} is None or other.{{ f.name }} is None:
+            if self.{{ f.name }} is not other.{{ f.name }}:
+                diffs.append("{{ f.name }}: expected {!r}, got {!r}".format(self.{{ f.name }}, other.{{ f.name }}))
+        elif self.{{ f.name }} != other.{{ f.name }}:
+            diffs.append("{{ f.name }}: expected {!r}, got {!r}".format(self.{{ f.name }}, other.{{ f.name }}))
+{% elif f.is_flags_ref or f.is_enum_ref or f.is_scalar_ref %}
+        if self.{{ f.name }} != other.{{ f.name }}:
+            diffs.append("{{ f.name }}: expected {!r}, got {!r}".format(self.{{ f.name }}, other.{{ f.name }}))
+{% elif f.is_narrow_scalar and f.signed %}
+        if self.{{ f.name }} != other.{{ f.name }}:
+            diffs.append("{{ f.name }}: expected {}, got {}".format(self.{{ f.name }}, other.{{ f.name }}))
+{% elif f.is_narrow_scalar %}
+        if self.{{ f.name }} != other.{{ f.name }}:
+            diffs.append("{{ f.name }}: expected 0x{:0{{ f.hex_width }}x}, got 0x{:0{{ f.hex_width }}x}".format(self.{{ f.name }}, other.{{ f.name }}))
+{% elif f.is_wide_scalar %}
+        if self.{{ f.name }} != other.{{ f.name }}:
+            diffs.append("{{ f.name }}: expected 0x{}, got 0x{}".format(self.{{ f.name }}.hex(), other.{{ f.name }}.hex()))
+{% endif %}
+{% endfor %}
+        if diffs:
+            prefix = msg + ": " if msg else ""
+            raise AssertionError(prefix + repr(self) + " != " + repr(other) + " — " + ", ".join(diffs))
 {%- endmacro %}

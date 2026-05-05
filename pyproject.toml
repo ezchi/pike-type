@@ -4,13 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pike-type"
-version = "0.6.0"
+version = "0.7.0"
 description = "Python-based code generator for FPGA-oriented type definitions"
 readme = "docs/rfc-v1.md"
-requires-python = ">=3.12"
+requires-python = ">=3.12,<3.14"
 license = { text = "GPL-3.0-or-later" }
 authors = [
-  { name = "ezchi" },
+  { name = "Enze Chi" },
 ]
 dependencies = [
   "Jinja2>=3.1",
@@ -40,6 +40,7 @@ where = ["src"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+python_classes = ["Test*", "*Test", "*Tests"]
 
 [tool.basedpyright]
 pythonVersion = "3.12"
@@ -47,3 +48,8 @@ typeCheckingMode = "strict"
 reportMissingTypeStubs = false
 reportAny = false
 reportExplicitAny = false
+
+[dependency-groups]
+dev = [
+    "jinja2>=3.1.6",
+]

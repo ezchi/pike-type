@@ -30,6 +30,7 @@ from piketype.ir.nodes import (
     TypeDefIR,
     TypeRefIR,
     UnaryExprIR,
+    VecConstIR,
     byte_count,
 )
 
@@ -44,6 +45,15 @@ class SvConstantView:
     sv_type: str
     name: str
     sv_expr: str
+
+
+@dataclass(frozen=True, slots=True)
+class SvVecConstantView:
+    """Pre-rendered logic-vector constant for the synth package."""
+
+    name: str       # FR-12: verbatim Python variable name
+    sv_type: str    # "logic [N-1:0]"
+    sv_expr: str    # "N'<L><digits>" — pre-rendered, FR-9..11
 
 
 # ---------------------------------------------------------------------------
@@ -140,6 +150,9 @@ class SvSynthStructUnpackFieldView:
     has_signed_padding: bool  # padding_bits > 0 and signed
     padding_bits: int
     sign_bit_index: int  # width - 1
+    slice_low: int
+    slice_high: int
+    is_signed: bool  # True only when effective type is signed AND not type-ref
 
 
 @dataclass(frozen=True, slots=True)
@@ -167,6 +180,8 @@ class SvSynthModuleView:
     # Explicit per-symbol cross-module imports. Each entry is (pkg_name, symbol_name);
     # template renders `import {pkg}::{sym};`. Sorted by (pkg, sym).
     synth_cross_module_imports: tuple[tuple[str, str], ...]
+    has_vec_constants: bool = False
+    vec_constants: tuple[SvVecConstantView, ...] = ()
 
 
 # ---------------------------------------------------------------------------
@@ -318,6 +333,23 @@ def _render_sv_const(*, value: int, signed: bool, width: int) -> tuple[str, str]
     raise ValueError(f"unsupported SV constant storage: signed={signed}, width={width}")
 
 
+def _render_sv_vec_literal(*, width: int, value: int, base: str) -> str:
+    """Render a SystemVerilog typed-literal for a VecConst.
+
+    FR-9..11: ``<width>'<L><digits>`` with hex uppercase + zero-pad to
+    ``(width + 3) // 4`` digits, bin zero-pad to ``width`` digits, dec no pad.
+    """
+    match base:
+        case "hex":
+            return f"{width}'h{value:0{(width + 3) // 4}X}"
+        case "dec":
+            return f"{width}'d{value}"
+        case "bin":
+            return f"{width}'b{value:0{width}b}"
+        case _:
+            raise ValueError(f"unsupported VecConst base: {base!r}")
+
+
 def _data_width(*, type_ir: TypeDefIR, repo_type_index: dict[tuple[str, str], TypeDefIR]) -> int:
     if isinstance(type_ir, ScalarAliasIR):
         return type_ir.resolved_width
@@ -392,6 +424,19 @@ def _render_sv_helper_field_decl(*, field: StructFieldIR, repo_type_index: dict[
 # ---------------------------------------------------------------------------
 # Module-level builders
 # ---------------------------------------------------------------------------
+
+
+def _build_vec_constant_view(*, vec_const_ir: VecConstIR) -> SvVecConstantView:
+    sv_expr = _render_sv_vec_literal(
+        width=vec_const_ir.width,
+        value=vec_const_ir.value,
+        base=vec_const_ir.base,
+    )
+    return SvVecConstantView(
+        name=vec_const_ir.name,
+        sv_type=f"logic [{vec_const_ir.width - 1}:0]",
+        sv_expr=sv_expr,
+    )
 
 
 def _build_constant_view(*, const_ir: ConstIR) -> SvConstantView:
@@ -503,11 +548,17 @@ def _build_struct_pack_unpack(
             pack_parts.append(SvSynthStructPackPartView(expr=f"a.{field.name}"))
 
     unpack_fields: list[SvSynthStructUnpackFieldView] = []
+    low = 0
     for field in reversed(type_ir.fields):
         fw = _field_data_width(field=field, repo_type_index=repo_type_index)
-        is_signed = _is_field_signed(field=field, repo_type_index=repo_type_index)
-        has_signed_padding = field.padding_bits > 0 and is_signed
-        if isinstance(field.type_ir, TypeRefIR):
+        is_signed_eff = _is_field_signed(field=field, repo_type_index=repo_type_index)
+        has_signed_padding = field.padding_bits > 0 and is_signed_eff
+        is_type_ref = isinstance(field.type_ir, TypeRefIR)
+        slice_low = low
+        slice_high = low + fw - 1
+        is_signed = is_signed_eff and not is_type_ref
+        if is_type_ref:
+            assert isinstance(field.type_ir, TypeRefIR)
             inner_target = repo_type_index[(field.type_ir.module.python_module_name, field.type_ir.name)]
             inner_base = _type_base_name(inner_target.name)
             unpack_fields.append(
@@ -520,6 +571,9 @@ def _build_struct_pack_unpack(
                     has_signed_padding=has_signed_padding,
                     padding_bits=field.padding_bits,
                     sign_bit_index=fw - 1 if has_signed_padding else 0,
+                    slice_low=slice_low,
+                    slice_high=slice_high,
+                    is_signed=is_signed,
                 )
             )
         else:
@@ -533,8 +587,12 @@ def _build_struct_pack_unpack(
                     has_signed_padding=has_signed_padding,
                     padding_bits=field.padding_bits,
                     sign_bit_index=fw - 1 if has_signed_padding else 0,
+                    slice_low=slice_low,
+                    slice_high=slice_high,
+                    is_signed=is_signed,
                 )
             )
+        low += fw
     return SvSynthStructPackUnpackView(
         pack_parts=tuple(pack_parts),
         unpack_fields=tuple(unpack_fields),
@@ -705,6 +763,8 @@ def build_synth_module_view_sv(
         synth_cross_module_imports=_collect_cross_module_synth_imports(
             module=module, repo_type_index=repo_type_index
         ),
+        has_vec_constants=bool(module.vec_constants),
+        vec_constants=tuple(_build_vec_constant_view(vec_const_ir=v) for v in module.vec_constants),
     )
 
 
@@ -773,6 +833,8 @@ def _collect_cross_module_synth_imports(
         pairs.add((pkg, f"LP_{upper}_WIDTH"))
         pairs.add((pkg, f"pack_{base}"))
         pairs.add((pkg, f"unpack_{base}"))
+    for vci in module.vec_const_imports:
+        pairs.add((f"{vci.target_module_ref.basename}_pkg", vci.symbol_name))
     return tuple(sorted(pairs))
 
 

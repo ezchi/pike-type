@@ -6,6 +6,13 @@ from piketype.errors import ValidationError
 import re
 
 from piketype.ir.nodes import EnumIR, FlagsIR, ModuleIR, RepoIR, ScalarAliasIR, ScalarTypeSpecIR, StructIR, TypeRefIR
+from piketype.validate.keywords import (
+    CPP_KEYWORDS,
+    PY_HARD_KEYWORDS,
+    PY_SOFT_KEYWORDS,
+    SV_KEYWORDS,
+    keyword_languages,
+)
 
 
 _UPPER_CASE_RE = re.compile(r"^[A-Z][A-Z0-9_]*$")
@@ -22,9 +29,8 @@ def validate_repo(repo: RepoIR) -> None:
         for type_ir in module.types
     }
     for module in repo.modules:
-        if not module.constants:
-            if not module.types:
-                raise ValidationError(f"{module.ref.repo_relative_path}: piketype file defines no DSL objects")
+        if not module.constants and not module.types and not module.vec_constants:
+            raise ValidationError(f"{module.ref.repo_relative_path}: piketype file defines no DSL objects")
 
         seen_names: set[str] = set()
         for const in module.constants:
@@ -38,6 +44,12 @@ def validate_repo(repo: RepoIR) -> None:
                 module_path=module.ref.repo_relative_path,
                 const_name=const.name,
             )
+        for vec_const in module.vec_constants:
+            if vec_const.name in seen_names:
+                raise ValidationError(
+                    f"{module.ref.repo_relative_path}: duplicate constant name {vec_const.name}"
+                )
+            seen_names.add(vec_const.name)
         seen_type_names: set[str] = set()
         for type_ir in module.types:
             if type_ir.name in seen_names or type_ir.name in seen_type_names:
@@ -160,6 +172,7 @@ def validate_repo(repo: RepoIR) -> None:
         _validate_enum_literal_collision(module=module)
     _validate_repo_struct_cycles(repo=repo, type_index=type_index)
     _validate_cross_module_name_conflicts(repo=repo, type_index=type_index)
+    _validate_reserved_keywords(repo=repo)
 
 
 def _validate_const_storage(*, value: int, signed: bool, width: int, module_path: str, const_name: str) -> None:
@@ -270,7 +283,7 @@ def _validate_generated_identifier_collision(*, module: ModuleIR) -> None:
             f"unpack_{base}",
         ):
             reserved[ident] = type_ir.name
-    const_names = {const.name for const in module.constants}
+    const_names = {const.name for const in module.constants} | {v.name for v in module.vec_constants}
     for const_name in const_names:
         if const_name in reserved:
             raise ValidationError(
@@ -301,7 +314,7 @@ def _validate_alignment_bits(*, module: ModuleIR) -> None:
 
 def _validate_enum_literal_collision(*, module: ModuleIR) -> None:
     """FR-17: Reject enum value names that collide across enums or with constants."""
-    const_names = {const.name for const in module.constants}
+    const_names = {const.name for const in module.constants} | {v.name for v in module.vec_constants}
     all_enum_value_names: dict[str, str] = {}
     for type_ir in module.types:
         if not isinstance(type_ir, EnumIR):
@@ -458,3 +471,174 @@ def _validate_cross_module_name_conflicts(*, repo: RepoIR, type_index: dict[tupl
                     f"module {module.ref.python_module_name}: local enum literal {lit} "
                     f"collides with wildcard import from {owners[0]}"
                 )
+
+
+def _format_top_level_msg(
+    *,
+    module_path: str,
+    kind: str,
+    identifier: str,
+    langs: tuple[str, ...],
+) -> str:
+    """Build the FR-3 normative error string for a top-level identifier
+    (constant, type, or module name)."""
+    return (
+        f"{module_path}: {kind} '{identifier}' is a reserved keyword in "
+        f"target language(s): {', '.join(langs)}. Rename it."
+    )
+
+
+def _format_field_msg(
+    *,
+    module_path: str,
+    kind: str,
+    type_name: str,
+    role: str,
+    identifier: str,
+    langs: tuple[str, ...],
+) -> str:
+    """Build the FR-3 normative error string for an identifier nested inside
+    a type (struct field, flags flag, enum value)."""
+    return (
+        f"{module_path}: {kind} {type_name} {role} '{identifier}' is a "
+        f"reserved keyword in target language(s): {', '.join(langs)}. Rename it."
+    )
+
+
+def _module_name_languages(*, basename: str) -> tuple[str, ...]:
+    """Per-language emitted-form keyword check for a module basename (FR-1.6).
+
+    SV emits ``<basename>_pkg`` (the suffix is checked against the SV set);
+    C++ and Python emit the bare basename. The hard-vs-soft Python tiebreaker
+    matches ``keyword_languages``: hard wins.
+    """
+    sv_form = f"{basename}_pkg"
+    hits: list[str] = []
+    if basename in CPP_KEYWORDS:
+        hits.append("C++")
+    if basename in PY_HARD_KEYWORDS:
+        hits.append("Python")
+    elif basename in PY_SOFT_KEYWORDS:
+        hits.append("Python (soft)")
+    if sv_form in SV_KEYWORDS:
+        hits.append("SystemVerilog")
+    hits.sort()
+    return tuple(hits)
+
+
+def _validate_reserved_keywords(*, repo: RepoIR) -> None:
+    """FR-1..FR-9: reject DSL identifiers that collide with target-language keywords.
+
+    Iterates the repo in deterministic declaration order, raising
+    :class:`ValidationError` on the first identifier whose emitted form is a
+    reserved keyword in any active target language. The message shape is
+    pinned by FR-3 of the spec.
+    """
+    for module in repo.modules:
+        module_path = module.ref.repo_relative_path
+
+        # FR-1.6 — module basename, per-language emitted form.
+        module_langs = _module_name_languages(basename=module.ref.basename)
+        if module_langs:
+            raise ValidationError(
+                _format_top_level_msg(
+                    module_path=module_path,
+                    kind="module name",
+                    identifier=module.ref.basename,
+                    langs=module_langs,
+                )
+            )
+
+        # FR-1.5 — constants.
+        for const in module.constants:
+            const_langs = keyword_languages(identifier=const.name)
+            if const_langs:
+                raise ValidationError(
+                    _format_top_level_msg(
+                        module_path=module_path,
+                        kind="constant",
+                        identifier=const.name,
+                        langs=const_langs,
+                    )
+                )
+        for vec_const in module.vec_constants:
+            vec_const_langs = keyword_languages(identifier=vec_const.name)
+            if vec_const_langs:
+                raise ValidationError(
+                    _format_top_level_msg(
+                        module_path=module_path,
+                        kind="constant",
+                        identifier=vec_const.name,
+                        langs=vec_const_langs,
+                    )
+                )
+
+        # FR-1.1..FR-1.4 — types and their nested identifiers.
+        for type_ir in module.types:
+            type_langs = keyword_languages(identifier=type_ir.name)
+            if type_langs:
+                kind = _type_kind(type_ir=type_ir)
+                raise ValidationError(
+                    _format_top_level_msg(
+                        module_path=module_path,
+                        kind=kind,
+                        identifier=type_ir.name,
+                        langs=type_langs,
+                    )
+                )
+
+            if isinstance(type_ir, StructIR):
+                for field in type_ir.fields:
+                    field_langs = keyword_languages(identifier=field.name)
+                    if field_langs:
+                        raise ValidationError(
+                            _format_field_msg(
+                                module_path=module_path,
+                                kind="struct",
+                                type_name=type_ir.name,
+                                role="field",
+                                identifier=field.name,
+                                langs=field_langs,
+                            )
+                        )
+            elif isinstance(type_ir, FlagsIR):
+                for flag in type_ir.fields:
+                    flag_langs = keyword_languages(identifier=flag.name)
+                    if flag_langs:
+                        raise ValidationError(
+                            _format_field_msg(
+                                module_path=module_path,
+                                kind="flags",
+                                type_name=type_ir.name,
+                                role="flag",
+                                identifier=flag.name,
+                                langs=flag_langs,
+                            )
+                        )
+            elif isinstance(type_ir, EnumIR):
+                for enum_val in type_ir.values:
+                    value_langs = keyword_languages(identifier=enum_val.name)
+                    if value_langs:
+                        raise ValidationError(
+                            _format_field_msg(
+                                module_path=module_path,
+                                kind="enum",
+                                type_name=type_ir.name,
+                                role="value",
+                                identifier=enum_val.name,
+                                langs=value_langs,
+                            )
+                        )
+
+
+def _type_kind(*, type_ir: object) -> str:
+    """Return the user-facing type-kind label for an IR type node."""
+    if isinstance(type_ir, StructIR):
+        return "struct"
+    if isinstance(type_ir, FlagsIR):
+        return "flags"
+    if isinstance(type_ir, EnumIR):
+        return "enum"
+    if isinstance(type_ir, ScalarAliasIR):
+        return "scalar alias"
+    return "type"

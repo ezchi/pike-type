@@ -1,0 +1,53 @@
+{
+  "modules": [
+    {
+      "basename": "types",
+      "constants": [],
+      "dependencies": [],
+      "generated_outputs": {
+        "cpp": "alpha/cpp/types_types.hpp",
+        "py": "alpha/py/types_types.py",
+        "sv": "alpha/rtl/types_pkg.sv",
+        "sv_test": "alpha/sim/types_test_pkg.sv"
+      },
+      "namespace_parts": [
+        "alpha",
+        "piketype",
+        "types"
+      ],
+      "python_module_name": "alpha.piketype.types",
+      "repo_relative_path": "alpha/piketype/types.py",
+      "source": {
+        "column": null,
+        "line": 1,
+        "path": "alpha/piketype/types.py"
+      },
+      "types": [
+        {
+          "kind": "enum",
+          "name": "state_t",
+          "resolved_width": 1,
+          "source": {
+            "column": null,
+            "line": 7,
+            "path": "alpha/piketype/types.py"
+          },
+          "value_count": 2,
+          "values": [
+            {
+              "name": "IDLE",
+              "resolved_value": 0
+            },
+            {
+              "name": "WHILE",
+              "resolved_value": 1
+            }
+          ]
+        }
+      ],
+      "vec_constants": []
+    }
+  ],
+  "repo_root": ".",
+  "tool_version": "0.1.0"
+}

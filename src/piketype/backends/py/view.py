@@ -28,6 +28,7 @@ from piketype.ir.nodes import (
     FlagsIR,
     IntLiteralExprIR,
     ModuleIR,
+    ModuleRefIR,
     ScalarAliasIR,
     ScalarTypeSpecIR,
     StructFieldIR,
@@ -35,6 +36,7 @@ from piketype.ir.nodes import (
     TypeDefIR,
     TypeRefIR,
     UnaryExprIR,
+    VecConstIR,
     byte_count,
 )
 
@@ -102,6 +104,8 @@ class FlagsView:
     byte_count: int
     total_bits: int  # byte_count * 8
     data_mask: int  # ((1 << num_flags) - 1) << alignment_bits
+    alignment_bits: int  # total_bits - num_flags
+    flag_mask: int  # (1 << num_flags) - 1 — flat data-only mask used by pack/unpack
     fields: tuple[FlagFieldView, ...]
 
 
@@ -131,6 +135,14 @@ class StructFieldView:
     # Pre-computed shift / range values used by signed-narrow from_bytes.
     sign_bit_index: int  # width - 1 (signed narrow); 0 otherwise
     full_range: int  # 2 ** width = 1 << width (signed narrow); 0 otherwise
+    # Pack/unpack data — data-only width across all field kinds and the
+    # LSB-aligned slice position inside the struct's packed int.
+    data_width: int  # data width for pack/unpack (full data width for type refs)
+    data_mask: int  # (1 << data_width) - 1
+    unpack_slice_low: int  # LSB position of this field inside the packed int
+    # Number of hex digits needed to represent data_width: (data_width + 3) // 4.
+    # Used by the compare() template to format narrow-unsigned and wide fields.
+    hex_width: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -142,6 +154,7 @@ class StructView:
     alignment_bytes: int
     fields: tuple[StructFieldView, ...]
     has_struct_field: bool  # at least one field.is_struct_ref
+    pack_total_width: int  # sum of field data widths — width of the pack() int
 
 
 type TypeView = ScalarAliasView | StructView | EnumView | FlagsView
@@ -179,6 +192,32 @@ def _type_class_name(type_name: str) -> str:
     if type_name.endswith("_t"):
         return f"{type_name[:-2]}_ct"
     return f"{type_name}_ct"
+
+
+def _py_types_module_path(*, source_module: ModuleRefIR, target_module: ModuleRefIR) -> str:
+    """Return the Python import path for the target module's generated _types.py.
+
+    For DSL at ``<prefix>/piketype/<name>.py`` the generated file is at
+    ``<prefix>/py/<name>_types.py``. When source and target share the same
+    generated package (same ``<prefix>``), return a relative dotted path
+    like ``.<name>_types``. Otherwise fall back to the absolute path
+    ``<prefix>.py.<name>_types``.
+    """
+    tgt_parts = target_module.namespace_parts
+    src_parts = source_module.namespace_parts
+    if (
+        len(src_parts) >= 2
+        and len(tgt_parts) >= 2
+        and src_parts[-2] == "piketype"
+        and tgt_parts[-2] == "piketype"
+        and src_parts[:-2] == tgt_parts[:-2]
+    ):
+        return f".{tgt_parts[-1]}_types"
+    if len(tgt_parts) < 2 or tgt_parts[-2] != "piketype":
+        # Should be unreachable post-validation, but keep a defensive fallback.
+        return ".".join(tgt_parts) + "_types"
+    new_parts = tgt_parts[:-2] + ("py", f"{tgt_parts[-1]}_types")
+    return ".".join(new_parts)
 
 
 def _render_py_expr(expr: ExprIR) -> str:
@@ -243,6 +282,28 @@ def _field_byte_count(*, field_ir: StructFieldIR, repo_type_index: dict[tuple[st
 
 def build_constant_view(*, const_ir: ConstIR) -> ConstantView:
     return ConstantView(name=const_ir.name, value_expr=_render_py_expr(const_ir.expr))
+
+
+def _render_py_vec_literal(*, width: int, value: int, base: str) -> str:
+    """Render a Python literal honoring the VecConst base."""
+    match base:
+        case "hex":
+            return f"0x{value:0{(width + 3) // 4}X}"
+        case "dec":
+            return str(value)
+        case "bin":
+            return f"0b{value:0{width}b}"
+        case _:
+            raise ValueError(f"unsupported VecConst base: {base!r}")
+
+
+def build_py_vec_constant_view(*, vec_const_ir: VecConstIR) -> ConstantView:
+    return ConstantView(
+        name=vec_const_ir.name,
+        value_expr=_render_py_vec_literal(
+            width=vec_const_ir.width, value=vec_const_ir.value, base=vec_const_ir.base
+        ),
+    )
 
 
 def build_scalar_alias_view(*, type_ir: ScalarAliasIR) -> ScalarAliasView:
@@ -342,15 +403,21 @@ def build_flags_view(*, type_ir: FlagsIR) -> FlagsView:
         byte_count=bc,
         total_bits=total_bits,
         data_mask=data_mask,
+        alignment_bits=type_ir.alignment_bits,
+        flag_mask=(1 << num_flags) - 1,
         fields=fields,
     )
 
 
 def _build_struct_field_view(
-    *, field_ir: StructFieldIR, repo_type_index: dict[tuple[str, str], TypeDefIR]
+    *,
+    field_ir: StructFieldIR,
+    repo_type_index: dict[tuple[str, str], TypeDefIR],
+    unpack_slice_low: int,
 ) -> StructFieldView:
     fbc = _field_byte_count(field_ir=field_ir, repo_type_index=repo_type_index)
     pack_bits = fbc * 8
+    data_width = _resolved_field_width(field_type=field_ir.type_ir, repo_type_index=repo_type_index)
 
     # Defaults — overwritten by branches below.
     annotation = ""
@@ -437,13 +504,38 @@ def _build_struct_field_view(
         msb_byte_mask=msb_byte_mask,
         sign_bit_index=sign_bit_index,
         full_range=full_range,
+        data_width=data_width,
+        data_mask=(1 << data_width) - 1,
+        unpack_slice_low=unpack_slice_low,
+        hex_width=(data_width + 3) // 4,
     )
 
 
 def build_struct_view(*, type_ir: StructIR, repo_type_index: dict[tuple[str, str], TypeDefIR]) -> StructView:
     width = _resolved_type_width(type_ir=type_ir, repo_type_index=repo_type_index)
+
+    # First pass: compute each field's data width so we know the LSB
+    # position of every slice inside the packed int.
+    field_data_widths = [
+        _resolved_field_width(field_type=f.type_ir, repo_type_index=repo_type_index)
+        for f in type_ir.fields
+    ]
+    pack_total_width = sum(field_data_widths)
+
+    # Field at index i is at the highest bits not yet consumed by fields 0..i.
+    # slice_low(i) = sum of data widths of fields after i.
+    cumulative_after: list[int] = []
+    running = 0
+    for dw in reversed(field_data_widths):
+        cumulative_after.append(running)
+        running += dw
+    cumulative_after.reverse()
+
     fields = tuple(
-        _build_struct_field_view(field_ir=f, repo_type_index=repo_type_index) for f in type_ir.fields
+        _build_struct_field_view(
+            field_ir=f, repo_type_index=repo_type_index, unpack_slice_low=cumulative_after[i],
+        )
+        for i, f in enumerate(type_ir.fields)
     )
     struct_byte_count = (
         sum(_field_byte_count(field_ir=f, repo_type_index=repo_type_index) for f in type_ir.fields)
@@ -457,6 +549,7 @@ def build_struct_view(*, type_ir: StructIR, repo_type_index: dict[tuple[str, str
         alignment_bytes=type_ir.alignment_bits // 8,
         fields=fields,
         has_struct_field=any(f.is_struct_ref for f in fields),
+        pack_total_width=pack_total_width,
     )
 
 
@@ -476,7 +569,10 @@ def build_module_view_py(
     has_enums = any(isinstance(t, EnumIR) for t in module.types)
     has_flags = any(isinstance(t, FlagsIR) for t in module.types)
 
-    constants = tuple(build_constant_view(const_ir=c) for c in module.constants)
+    constants = (
+        tuple(build_constant_view(const_ir=c) for c in module.constants)
+        + tuple(build_py_vec_constant_view(vec_const_ir=v) for v in module.vec_constants)
+    )
 
     types: list[TypeView] = []
     for t in module.types:
@@ -520,7 +616,9 @@ def _collect_py_cross_module_imports(
                     if target_module.python_module_name == module.ref.python_module_name:
                         continue
                     target = repo_type_index[(target_module.python_module_name, field.type_ir.name)]
-                    target_types_module = f"{target_module.python_module_name}_types"
+                    target_types_module = _py_types_module_path(
+                        source_module=module.ref, target_module=target_module
+                    )
                     wrapper = _type_class_name(target.name)
                     key = (target_types_module, wrapper)
                     if key in seen:

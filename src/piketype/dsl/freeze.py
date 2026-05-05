@@ -7,7 +7,7 @@ from pathlib import Path
 from types import ModuleType
 
 from piketype.discovery.module_name import module_basename, module_name_from_path
-from piketype.dsl.const import Const, ConstExpr
+from piketype.dsl.const import Const, ConstExpr, VecConst
 from piketype.dsl.enum import EnumType
 from piketype.dsl.flags import FlagsType
 from piketype.dsl.scalar import ScalarType
@@ -34,6 +34,8 @@ from piketype.ir.nodes import (
     TypeDefIR,
     TypeRefIR,
     UnaryExprIR,
+    VecConstIR,
+    VecConstImportIR,
     padding_bits as compute_padding_bits,
 )
 from piketype.paths import repo_relative_path
@@ -90,6 +92,25 @@ def build_const_definition_map(*, loaded_modules: list[LoadedModule]) -> dict[in
     return definition_map
 
 
+def build_vec_const_definition_map(*, loaded_modules: list[LoadedModule]) -> dict[int, tuple[ModuleRefIR, str]]:
+    """Build a stable mapping from VecConst object id to its defining module/name."""
+    definition_map: dict[int, tuple[ModuleRefIR, str]] = {}
+    for loaded in loaded_modules:
+        seen_object_ids: set[int] = set()
+        for name, value in loaded.module.__dict__.items():
+            if name.startswith("__"):
+                continue
+            if not isinstance(value, VecConst):
+                continue
+            if id(value) in seen_object_ids:
+                raise ValidationError(f"{loaded.module_path}: DSL object bound to multiple top-level names")
+            seen_object_ids.add(id(value))
+            if Path(value.source.path).resolve() != loaded.module_path.resolve():
+                continue
+            definition_map[id(value)] = (loaded.module_ref, name)
+    return definition_map
+
+
 def build_type_definition_map(*, loaded_modules: list[LoadedModule]) -> dict[int, tuple[ModuleRefIR, str]]:
     """Build a stable mapping from top-level type object id to defining module/name."""
     definition_map: dict[int, tuple[ModuleRefIR, str]] = {}
@@ -114,20 +135,45 @@ def freeze_module(
     loaded_module: LoadedModule,
     definition_map: dict[int, tuple[ModuleRefIR, str]],
     type_definition_map: dict[int, tuple[ModuleRefIR, str]],
+    vec_const_definition_map: dict[int, tuple[ModuleRefIR, str]] | None = None,
 ) -> FrozenModule:
     """Freeze one loaded Python module into constant-only IR."""
+    if vec_const_definition_map is None:
+        vec_const_definition_map = {}
     module_source = SourceSpanIR(path=str(loaded_module.module_path), line=1, column=None)
     local_constants: list[ConstIR] = []
+    local_vec_constants: list[VecConstIR] = []
+    local_vec_const_imports: list[VecConstImportIR] = []
     local_types: list[TypeDefIR] = []
     seen_local_object_ids: set[int] = set()
 
     for name, value in loaded_module.module.__dict__.items():
         if name.startswith("__"):
             continue
-        if isinstance(value, (Const, ScalarType, StructType, FlagsType, EnumType)):
+        if isinstance(value, (Const, VecConst, ScalarType, StructType, FlagsType, EnumType)):
             if id(value) in seen_local_object_ids:
                 raise ValidationError(f"{loaded_module.module_path}: DSL object bound to multiple top-level names")
             seen_local_object_ids.add(id(value))
+        if isinstance(value, VecConst):
+            mapped = vec_const_definition_map.get(id(value))
+            if mapped is None or mapped[0].python_module_name == loaded_module.module_ref.python_module_name:
+                # First-sighting (this module defines it).
+                local_vec_constants.append(
+                    _freeze_vec_const(
+                        name=name,
+                        vec_const=value,
+                        const_definition_map=definition_map,
+                    )
+                )
+            else:
+                # Cross-module sighting: this module imports the VecConst from another.
+                local_vec_const_imports.append(
+                    VecConstImportIR(
+                        target_module_ref=mapped[0],
+                        symbol_name=mapped[1],
+                    )
+                )
+            continue
         if not isinstance(value, Const):
             if isinstance(value, ScalarType):
                 if Path(value.source.path).resolve() != loaded_module.module_path.resolve():
@@ -268,6 +314,8 @@ def freeze_module(
         )
 
     local_constants.sort(key=lambda const: (const.source.line, const.name))
+    local_vec_constants.sort(key=lambda v: (v.source.line, v.name))
+    local_vec_const_imports.sort(key=lambda v: (v.target_module_ref.python_module_name, v.symbol_name))
     local_types.sort(key=lambda type_ir: (type_ir.source.line, type_ir.name))
     module_ir = ModuleIR(
         ref=loaded_module.module_ref,
@@ -275,6 +323,8 @@ def freeze_module(
         constants=tuple(local_constants),
         types=tuple(local_types),
         dependencies=(),
+        vec_constants=tuple(local_vec_constants),
+        vec_const_imports=tuple(local_vec_const_imports),
     )
     # Re-create with populated dependencies (frozen dataclasses cannot be mutated).
     module_ir = ModuleIR(
@@ -283,8 +333,13 @@ def freeze_module(
         constants=module_ir.constants,
         types=module_ir.types,
         dependencies=_collect_module_dependencies(module_ir),
+        vec_constants=module_ir.vec_constants,
+        vec_const_imports=module_ir.vec_const_imports,
     )
-    return FrozenModule(module_ir=module_ir, has_local_definitions=bool(local_constants or local_types))
+    return FrozenModule(
+        module_ir=module_ir,
+        has_local_definitions=bool(local_constants or local_types or local_vec_constants),
+    )
 
 
 def freeze_repo(*, repo_root: Path, frozen_modules: list[FrozenModule], tool_version: str | None) -> RepoIR:
@@ -336,6 +391,13 @@ def _collect_module_dependencies(module_ir: ModuleIR) -> tuple[ModuleDependencyI
     # Constants.
     for const in module_ir.constants:
         visit_expr(const.expr)
+
+    # VecConst imports (cross-module sightings → vec_const_import dep edge).
+    for vci in module_ir.vec_const_imports:
+        if vci.target_module_ref.python_module_name != self_module:
+            key = (vci.target_module_ref.python_module_name, "vec_const_import")
+            targets.add(key)
+            target_refs[key] = vci.target_module_ref
 
     # Types.
     for type_ir in module_ir.types:
@@ -536,6 +598,125 @@ def _resolve_const_storage(*, value: int, signed: bool | None, width: int | None
     effective_width = inferred_width if width is None else width
     _validate_const_storage(value=value, signed=inferred_signed, width=effective_width)
     return (inferred_signed, effective_width)
+
+
+def _freeze_vec_const(
+    *,
+    name: str,
+    vec_const: VecConst,
+    const_definition_map: dict[int, tuple[ModuleRefIR, str]],
+) -> VecConstIR:
+    """Freeze a `VecConst` DSL object into a `VecConstIR`.
+
+    `VecConst.__init__` already resolves and validates `width` and `value`
+    eagerly, so this is a thin IR-construction helper.
+    """
+    del const_definition_map  # unused; eager resolution happens at VecConst.__init__
+    source = SourceSpanIR(
+        path=vec_const.source.path,
+        line=vec_const.source.line,
+        column=vec_const.source.column,
+    )
+    return VecConstIR(
+        name=name,
+        source=source,
+        width=vec_const.width,
+        value=vec_const.value,
+        base=vec_const.base,
+    )
+
+
+def _freeze_vec_const_storage(
+    *,
+    width: int,
+    value: int,
+    base: str,
+    source: SourceSpanIR,
+    name: str,
+) -> VecConstIR:
+    """Validate and construct a frozen VecConstIR.
+
+    Errors carry the offending value, the declared width, and the formula
+    `2**N - 1` per spec FR-7's three-substring contract.
+    """
+    if width < 1 or width > 64:
+        raise ValidationError(
+            f"VecConst({name!r}) width {width} out of supported range 1..64"
+        )
+    if value < 0:
+        raise ValidationError(
+            f"VecConst({name!r}, width={width}) negative value {value} rejected; "
+            f"value must satisfy 0 <= value <= 2**{width} - 1 (= {2**width - 1})"
+        )
+    if value > 2**width - 1:
+        raise ValidationError(
+            f"VecConst({name!r}, width={width}) value {value} overflows; "
+            f"value must satisfy 0 <= value <= 2**{width} - 1 (= {2**width - 1})"
+        )
+    return VecConstIR(name=name, source=source, width=width, value=value, base=base)
+
+
+def _eval_expr_int(*, expr: ConstExpr, definition_map: dict[int, tuple[ModuleRefIR, str]]) -> int:
+    """Evaluate a runtime ConstExpr to an int.
+
+    Uses the same recursive evaluator as Const's freeze pipeline. The
+    `definition_map` is only needed if the expression contains `const_ref`
+    nodes that must resolve to defining-module constants — in that case we
+    walk through the target Const's value (already resolved at DSL-construction
+    time per `Const.__init__`).
+    """
+    match expr.kind:
+        case "int_literal":
+            if expr.value is None:
+                raise ValidationError("malformed literal expression")
+            return expr.value
+        case "const_ref":
+            if expr.target is None:
+                raise ValidationError("malformed const reference expression")
+            return expr.target.value
+        case "unary_op":
+            if expr.op is None or expr.operand is None:
+                raise ValidationError("malformed unary expression")
+            inner = _eval_expr_int(expr=expr.operand, definition_map=definition_map)
+            match expr.op:
+                case "+":
+                    return +inner
+                case "-":
+                    return -inner
+                case "~":
+                    return ~inner
+                case _:
+                    raise ValidationError(f"unsupported unary operator {expr.op}")
+        case "binary_op":
+            if expr.op is None or expr.lhs is None or expr.rhs is None:
+                raise ValidationError("malformed binary expression")
+            lhs = _eval_expr_int(expr=expr.lhs, definition_map=definition_map)
+            rhs = _eval_expr_int(expr=expr.rhs, definition_map=definition_map)
+            match expr.op:
+                case "+":
+                    return lhs + rhs
+                case "-":
+                    return lhs - rhs
+                case "*":
+                    return lhs * rhs
+                case "//":
+                    return lhs // rhs
+                case "%":
+                    return lhs % rhs
+                case "&":
+                    return lhs & rhs
+                case "|":
+                    return lhs | rhs
+                case "^":
+                    return lhs ^ rhs
+                case "<<":
+                    return lhs << rhs
+                case ">>":
+                    return lhs >> rhs
+                case _:
+                    raise ValidationError(f"unsupported binary operator {expr.op}")
+        case _:
+            raise ValidationError(f"unsupported VecConst expression kind {expr.kind}")
 
 
 def _resolve_enum_values(enum_type: EnumType) -> list[tuple[str, int]]:

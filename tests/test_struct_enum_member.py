@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import importlib
 import os
+import pytest
 import shutil
 import subprocess
 import sys
 import tempfile
-import unittest
 from pathlib import Path
 
 from piketype.dsl import Enum, Struct, Bit
@@ -57,25 +57,25 @@ def gen_fixture(fixture_name: str, tmp_dir: Path) -> Path:
 # ---------------------------------------------------------------------------
 
 
-class StructEnumMemberDSLTest(unittest.TestCase):
+class StructEnumMemberDSLTest:
     """DSL acceptance tests for Enum as struct member."""
 
     def test_add_enum_member_accepted(self) -> None:
         """AC-1: Struct().add_member() accepts EnumType."""
         cmd_t = Enum().add_value("IDLE", 0).add_value("READ", 1).add_value("WRITE", 2)
         s = Struct().add_member("cmd", cmd_t)
-        self.assertEqual(len(s.members), 1)
-        self.assertEqual(s.members[0].name, "cmd")
+        assert len(s.members) == 1
+        assert s.members[0].name == "cmd"
 
     def test_add_enum_and_scalar_member(self) -> None:
         """Struct can have both Enum and scalar members."""
         cmd_t = Enum().add_value("A", 0)
         s = Struct().add_member("cmd", cmd_t).add_member("data", Bit(8))
-        self.assertEqual(len(s.members), 2)
+        assert len(s.members) == 2
 
     def test_reject_invalid_type(self) -> None:
         """Non-DSL types are still rejected."""
-        with self.assertRaises(ValidationError):
+        with pytest.raises(ValidationError):
             Struct().add_member("bad", 42)  # type: ignore[arg-type]
 
 
@@ -84,7 +84,7 @@ class StructEnumMemberDSLTest(unittest.TestCase):
 # ---------------------------------------------------------------------------
 
 
-class StructEnumMemberFreezeTest(unittest.TestCase):
+class StructEnumMemberFreezeTest:
     """Freeze pipeline tests for Enum as struct member."""
 
     def _make_loaded_module(self, module_dict: dict[str, object], name: str = "alpha.piketype.types"):
@@ -133,11 +133,11 @@ class StructEnumMemberFreezeTest(unittest.TestCase):
         """AC-2: Frozen StructIR field has TypeRefIR pointing to EnumIR."""
         frozen = self._freeze_fixture()
         struct_types = [t for t in frozen.module_ir.types if isinstance(t, StructIR)]
-        self.assertTrue(len(struct_types) >= 1)
+        assert len(struct_types) >= 1
         pkt = struct_types[0]
         cmd_field = pkt.fields[0]
-        self.assertIsInstance(cmd_field.type_ir, TypeRefIR)
-        self.assertEqual(cmd_field.type_ir.name, "cmd_t")
+        assert isinstance(cmd_field.type_ir, TypeRefIR)
+        assert cmd_field.type_ir.name == "cmd_t"
 
     def test_freeze_padding_bits_2bit(self) -> None:
         """AC-3: 2-bit enum gets 6 padding bits."""
@@ -145,7 +145,7 @@ class StructEnumMemberFreezeTest(unittest.TestCase):
         struct_types = [t for t in frozen.module_ir.types if isinstance(t, StructIR)]
         pkt = struct_types[0]
         cmd_field = pkt.fields[0]
-        self.assertEqual(cmd_field.padding_bits, 6)
+        assert cmd_field.padding_bits == 6
 
     def test_freeze_padding_bits_8bit(self) -> None:
         """AC-3: 8-bit enum gets 0 padding bits."""
@@ -168,7 +168,7 @@ class StructEnumMemberFreezeTest(unittest.TestCase):
         struct_types = [t for t in frozen.module_ir.types if isinstance(t, StructIR)]
         s = struct_types[0]
         w_field = s.fields[0]
-        self.assertEqual(w_field.padding_bits, 0)
+        assert w_field.padding_bits == 0
 
     def test_freeze_rejects_anonymous_enum(self) -> None:
         """AC-5, AC-23: Anonymous inline Enum is rejected during freeze."""
@@ -183,13 +183,13 @@ class StructEnumMemberFreezeTest(unittest.TestCase):
         loaded = self._make_loaded_module({"s_t": s_t}, name="test")
         const_map = build_const_definition_map(loaded_modules=[loaded])
         type_map = build_type_definition_map(loaded_modules=[loaded])
-        with self.assertRaises(ValidationError) as ctx:
+        with pytest.raises(ValidationError) as ctx:
             freeze_module(
                 loaded_module=loaded,
                 definition_map=const_map,
                 type_definition_map=type_map,
             )
-        self.assertIn("anonymous enum", str(ctx.exception))
+        assert "anonymous enum" in str(ctx.value)
 
 
 # ---------------------------------------------------------------------------
@@ -197,37 +197,41 @@ class StructEnumMemberFreezeTest(unittest.TestCase):
 # ---------------------------------------------------------------------------
 
 
-class StructEnumMemberGoldenTest(unittest.TestCase):
+class StructEnumMemberGoldenTest:
     """Golden file comparison tests for struct_enum_member fixture."""
 
-    def setUp(self) -> None:
+    def setup_method(self) -> None:
         self.tmp = tempfile.mkdtemp()
 
-    def tearDown(self) -> None:
+    def teardown_method(self) -> None:
         shutil.rmtree(self.tmp)
 
     def test_golden_match(self) -> None:
         """AC-6–9, AC-10, AC-14, AC-15, AC-19: Golden file integration tests pass."""
         repo_dir = gen_fixture("struct_enum_member", Path(self.tmp))
-        gen_root = repo_dir / "gen"
+        gen_root = repo_dir
         golden_root = TESTS_DIR / "goldens" / "gen" / "struct_enum_member"
         for golden_file in golden_root.rglob("*"):
             if golden_file.is_dir():
                 continue
+            if "__pycache__" in golden_file.parts or golden_file.suffix == ".pyc":
+                continue
             relative = golden_file.relative_to(golden_root)
             generated = gen_root / relative
-            self.assertTrue(generated.exists(), f"missing generated file: {relative}")
+            assert generated.exists(), f"missing generated file: {relative}"
             expected = golden_file.read_text(encoding="utf-8")
             actual = generated.read_text(encoding="utf-8")
-            self.assertEqual(expected, actual, f"mismatch in {relative}")
+            assert expected == actual, f"mismatch in {relative}"
 
     def test_idempotent(self) -> None:
         """AC-20: piketype gen is idempotent."""
         repo_dir = gen_fixture("struct_enum_member", Path(self.tmp))
-        gen_root = repo_dir / "gen"
+        gen_root = repo_dir
         first_run: dict[str, str] = {}
         for f in gen_root.rglob("*"):
             if f.is_dir():
+                continue
+            if "__pycache__" in f.parts or f.suffix == ".pyc":
                 continue
             first_run[str(f.relative_to(gen_root))] = f.read_text(encoding="utf-8")
         cli_file = repo_dir / "alpha" / "piketype" / "types.py"
@@ -243,7 +247,7 @@ class StructEnumMemberGoldenTest(unittest.TestCase):
         )
         for rel, expected in first_run.items():
             actual = (gen_root / rel).read_text(encoding="utf-8")
-            self.assertEqual(expected, actual, f"idempotency failed for {rel}")
+            assert expected == actual, f"idempotency failed for {rel}"
 
 
 # ---------------------------------------------------------------------------
@@ -251,29 +255,29 @@ class StructEnumMemberGoldenTest(unittest.TestCase):
 # ---------------------------------------------------------------------------
 
 
-class StructEnumMemberRuntimeTest(unittest.TestCase):
+class StructEnumMemberRuntimeTest:
     """Python runtime tests for struct with Enum member."""
 
     _tmp_dir: tempfile.TemporaryDirectory[str]
     _gen_py: Path
 
     @classmethod
-    def setUpClass(cls) -> None:
+    def setup_class(cls) -> None:
         cls._tmp_dir = tempfile.TemporaryDirectory()
         tmp = Path(cls._tmp_dir.name)
-        cls._gen_py = gen_fixture("struct_enum_member", tmp) / "gen" / "py"
+        cls._gen_py = gen_fixture("struct_enum_member", tmp)
 
     @classmethod
-    def tearDownClass(cls) -> None:
+    def teardown_class(cls) -> None:
         cls._tmp_dir.cleanup()
 
     def _import_types(self):
         for key in list(sys.modules.keys()):
             if key == "alpha" or key.startswith("alpha."):
                 del sys.modules[key]
-        sys.path[:] = [p for p in sys.path if "gen/py" not in str(p)]
+        sys.path[:] = [p for p in sys.path if "/py" not in str(p)]
         sys.path.insert(0, str(self._gen_py))
-        return importlib.import_module("alpha.piketype.types_types")
+        return importlib.import_module("alpha.py.types_types")
 
     def test_round_trip(self) -> None:
         """AC-12, AC-13: to_bytes -> from_bytes round-trip for pkt_t."""
@@ -283,8 +287,8 @@ class StructEnumMemberRuntimeTest(unittest.TestCase):
         pkt.data = 42
         raw = pkt.to_bytes()
         restored = mod.pkt_ct.from_bytes(raw)
-        self.assertEqual(int(restored.cmd.value), int(mod.cmd_enum_t.WRITE))
-        self.assertEqual(restored.data, 42)
+        assert int(restored.cmd.value) == int(mod.cmd_enum_t.WRITE)
+        assert restored.data == 42
 
     def test_expected_bytes(self) -> None:
         """AC-18: to_bytes produces specific expected byte values."""
@@ -295,7 +299,7 @@ class StructEnumMemberRuntimeTest(unittest.TestCase):
         raw = pkt.to_bytes()
         # cmd_t: 2-bit enum, WRITE=2 -> 1 byte: 0x02 (6 MSB padding bits = 0)
         # data: 8 bits -> 1 byte: 0xFF
-        self.assertEqual(raw, b"\x02\xff")
+        assert raw == b"\x02\xff"
 
     def test_multiple_of_byte_count(self) -> None:
         """AC-16, AC-17: multiple_of() struct has correct byte count."""
@@ -304,20 +308,20 @@ class StructEnumMemberRuntimeTest(unittest.TestCase):
         raw = aligned.to_bytes()
         # aligned_pkt_t: cmd (1 byte) + data (1 byte) = 2 bytes natural
         # multiple_of(32) -> 4 bytes
-        self.assertEqual(len(raw), 4)
+        assert len(raw) == 4
 
     def test_coercer_rejects_none(self) -> None:
         """AC-11: Enum field coercer rejects None."""
         mod = self._import_types()
         pkt = mod.pkt_ct()
-        with self.assertRaises(TypeError):
+        with pytest.raises(TypeError):
             pkt.cmd = None  # type: ignore[assignment]
 
     def test_coercer_rejects_raw_enum(self) -> None:
         """AC-11: Enum field coercer rejects raw IntEnum value."""
         mod = self._import_types()
         pkt = mod.pkt_ct()
-        with self.assertRaises(TypeError):
+        with pytest.raises(TypeError):
             pkt.cmd = mod.cmd_enum_t.WRITE  # type: ignore[assignment]
 
 
@@ -326,7 +330,7 @@ class StructEnumMemberRuntimeTest(unittest.TestCase):
 # ---------------------------------------------------------------------------
 
 
-class StructEnumMemberCrossModuleTest(unittest.TestCase):
+class StructEnumMemberCrossModuleTest:
     """Cross-module Enum references are accepted (spec 011 relaxes the spec 009 restriction)."""
 
     def test_cross_module_enum_accepted(self) -> None:
@@ -388,7 +392,3 @@ class StructEnumMemberCrossModuleTest(unittest.TestCase):
         repo = RepoIR(repo_root="/tmp", modules=(module_a, module_b), tool_version=None)
         # Should not raise — cross-module references are now allowed.
         validate_repo(repo)
-
-
-if __name__ == "__main__":
-    unittest.main()

@@ -1,0 +1,83 @@
+{
+  "modules": [
+    {
+      "basename": "a",
+      "constants": [],
+      "dependencies": [],
+      "generated_outputs": {
+        "cpp": "alpha/cpp/a_types.hpp",
+        "py": "alpha/py/a_types.py",
+        "sv": "alpha/rtl/a_pkg.sv"
+      },
+      "namespace_parts": [
+        "alpha",
+        "piketype",
+        "a"
+      ],
+      "python_module_name": "alpha.piketype.a",
+      "repo_relative_path": "alpha/piketype/a.py",
+      "source": {
+        "column": null,
+        "line": 1,
+        "path": "alpha/piketype/a.py"
+      },
+      "types": [],
+      "vec_constants": [
+        {
+          "base": "hex",
+          "name": "LP_X",
+          "source": {
+            "column": null,
+            "line": 3,
+            "path": "alpha/piketype/a.py"
+          },
+          "value": 4660,
+          "width": 16
+        }
+      ]
+    },
+    {
+      "basename": "b",
+      "constants": [],
+      "dependencies": [
+        {
+          "kind": "vec_const_import",
+          "target_module": "alpha.piketype.a"
+        }
+      ],
+      "generated_outputs": {
+        "cpp": "alpha/cpp/b_types.hpp",
+        "py": "alpha/py/b_types.py",
+        "sv": "alpha/rtl/b_pkg.sv"
+      },
+      "namespace_parts": [
+        "alpha",
+        "piketype",
+        "b"
+      ],
+      "python_module_name": "alpha.piketype.b",
+      "repo_relative_path": "alpha/piketype/b.py",
+      "source": {
+        "column": null,
+        "line": 1,
+        "path": "alpha/piketype/b.py"
+      },
+      "types": [],
+      "vec_constants": [
+        {
+          "base": "hex",
+          "name": "LP_Y",
+          "source": {
+            "column": null,
+            "line": 5,
+            "path": "alpha/piketype/b.py"
+          },
+          "value": 171,
+          "width": 8
+        }
+      ]
+    }
+  ],
+  "repo_root": ".",
+  "tool_version": "0.1.0"
+}

@@ -7,7 +7,6 @@ representative fixtures.
 
 from __future__ import annotations
 
-import unittest
 from pathlib import Path
 
 from piketype import __version__
@@ -64,32 +63,32 @@ def _load_fixture_module(fixture_name: str) -> ModuleIR:
         return repo.modules[0]
 
 
-class StructPaddedFixtureTests(unittest.TestCase):
+class StructPaddedFixtureTests:
     """Asserts struct view fields against tests/fixtures/struct_padded."""
 
     @classmethod
-    def setUpClass(cls) -> None:
+    def setup_class(cls) -> None:
         cls.module = _load_fixture_module("struct_padded")
         cls.view = build_module_view_py(module=cls.module, header="# header\n")
 
     def test_module_has_struct(self) -> None:
-        self.assertTrue(self.view.has_types)
-        self.assertTrue(self.view.has_structs)
-        self.assertFalse(self.view.has_enums)
+        assert self.view.has_types
+        assert self.view.has_structs
+        assert not self.view.has_enums
 
     def test_struct_view_byte_count_includes_alignment(self) -> None:
         structs = [t for t in self.view.types if isinstance(t, StructView)]
-        self.assertGreaterEqual(len(structs), 1)
+        assert len(structs) >= 1
         s = structs[0]
         # struct_padded fixture has alignment, so byte_count > sum of field bytes.
         field_bytes = sum(f.byte_count for f in s.fields)
-        self.assertEqual(s.byte_count, field_bytes + s.alignment_bytes)
+        assert s.byte_count == field_bytes + s.alignment_bytes
 
     def test_struct_field_pack_bits_is_byte_count_times_eight(self) -> None:
         structs = [t for t in self.view.types if isinstance(t, StructView)]
         s = structs[0]
         for f in s.fields:
-            self.assertEqual(f.pack_bits, f.byte_count * 8)
+            assert f.pack_bits == f.byte_count * 8
 
     def test_struct_field_discriminators_mutually_exclusive(self) -> None:
         structs = [t for t in self.view.types if isinstance(t, StructView)]
@@ -103,79 +102,75 @@ class StructPaddedFixtureTests(unittest.TestCase):
                 f.is_narrow_scalar,
                 f.is_wide_scalar,
             )
-            self.assertEqual(sum(flags), 1, f"field {f.name}: discriminators={flags}")
+            assert sum(flags) == 1, f"field {f.name}: discriminators={flags}"
 
 
-class ScalarWideFixtureTests(unittest.TestCase):
+class ScalarWideFixtureTests:
     """Asserts scalar alias view fields against tests/fixtures/scalar_wide."""
 
     @classmethod
-    def setUpClass(cls) -> None:
+    def setup_class(cls) -> None:
         cls.module = _load_fixture_module("scalar_wide")
         cls.view = build_module_view_py(module=cls.module, header="# header\n")
 
     def test_has_scalar_alias(self) -> None:
         scalars = [t for t in self.view.types if isinstance(t, ScalarAliasView)]
-        self.assertGreaterEqual(len(scalars), 1)
+        assert len(scalars) >= 1
 
     def test_wide_alias_msb_byte_mask_set(self) -> None:
         scalars = [t for t in self.view.types if isinstance(t, ScalarAliasView)]
         # scalar_wide includes at least one wide (>64) alias.
         wide = [s for s in scalars if s.is_wide]
-        self.assertGreaterEqual(len(wide), 1)
+        assert len(wide) >= 1
         for s in wide:
-            self.assertGreater(s.msb_byte_mask, 0)
-            self.assertEqual(s.mask, 0)
-            self.assertEqual(s.sign_bit, 0)
+            assert s.msb_byte_mask > 0
+            assert s.mask == 0
+            assert s.sign_bit == 0
 
     def test_wide_alias_class_name_uses_ct_suffix(self) -> None:
         scalars = [t for t in self.view.types if isinstance(t, ScalarAliasView)]
         for s in scalars:
-            self.assertTrue(s.class_name.endswith("_ct"), f"{s.class_name}")
+            assert s.class_name.endswith("_ct"), f"{s.class_name}"
 
 
-class EnumBasicFixtureTests(unittest.TestCase):
+class EnumBasicFixtureTests:
     """Asserts enum view fields against tests/fixtures/enum_basic."""
 
     @classmethod
-    def setUpClass(cls) -> None:
+    def setup_class(cls) -> None:
         cls.module = _load_fixture_module("enum_basic")
         cls.view = build_module_view_py(module=cls.module, header="# header\n")
 
     def test_has_enum(self) -> None:
-        self.assertTrue(self.view.has_enums)
+        assert self.view.has_enums
 
     def test_enum_view_has_required_fields(self) -> None:
         enums = [t for t in self.view.types if isinstance(t, EnumView)]
-        self.assertGreaterEqual(len(enums), 1)
+        assert len(enums) >= 1
         e = enums[0]
-        self.assertTrue(e.class_name.endswith("_ct"))
-        self.assertTrue(e.enum_class_name.endswith("_enum_t"))
-        self.assertEqual(e.mask, (1 << e.width) - 1)
-        self.assertGreaterEqual(len(e.members), 1)
-        self.assertEqual(e.first_member_name, e.members[0].name)
+        assert e.class_name.endswith("_ct")
+        assert e.enum_class_name.endswith("_enum_t")
+        assert e.mask == (1 << e.width) - 1
+        assert len(e.members) >= 1
+        assert e.first_member_name == e.members[0].name
 
 
-class FlagsBasicFixtureTests(unittest.TestCase):
+class FlagsBasicFixtureTests:
     """Asserts flags view fields against tests/fixtures/flags_basic."""
 
     @classmethod
-    def setUpClass(cls) -> None:
+    def setup_class(cls) -> None:
         cls.module = _load_fixture_module("flags_basic")
         cls.view = build_module_view_py(module=cls.module, header="# header\n")
 
     def test_has_flags(self) -> None:
-        self.assertTrue(self.view.has_flags)
+        assert self.view.has_flags
 
     def test_flags_view_data_mask_msb_first(self) -> None:
         flags = [t for t in self.view.types if isinstance(t, FlagsView)]
-        self.assertGreaterEqual(len(flags), 1)
+        assert len(flags) >= 1
         f = flags[0]
         # bit_mask is MSB-first: first flag has the highest bit.
         first_mask = f.fields[0].bit_mask
-        self.assertEqual(first_mask, 1 << (f.total_bits - 1))
-        self.assertEqual(f.total_bits, f.byte_count * 8)
-
-
-if __name__ == "__main__":
-    unittest.main()
+        assert first_mask == 1 << (f.total_bits - 1)
+        assert f.total_bits == f.byte_count * 8

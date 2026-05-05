@@ -7,7 +7,6 @@ from pathlib import Path
 from piketype import __version__
 from piketype.backends.cpp.emitter import emit_cpp
 from piketype.backends.py.emitter import emit_py
-from piketype.backends.runtime.emitter import emit_runtime
 from piketype.backends.sv.emitter import emit_sv
 from piketype.discovery.scanner import ensure_cli_path_is_valid, find_piketype_modules
 from piketype.dsl.freeze import (
@@ -15,6 +14,7 @@ from piketype.dsl.freeze import (
     build_const_definition_map,
     build_loaded_module,
     build_type_definition_map,
+    build_vec_const_definition_map,
     freeze_module,
     freeze_repo,
 )
@@ -50,6 +50,7 @@ def run_gen(path: str, *, namespace: str | None = None) -> None:
         ]
         definition_map = build_const_definition_map(loaded_modules=loaded_modules)
         type_definition_map = build_type_definition_map(loaded_modules=loaded_modules)
+        vec_const_definition_map = build_vec_const_definition_map(loaded_modules=loaded_modules)
 
         frozen_modules: list[FrozenModule] = []
         cli_module_had_local_definitions = False
@@ -58,6 +59,7 @@ def run_gen(path: str, *, namespace: str | None = None) -> None:
                 loaded_module=loaded_module,
                 definition_map=definition_map,
                 type_definition_map=type_definition_map,
+                vec_const_definition_map=vec_const_definition_map,
             )
             if loaded_module.module_path == cli_path and frozen_module.has_local_definitions:
                 cli_module_had_local_definitions = True
@@ -73,5 +75,4 @@ def run_gen(path: str, *, namespace: str | None = None) -> None:
         emit_sv(repo)
         emit_py(repo)
         emit_cpp(repo, namespace=namespace)
-        emit_runtime(repo)
         write_manifest(repo)

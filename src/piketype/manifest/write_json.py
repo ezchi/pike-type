@@ -8,14 +8,10 @@ from pathlib import Path
 from piketype.ir.nodes import EnumIR, FlagsIR, RepoIR, ScalarAliasIR, StructIR
 from piketype.paths import (
     cpp_header_output_path,
-    cpp_runtime_header_output_path,
-    cpp_runtime_source_output_path,
     manifest_output_path,
     py_module_output_path,
-    py_runtime_output_path,
     sv_module_output_path,
     sv_test_module_output_path,
-    sv_runtime_output_path,
 )
 
 
@@ -107,6 +103,20 @@ def write_manifest(repo: RepoIR) -> Path:
                     }
                     for dep in module.dependencies
                 ],
+                "vec_constants": [
+                    {
+                        "name": v.name,
+                        "width": v.width,
+                        "value": v.value,
+                        "base": v.base,
+                        "source": {
+                            "path": str(Path(v.source.path).resolve().relative_to(repo_root.resolve())),
+                            "line": v.source.line,
+                            "column": v.source.column,
+                        },
+                    }
+                    for v in module.vec_constants
+                ],
                 "generated_outputs": {
                     "sv": str(
                         sv_module_output_path(
@@ -142,12 +152,6 @@ def write_manifest(repo: RepoIR) -> Path:
             }
             for module in repo.modules
         ],
-        "runtime_outputs": {
-            "sv": str(sv_runtime_output_path(repo_root=repo_root).relative_to(repo_root)),
-            "py": str(py_runtime_output_path(repo_root=repo_root).relative_to(repo_root)),
-            "cpp_header": str(cpp_runtime_header_output_path(repo_root=repo_root).relative_to(repo_root)),
-            "cpp_source": str(cpp_runtime_source_output_path(repo_root=repo_root).relative_to(repo_root)),
-        },
     }
     output_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return output_path

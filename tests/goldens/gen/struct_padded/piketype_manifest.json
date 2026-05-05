@@ -5,10 +5,10 @@
       "constants": [],
       "dependencies": [],
       "generated_outputs": {
-        "cpp": "gen/cpp/alpha/piketype/types_types.hpp",
-        "py": "gen/py/alpha/piketype/types_types.py",
-        "sv": "gen/sv/alpha/piketype/types_pkg.sv",
-        "sv_test": "gen/sv/alpha/piketype/types_test_pkg.sv"
+        "cpp": "alpha/cpp/types_types.hpp",
+        "py": "alpha/py/types_types.py",
+        "sv": "alpha/rtl/types_pkg.sv",
+        "sv_test": "alpha/sim/types_test_pkg.sv"
       },
       "namespace_parts": [
         "alpha",
@@ -45,15 +45,10 @@
             "path": "alpha/piketype/types.py"
           }
         }
-      ]
+      ],
+      "vec_constants": []
     }
   ],
   "repo_root": ".",
-  "runtime_outputs": {
-    "cpp_header": "gen/cpp/runtime/piketype_runtime.hpp",
-    "cpp_source": "gen/cpp/runtime/piketype_runtime.cpp",
-    "py": "gen/py/runtime/piketype_runtime.py",
-    "sv": "gen/sv/runtime/piketype_runtime_pkg.sv"
-  },
   "tool_version": "0.1.0"
 }

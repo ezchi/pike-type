@@ -1,0 +1,42 @@
+{
+  "modules": [
+    {
+      "basename": "types",
+      "constants": [],
+      "dependencies": [],
+      "generated_outputs": {
+        "cpp": "alpha/cpp/types_types.hpp",
+        "py": "alpha/py/types_types.py",
+        "sv": "alpha/rtl/types_pkg.sv",
+        "sv_test": "alpha/sim/types_test_pkg.sv"
+      },
+      "namespace_parts": [
+        "alpha",
+        "piketype",
+        "types"
+      ],
+      "python_module_name": "alpha.piketype.types",
+      "repo_relative_path": "alpha/piketype/types.py",
+      "source": {
+        "column": null,
+        "line": 1,
+        "path": "alpha/piketype/types.py"
+      },
+      "types": [
+        {
+          "field_count": 2,
+          "kind": "struct",
+          "name": "near_miss_t",
+          "source": {
+            "column": null,
+            "line": 4,
+            "path": "alpha/piketype/types.py"
+          }
+        }
+      ],
+      "vec_constants": []
+    }
+  ],
+  "repo_root": ".",
+  "tool_version": "0.1.0"
+}

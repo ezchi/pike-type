@@ -4,13 +4,16 @@ package {{ package_name }};
 {% for pkg, sym in synth_cross_module_imports %}
   import {{ pkg }}::{{ sym }};
 {% endfor %}
-{% if has_constants or has_types %}
+{% if has_constants or has_vec_constants or has_types %}
 
 {% endif %}
 {% for c in constants %}
   localparam {{ c.sv_type }} {{ c.name }} = {{ c.sv_expr }};
 {% endfor %}
-{% if has_constants and has_types %}
+{% for v in vec_constants %}
+  localparam {{ v.sv_type }} {{ v.name }} = {{ v.sv_expr }};
+{% endfor %}
+{% if (has_constants or has_vec_constants) and has_types %}
 
 {% endif %}
 {% for t in types %}

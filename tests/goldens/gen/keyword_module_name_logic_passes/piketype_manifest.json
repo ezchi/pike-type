@@ -1,0 +1,42 @@
+{
+  "modules": [
+    {
+      "basename": "logic",
+      "constants": [],
+      "dependencies": [],
+      "generated_outputs": {
+        "cpp": "alpha/cpp/logic_types.hpp",
+        "py": "alpha/py/logic_types.py",
+        "sv": "alpha/rtl/logic_pkg.sv",
+        "sv_test": "alpha/sim/logic_test_pkg.sv"
+      },
+      "namespace_parts": [
+        "alpha",
+        "piketype",
+        "logic"
+      ],
+      "python_module_name": "alpha.piketype.logic",
+      "repo_relative_path": "alpha/piketype/logic.py",
+      "source": {
+        "column": null,
+        "line": 1,
+        "path": "alpha/piketype/logic.py"
+      },
+      "types": [
+        {
+          "field_count": 2,
+          "kind": "struct",
+          "name": "handler_t",
+          "source": {
+            "column": null,
+            "line": 4,
+            "path": "alpha/piketype/logic.py"
+          }
+        }
+      ],
+      "vec_constants": []
+    }
+  ],
+  "repo_root": ".",
+  "tool_version": "0.1.0"
+}

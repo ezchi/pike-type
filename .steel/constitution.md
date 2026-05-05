@@ -112,6 +112,6 @@ docs/                -- RFC, product spec, architecture docs
    - Must not produce local-vs-imported, imported-vs-imported, or imported-vs-local enum literal name collisions. Such collisions are rejected at validation time.
    - Produce explicit `import {target}_pkg::*;` lines in SystemVerilog synth packages, dual `_pkg` + `_test_pkg` imports in test packages, fully-qualified field types in C++ headers with the corresponding `#include`, and `from <target>_types import <wrapper>` lines in Python.
    - Require unique module basenames across the repo (this validation runs unconditionally for every `piketype gen` invocation).
-5. **Constant widths restricted to 32/64 bits.** Arbitrary-width constants are not supported; the validation layer rejects other widths.
+5. **Const widths restricted to 32/64 bits.** The legacy `Const()` parameter primitive accepts width 32, 64, or unspecified (default int). The newer `VecConst()` primitive accepts arbitrary positive widths from 1 through 64 inclusive. Both are validated by the validation layer; widths outside their respective allowed ranges are rejected.
 6. **Minimal runtime dependencies.** Only Jinja2 at runtime. No heavy frameworks, no network dependencies.
 7. **Stable, reproducible output.** Ordering is by dependency-first then declaration order. No randomness or environment-dependent output.

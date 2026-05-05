@@ -10,12 +10,12 @@ from __future__ import annotations
 
 import json
 import os
+import pytest
 import shutil
 import statistics
 import subprocess
 import tempfile
 import time
-import unittest
 from pathlib import Path
 
 _FIXTURES = Path(__file__).resolve().parent / "fixtures"
@@ -49,13 +49,16 @@ def _measure_fixture(fixture_dir: Path) -> float:
     return statistics.median(samples)
 
 
-@unittest.skipUnless(os.environ.get("PIKETYPE_PERF_TEST") == "1", "set PIKETYPE_PERF_TEST=1 to enable")
-class PerfGateTests(unittest.TestCase):
+@pytest.mark.skipif(
+    os.environ.get("PIKETYPE_PERF_TEST") != "1",
+    reason="set PIKETYPE_PERF_TEST=1 to enable",
+)
+class PerfGateTests:
     """Compare current `piketype gen` latency against committed baseline."""
 
     def test_within_budget(self) -> None:
         if not _BASELINE_FILE.exists():
-            self.skipTest("perf baseline not yet captured; run with PIKETYPE_PERF_CAPTURE=1 to create one")
+            pytest.skip("perf baseline not yet captured; run with PIKETYPE_PERF_CAPTURE=1 to create one")
 
         baseline: dict[str, float] = json.loads(_BASELINE_FILE.read_text())
 
@@ -69,20 +72,14 @@ class PerfGateTests(unittest.TestCase):
             if name not in baseline:
                 continue  # new fixture, no baseline yet
             limit = baseline[name] * _PER_FIXTURE_BUDGET
-            self.assertLessEqual(
-                current_t, limit,
-                f"{name}: {current_t:.3f}s exceeds {limit:.3f}s ({_PER_FIXTURE_BUDGET:.0%} of baseline)",
-            )
+            assert current_t <= limit, f"{name}: {current_t:.3f}s exceeds {limit:.3f}s ({_PER_FIXTURE_BUDGET:.0%} of baseline)"
 
         # Total check
         total_baseline = sum(baseline.get(name, 0.0) for name in current)
         total_current = sum(current.values())
         if total_baseline > 0:
             limit = total_baseline * _TOTAL_BUDGET
-            self.assertLessEqual(
-                total_current, limit,
-                f"total {total_current:.3f}s exceeds {limit:.3f}s ({_TOTAL_BUDGET:.0%} of baseline)",
-            )
+            assert total_current <= limit, f"total {total_current:.3f}s exceeds {limit:.3f}s ({_TOTAL_BUDGET:.0%} of baseline)"
 
 
 if __name__ == "__main__":
@@ -97,4 +94,4 @@ if __name__ == "__main__":
         _BASELINE_FILE.write_text(json.dumps(baseline, indent=2, sort_keys=True) + "\n")
         print(f"wrote {_BASELINE_FILE}")
     else:
-        unittest.main()
+        pytest.main([__file__])

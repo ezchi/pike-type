@@ -30,6 +30,7 @@ from piketype.ir.nodes import (
     TypeDefIR,
     TypeRefIR,
     UnaryExprIR,
+    VecConstIR,
     byte_count,
 )
 
@@ -301,6 +302,49 @@ def _render_cpp_const(*, value: int, signed: bool, width: int) -> tuple[str, str
     if width == 64 and not signed:
         return ("std::uint64_t", f"{value}ULL")
     raise ValueError(f"unsupported C++ constant storage: signed={signed}, width={width}")
+
+
+def _cpp_uint_type(width: int) -> str:
+    """Round up to the smallest std::uintN_t that fits a VecConst width."""
+    if width <= 8:
+        return "std::uint8_t"
+    if width <= 16:
+        return "std::uint16_t"
+    if width <= 32:
+        return "std::uint32_t"
+    return "std::uint64_t"
+
+
+def _cpp_literal_suffix(width: int) -> str:
+    if width <= 16:
+        return ""
+    if width <= 32:
+        return "U"
+    return "ULL"
+
+
+def _render_cpp_vec_literal(*, width: int, value: int, base: str) -> str:
+    """Render a C++ literal honoring the VecConst base."""
+    suffix = _cpp_literal_suffix(width)
+    match base:
+        case "hex":
+            return f"0x{value:0{(width + 3) // 4}X}{suffix}"
+        case "dec":
+            return f"{value}{suffix}"
+        case "bin":
+            return f"0b{value:0{width}b}{suffix}"
+        case _:
+            raise ValueError(f"unsupported VecConst base: {base!r}")
+
+
+def _build_cpp_vec_constant_view(*, vec_const_ir: VecConstIR) -> CppConstantView:
+    return CppConstantView(
+        cpp_type=_cpp_uint_type(vec_const_ir.width),
+        name=vec_const_ir.name,
+        value_expr=_render_cpp_vec_literal(
+            width=vec_const_ir.width, value=vec_const_ir.value, base=vec_const_ir.base
+        ),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -659,7 +703,10 @@ def build_module_view_cpp(
         namespace=_build_namespace_view(module=module, namespace=namespace),
         has_types=has_types,
         standard_includes=_standard_includes(has_types=has_types),
-        constants=tuple(_build_constant_view(const_ir=c) for c in module.constants),
+        constants=(
+            tuple(_build_constant_view(const_ir=c) for c in module.constants)
+            + tuple(_build_cpp_vec_constant_view(vec_const_ir=v) for v in module.vec_constants)
+        ),
         types=tuple(types_list),
         cross_module_include_paths=_collect_cpp_cross_module_includes(module=module),
     )
