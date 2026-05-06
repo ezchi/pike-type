@@ -25,7 +25,16 @@ from piketype.dsl.freeze import (
     freeze_module,
     freeze_repo,
 )
-from piketype.ir.nodes import ModuleIR
+from piketype.ir.nodes import (
+    IntLiteralExprIR,
+    ModuleIR,
+    ModuleRefIR,
+    ScalarAliasIR,
+    SourceSpanIR,
+    StructFieldIR,
+    StructIR,
+    TypeRefIR,
+)
 from piketype.loader.python_loader import load_or_get_module, prepare_run
 
 _FIXTURES = Path(__file__).resolve().parent / "fixtures"
@@ -61,6 +70,55 @@ def _load_fixture_module(fixture_name: str) -> ModuleIR:
         )
         # Return the only module in single-module fixtures.
         return repo.modules[0]
+
+
+class TypeNameViewTests:
+    def test_capwords_type_names_render_as_python_classes(self) -> None:
+        source = SourceSpanIR(path="types.py", line=1, column=None)
+        ref = ModuleRefIR(
+            repo_relative_path="alpha/piketype/types.py",
+            python_module_name="alpha.piketype.types",
+            namespace_parts=("alpha", "piketype", "types"),
+            basename="types",
+        )
+        width_expr = IntLiteralExprIR(value=8, source=source)
+        addr = ScalarAliasIR(
+            name="Addr",
+            source=source,
+            state_kind="logic",
+            signed=False,
+            width_expr=width_expr,
+            resolved_width=8,
+        )
+        packet = StructIR(
+            name="PacketHeader",
+            source=source,
+            fields=(
+                StructFieldIR(
+                    name="addr",
+                    source=source,
+                    type_ir=TypeRefIR(module=ref, name="Addr", source=source),
+                    rand=True,
+                ),
+            ),
+        )
+        module = ModuleIR(
+            ref=ref,
+            source=source,
+            constants=(),
+            types=(addr, packet),
+            dependencies=(),
+        )
+
+        view = build_module_view_py(module=module, header="# header\n")
+
+        scalar_view = view.types[0]
+        struct_view = view.types[1]
+        assert isinstance(scalar_view, ScalarAliasView)
+        assert isinstance(struct_view, StructView)
+        assert scalar_view.class_name == "Addr"
+        assert struct_view.class_name == "PacketHeader"
+        assert struct_view.fields[0].annotation == "Addr"
 
 
 class StructPaddedFixtureTests:

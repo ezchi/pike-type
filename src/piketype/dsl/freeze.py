@@ -442,10 +442,10 @@ def _serialized_width_from_dsl(struct_type: StructType) -> int:
 
 def _compute_alignment_bits(struct_type: StructType) -> int:
     """Compute trailing alignment padding bits for a struct from DSL objects."""
-    if struct_type._alignment is None:
+    if struct_type.alignment_multiple_bits is None:
         return 0
     natural_width = _serialized_width_from_dsl(struct_type)
-    return (-natural_width) % struct_type._alignment
+    return (-natural_width) % struct_type.alignment_multiple_bits
 
 
 def _freeze_struct_field(

@@ -161,13 +161,16 @@ class FlagsValidationTest:
             self._build_repo_with_flags("res_t", ["from_bytes"])
         assert "class API" in str(ctx.value)
 
-    def test_rejects_missing_t_suffix(self) -> None:
+    def test_rejects_invalid_type_name_style(self) -> None:
         with pytest.raises(ValidationError) as ctx:
             self._build_repo_with_flags("no_suffix", ["a"])
-        assert "must end with _t" in str(ctx.value)
+        assert "must be CapWords or lower_snake_case ending with _t" in str(ctx.value)
 
     def test_accepts_valid_flags(self) -> None:
         self._build_repo_with_flags("ok_t", ["a", "b", "c"])
+
+    def test_accepts_capwords_type_name(self) -> None:
+        self._build_repo_with_flags("OkFlags", ["a", "b", "c"])
 
     def test_accepts_64_flags(self) -> None:
         self._build_repo_with_flags("max_t", [f"f{i}" for i in range(64)])
