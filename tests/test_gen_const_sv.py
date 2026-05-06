@@ -28,7 +28,7 @@ def assert_trees_equal(_unused: object, expected: Path, actual: Path) -> None:
     The first parameter is unused (legacy unittest signature) and kept for
     call-site stability across the repo.
     """
-    _SKIP_DIRS = {"__pycache__"}
+    _SKIP_DIRS = {"__pycache__", ".piketype-cache"}
     _SKIP_FILE_SUFFIXES = (".pyc",)
     comparison = filecmp.dircmp(expected, actual)
     left_only = [n for n in comparison.left_only if n not in _SKIP_DIRS and not n.endswith(_SKIP_FILE_SUFFIXES)]
@@ -381,8 +381,9 @@ class GenConstSvIntegrationTest:
         with tempfile.TemporaryDirectory() as tmp_dir:
             repo_dir = Path(tmp_dir) / "project"
             repo_dir.mkdir()
-            (repo_dir / ".git").mkdir()
-            (repo_dir / ".git" / "HEAD").write_text("ref: refs/heads/main\n")
+            (repo_dir / "piketype.yaml").write_text(
+                "backends:\n  sv: {out: rtl}\n  sim: {out: sim}\n  py: {out: py}\n  cpp: {out: cpp}\n"
+            )
             (repo_dir / "alpha" / "piketype").mkdir(parents=True)
             (repo_dir / "beta" / "piketype").mkdir(parents=True)
             (repo_dir / "alpha" / "piketype" / "types.py").write_text(

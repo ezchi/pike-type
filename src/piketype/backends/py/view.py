@@ -197,11 +197,12 @@ def _type_class_name(type_name: str) -> str:
 def _py_types_module_path(*, source_module: ModuleRefIR, target_module: ModuleRefIR) -> str:
     """Return the Python import path for the target module's generated _types.py.
 
-    For DSL at ``<prefix>/piketype/<name>.py`` the generated file is at
-    ``<prefix>/py/<name>_types.py``. When source and target share the same
-    generated package (same ``<prefix>``), return a relative dotted path
-    like ``.<name>_types``. Otherwise fall back to the absolute path
-    ``<prefix>.py.<name>_types``.
+    Convention: the user adds the configured ``backends.py.out`` directory
+    to PYTHONPATH at runtime, so the leading ``<py.out>`` segment does
+    NOT appear in import names. For DSL at ``<sub>/piketype/<name>.py``
+    the file is at ``<py.out>/<sub>/<name>_types.py`` and imports as
+    ``<sub>.<name>_types``. Same-``<sub>`` source/target use a relative
+    dotted import.
     """
     tgt_parts = target_module.namespace_parts
     src_parts = source_module.namespace_parts
@@ -214,9 +215,8 @@ def _py_types_module_path(*, source_module: ModuleRefIR, target_module: ModuleRe
     ):
         return f".{tgt_parts[-1]}_types"
     if len(tgt_parts) < 2 or tgt_parts[-2] != "piketype":
-        # Should be unreachable post-validation, but keep a defensive fallback.
         return ".".join(tgt_parts) + "_types"
-    new_parts = tgt_parts[:-2] + ("py", f"{tgt_parts[-1]}_types")
+    new_parts = tgt_parts[:-2] + (f"{tgt_parts[-1]}_types",)
     return ".".join(new_parts)
 
 

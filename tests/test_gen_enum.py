@@ -346,8 +346,8 @@ class EnumRuntimeTest:
             if key == "foo" or key.startswith("foo."):
                 del sys.modules[key]
         sys.path[:] = [p for p in sys.path if "/py" not in str(p)]
-        sys.path.insert(0, str(self._gen_py))
-        return importlib.import_module("foo.py.defs_types")
+        sys.path.insert(0, str(self._gen_py / "py"))
+        return importlib.import_module("foo.defs_types")
 
     # -- color_t (4-bit, values 0, 5, 10) --
 

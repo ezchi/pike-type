@@ -22,7 +22,7 @@ def _copy_tree(src: Path, dst: Path) -> None:
 
 
 def _assert_trees_equal(_unused: object, expected: Path, actual: Path) -> None:
-    _SKIP_DIRS = {"__pycache__"}
+    _SKIP_DIRS = {"__pycache__", ".piketype-cache"}
     _SKIP_SUFFIXES = (".pyc",)
     comparison = filecmp.dircmp(expected, actual)
     left_only = [n for n in comparison.left_only if n not in _SKIP_DIRS and not n.endswith(_SKIP_SUFFIXES)]

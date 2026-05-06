@@ -5,8 +5,8 @@
       "constants": [],
       "dependencies": [],
       "generated_outputs": {
-        "cpp": "foo/cpp/defs_types.hpp",
-        "py": "foo/py/defs_types.py",
+        "cpp": "cpp/foo/defs_types.hpp",
+        "py": "py/foo/defs_types.py",
         "sv": "foo/rtl/defs_pkg.sv",
         "sv_test": "foo/sim/defs_test_pkg.sv"
       },

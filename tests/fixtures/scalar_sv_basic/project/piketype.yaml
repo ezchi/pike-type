@@ -1,0 +1,5 @@
+backends:
+  sv: {out: rtl}
+  sim: {out: sim}
+  py: {out: py}
+  cpp: {out: cpp}

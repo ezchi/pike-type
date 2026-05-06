@@ -5,8 +5,8 @@
       "constants": [],
       "dependencies": [],
       "generated_outputs": {
-        "cpp": "alpha/cpp/logic_types.hpp",
-        "py": "alpha/py/logic_types.py",
+        "cpp": "cpp/alpha/logic_types.hpp",
+        "py": "py/alpha/logic_types.py",
         "sv": "alpha/rtl/logic_pkg.sv",
         "sv_test": "alpha/sim/logic_test_pkg.sv"
       },

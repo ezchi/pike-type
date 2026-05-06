@@ -18,7 +18,7 @@ from pathlib import Path
 from types import ModuleType
 
 GOLDENS_DIR = Path(__file__).resolve().parent / "goldens" / "gen"
-PY_GOLDEN_ROOT = GOLDENS_DIR / "cross_module_type_refs"
+PY_GOLDEN_ROOT = GOLDENS_DIR / "cross_module_type_refs" / "py"
 
 
 def _load_module_from_path(name: str, path: Path) -> ModuleType:
@@ -48,8 +48,8 @@ class CrossModuleRuntimeBytesTest:
             sys.path.insert(0, cls._sys_path_entry)
         # Load via standard import so bar_types' `from alpha.piketype.foo_types`
         # resolves correctly.
-        cls.foo_types = importlib.import_module("alpha.py.foo_types")
-        cls.bar_types = importlib.import_module("alpha.py.bar_types")
+        cls.foo_types = importlib.import_module("alpha.foo_types")
+        cls.bar_types = importlib.import_module("alpha.bar_types")
 
     @classmethod
     def teardown_class(cls) -> None:

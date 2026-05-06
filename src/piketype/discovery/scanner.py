@@ -36,9 +36,17 @@ def ensure_cli_path_is_valid(path: Path) -> None:
 
 
 def find_piketype_modules(repo_root: Path) -> list[Path]:
-    """Return all DSL module files at ``<prefix>/piketype/<name>.py``."""
+    """Return all DSL module files at ``<prefix>/piketype/<name>.py``.
+
+    Files whose basename starts with ``_`` (e.g. ``_helper.py``) are
+    skipped: they are still importable from sibling DSL modules via
+    Python's import machinery, but the build stage does not generate
+    output for them. ``__init__.py`` is always skipped.
+    """
     def _included(path: Path) -> bool:
         if path.name == "__init__.py":
+            return False
+        if path.stem.startswith("_"):
             return False
         rel = path.relative_to(repo_root)
         rel_parts = set(rel.parts)
@@ -47,3 +55,21 @@ def find_piketype_modules(repo_root: Path) -> list[Path]:
         return is_under_piketype_dir(rel)
 
     return sorted(path for path in repo_root.rglob("*.py") if _included(path))
+
+
+def find_skipped_underscore_modules(repo_root: Path) -> list[Path]:
+    """Return DSL module candidates whose basename starts with ``_``.
+
+    Used by the build stage to surface skipped modules in
+    ``diagnostics.json`` so the user knows the convention applied.
+    """
+    def _is_underscore_skip(path: Path) -> bool:
+        if path.name == "__init__.py" or not path.stem.startswith("_"):
+            return False
+        rel = path.relative_to(repo_root)
+        rel_parts = set(rel.parts)
+        if rel_parts & EXCLUDED_DIRS:
+            return False
+        return is_under_piketype_dir(rel)
+
+    return sorted(path for path in repo_root.rglob("*.py") if _is_underscore_skip(path))
