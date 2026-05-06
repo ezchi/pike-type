@@ -3,10 +3,11 @@
 For a DSL file at ``<piketype_root>/<sub>/piketype/<base>.py``, generated
 outputs land at::
 
-    <backend.out>/<sub>/[<backend.name>/]<base><suffix><ext>
+    <backend.backend_root>/<sub>/<backend.language_id>/<base><suffix><ext>
 
-The ``<backend.name>`` segment is inserted only when ``backend.language_id``
-is true. The basename suffix and extension are backend-defined constants
+Empty ``backend_root`` resolves to the project root (the segment is
+absent in the joined path); empty ``language_id`` collapses that
+segment. The basename suffix and extension are backend-defined constants
 (e.g. ``_pkg.sv``, ``_test_pkg.sv``, ``_types.py``, ``_types.hpp``) and
 are not user-configurable.
 
@@ -54,18 +55,15 @@ def backend_output_path(
 ) -> Path:
     """Compute the output path for a module under a given backend.
 
-    The shape depends on ``backend.out_layout``:
+    Single formula: ``<backend_root>/<sub>/<language_id>/<file>``, where
+    ``<sub>`` is ``module_path`` made relative to ``piketype_root`` with
+    the trailing ``piketype/<base>.py`` stripped. An empty
+    ``language_id`` collapses that segment.
 
-    * ``prefix`` →  ``<backend.out>/<sub>/[<backend.name>/]<file>``.
-      ``backend.out`` is treated as an absolute path; ``<sub>`` is the
-      module's parent path (with the ``piketype/`` segment stripped).
-    * ``suffix`` →  ``<project_root>/<sub>/<rel_out>/[<backend.name>/]<file>``.
-      ``rel_out`` is ``backend.out`` made relative to ``project_root``;
-      this is the HDL role-directory convention (e.g. ``alpha/rtl/...``).
-
-    ``language_id: true`` inserts a ``<backend.name>/`` segment before
-    the file in either layout.
+    ``project_root`` is unused in the new schema but retained in the
+    signature for caller compatibility.
     """
+    del project_root  # backend_root is already absolute after resolution
     relative = repo_relative_path(module_path, repo_root=piketype_root)
     parts = relative.parts
     if len(parts) < 2 or parts[-2] != "piketype":
@@ -77,26 +75,11 @@ def backend_output_path(
     base = relative.stem
     file_name = f"{base}{basename_suffix}{ext}"
 
-    if backend.out_layout == "prefix":
-        components: list[str] = list(sub)
-        if backend.language_id:
-            components.append(backend.name)
-        components.append(file_name)
-        return backend.out / Path(*components)
-
-    # suffix layout
-    try:
-        rel_out = backend.out.resolve().relative_to(project_root.resolve())
-    except ValueError as exc:
-        raise PikeTypeError(
-            f"backend {backend.name!r}: out={backend.out} is outside project_root={project_root} "
-            f"and cannot be used with out_layout=suffix"
-        ) from exc
-    components_suffix: list[str] = [*sub, *rel_out.parts]
+    components: list[str] = list(sub)
     if backend.language_id:
-        components_suffix.append(backend.name)
-    components_suffix.append(file_name)
-    return project_root / Path(*components_suffix)
+        components.append(backend.language_id)
+    components.append(file_name)
+    return backend.backend_root / Path(*components)
 
 
 def manifest_output_path(*, project_root: Path) -> Path:

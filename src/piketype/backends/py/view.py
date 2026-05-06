@@ -197,10 +197,12 @@ def _type_class_name(type_name: str) -> str:
 def _py_types_module_path(*, source_module: ModuleRefIR, target_module: ModuleRefIR) -> str:
     """Return the Python import path for the target module's generated _types.py.
 
-    Convention: the user adds the configured ``backends.py.out`` directory
-    to PYTHONPATH at runtime, so the leading ``<py.out>`` segment does
-    NOT appear in import names. For DSL at ``<sub>/piketype/<name>.py``
-    the file is at ``<py.out>/<sub>/<name>_types.py`` and imports as
+    Convention: the user adds the configured ``backends.py.backend_root``
+    directory to PYTHONPATH at runtime, so the leading
+    ``<py.backend_root>`` segment does NOT appear in import names. For
+    DSL at ``<sub>/piketype/<name>.py`` the file is at
+    ``<py.backend_root>/<sub>/<name>_types.py`` (with no
+    ``<py.language_id>`` segment in the default config) and imports as
     ``<sub>.<name>_types``. Same-``<sub>`` source/target use a relative
     dotted import.
     """

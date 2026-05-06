@@ -50,10 +50,10 @@ frontend:
   ir_cache: .piketype-cache
 
 backends:
-  sv:  { out: rtl }
-  sim: { out: sim }
-  py:  { out: py }
-  cpp: { out: cpp }
+  sv:  { language_id: rtl }     # backend_root defaults to project root
+  sim: { language_id: sim }
+  py:  { backend_root: py }     # language_id defaults to ""
+  cpp: { backend_root: cpp }
 ```
 
 Place DSL modules under `<sub>/piketype/<name>.py` anywhere below the directory

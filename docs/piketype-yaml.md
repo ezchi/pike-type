@@ -24,19 +24,22 @@ piketype init [--force] [--path DIR]
 Writes a starter `piketype.yaml` to `DIR` (default: cwd). Refuses to
 overwrite an existing file unless `--force` is passed.
 
-The default file declares all four built-in backends pointing at
-co-located output directories:
+The default file declares all four built-in backends:
 
 ```yaml
 backends:
   sv:
-    out: rtl
+    backend_root: ""    # empty -> project root
+    language_id: rtl
   sim:
-    out: sim
+    backend_root: ""
+    language_id: sim
   py:
-    out: py
+    backend_root: py
+    language_id: ""
   cpp:
-    out: cpp
+    backend_root: cpp
+    language_id: ""
 ```
 
 ## Schema
@@ -49,8 +52,8 @@ frontend:               # optional
 
 backends:               # optional but typically required
   <backend_id>:
-    out: ...            # required
-    language_id: bool   # optional, default false
+    backend_root: ...   # optional, default = project root
+    language_id: ...    # optional, default = ""
 ```
 
 Unknown keys at any level cause a hard error so typos surface early.
@@ -68,30 +71,19 @@ Unknown keys at any level cause a hard error so typos surface early.
 Each entry is a backend identifier mapped to its config. The four
 canonical IDs and what they emit:
 
-| ID    | Emits                                  | Basename suffix | Extension | Default `out_layout` |
-|-------|----------------------------------------|-----------------|-----------|----------------------|
-| `sv`  | SystemVerilog synthesis package        | `_pkg`          | `.sv`     | `suffix`             |
-| `sim` | SystemVerilog test/verification package| `_test_pkg`     | `.sv`     | `suffix`             |
-| `py`  | Python wrapper module                  | `_types`        | `.py`     | `prefix`             |
-| `cpp` | C++ header                             | `_types`        | `.hpp`    | `prefix`             |
+| ID    | Emits                                  | Basename suffix | Extension |
+|-------|----------------------------------------|-----------------|-----------|
+| `sv`  | SystemVerilog synthesis package        | `_pkg`          | `.sv`     |
+| `sim` | SystemVerilog test/verification package| `_test_pkg`     | `.sv`     |
+| `py`  | Python wrapper module                  | `_types`        | `.py`     |
+| `cpp` | C++ header                             | `_types`        | `.hpp`    |
 
 Each backend section accepts:
 
-| Key           | Type     | Default                         | Purpose |
-|---------------|----------|---------------------------------|---------|
-| `out`         | path     | required                        | output directory for this backend's files |
-| `out_layout`  | enum     | per-backend (table above)       | `prefix` → `<out>/<sub>/<file>`; `suffix` → `<sub>/<out>/<file>` |
-| `language_id` | bool     | `false`                         | if true, insert `<backend_id>/` segment before the file in either layout |
-
-`out_layout` reflects two distinct conventions:
-
-* `prefix` — language-package style. Suits Python and C++ where the
-  output root is added to a search path (`PYTHONPATH`, include path)
-  and the source-tree subdirectory becomes the package qualifier.
-* `suffix` — HDL-role style. Each module's RTL and verification files
-  live next to the source: `alpha/rtl/foo_pkg.sv`,
-  `alpha/sim/foo_test_pkg.sv`. With this layout, `out` must be a
-  subdirectory of the project root.
+| Key            | Type   | Default           | Purpose |
+|----------------|--------|-------------------|---------|
+| `backend_root` | path   | project root      | output root for this backend's files; empty resolves to project root |
+| `language_id`  | string | `""`              | optional single-segment subdirectory inserted before the file (e.g. `rtl`, `sim`, `cpp`) |
 
 A backend that is not listed in `backends:` is **disabled** — no files
 are emitted for it, and it does not appear in the manifest's
@@ -99,52 +91,51 @@ are emitted for it, and it does not appear in the manifest's
 
 ## Path mapping
 
-Given input `<piketype_root>/<sub>/piketype/<base>.py`, the output
-shape depends on `out_layout`:
+For input `<piketype_root>/<sub>/piketype/<base>.py` the output is:
 
-* `prefix`: `<backend.out>/<sub>/[<backend_id>/]<base><suffix><ext>`
-* `suffix`: `<project_root>/<sub>/<backend.out>/[<backend_id>/]<base><suffix><ext>`
+```
+<backend.backend_root>/<sub>/[<backend.language_id>/]<base><suffix><ext>
+```
 
-Steps (uniform for both layouts):
+Steps:
 
 1. Strip `piketype_root` prefix from the input path.
 2. Drop the trailing `piketype/<base>.py` segment, keeping `<sub>`.
-3. Place `<sub>` and `<out>` according to `out_layout`.
-4. If `language_id: true`, insert `<backend_id>/` before the file.
-5. Append `<base><basename_suffix><ext>`.
+3. Join: `<backend_root>/<sub>/[<language_id>/]<base><suffix><ext>`.
+   Empty `language_id` collapses that segment.
 
-### Example: default layout
+### Example: HDL role next to source, language packages above source
 
 Config:
 
 ```yaml
 backends:
-  sv:  {out: rtl}     # default out_layout: suffix
-  sim: {out: sim}     # default out_layout: suffix
-  py:  {out: py}      # default out_layout: prefix
-  cpp: {out: cpp}     # default out_layout: prefix
+  sv:  {language_id: rtl}             # backend_root defaults to project root
+  sim: {language_id: sim}
+  py:  {backend_root: py}             # language_id defaults to ""
+  cpp: {backend_root: cpp}
 ```
 
 Input `alpha/piketype/foo.py` produces:
 
 ```
-alpha/rtl/foo_pkg.sv             (suffix layout: role lives next to source)
+alpha/rtl/foo_pkg.sv             (HDL role lives next to source)
 alpha/sim/foo_test_pkg.sv
-py/alpha/foo_types.py            (prefix layout: package root above source)
+py/alpha/foo_types.py            (package root above source)
 cpp/alpha/foo_types.hpp
 ```
 
-### Example: per-language output roots with language_id
+### Example: per-language output roots with a language subdirectory
 
 Config:
 
 ```yaml
 backends:
   py:
-    out: python_lib
+    backend_root: python_lib
   cpp:
-    out: includes
-    language_id: true
+    backend_root: includes
+    language_id: cpp
 ```
 
 Input `services/auth/piketype/user.py` (default `piketype_root`) produces:
@@ -180,9 +171,9 @@ The build skips these directory names anywhere under `piketype_root`:
 
 ## Python import contract
 
-The Python backend assumes `backends.py.out` is on `PYTHONPATH` at
-runtime. Generated files therefore import each other by `<sub>`-rooted
-paths, not by their on-disk location:
+The Python backend assumes `backends.py.backend_root` is on
+`PYTHONPATH` at runtime. Generated files therefore import each other by
+`<sub>`-rooted paths, not by their on-disk location:
 
 * Same `<sub>` (intra-prefix): relative import,
   e.g. `from .foo_types import foo_ct`.

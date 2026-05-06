@@ -24,17 +24,20 @@ class TestRunInit:
         assert target == (tmp_path / "piketype.yaml").resolve()
         text = target.read_text(encoding="utf-8")
         assert "backends:" in text
-        assert "out: rtl" in text
-        assert "out: sim" in text
-        assert "out: py" in text
-        assert "out: cpp" in text
+        assert "language_id: rtl" in text
+        assert "language_id: sim" in text
+        assert "backend_root: py" in text
+        assert "backend_root: cpp" in text
 
     def test_default_yaml_loads_cleanly(self, tmp_path: Path) -> None:
         target = run_init(path=tmp_path)
         config = load_config(target)
         assert {b.name for b in config.backends} == {"sv", "sim", "py", "cpp"}
-        for backend in config.backends:
-            assert backend.language_id is False
+        by_name = {b.name: b for b in config.backends}
+        assert by_name["sv"].language_id == "rtl"
+        assert by_name["sim"].language_id == "sim"
+        assert by_name["py"].language_id == ""
+        assert by_name["cpp"].language_id == ""
 
     def test_refuses_to_overwrite_existing(self, tmp_path: Path) -> None:
         run_init(path=tmp_path)

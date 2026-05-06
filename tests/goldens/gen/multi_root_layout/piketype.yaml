@@ -1,10 +1,10 @@
 backends:
   py:
-    out: python_lib
+    backend_root: python_lib
   cpp:
-    out: includes
-    language_id: true
+    backend_root: includes
+    language_id: cpp
   sv:
-    out: rtl
+    language_id: rtl
   sim:
-    out: sim
+    language_id: sim

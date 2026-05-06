@@ -1,5 +1,5 @@
 backends:
-  sv: {out: rtl}
-  sim: {out: sim}
-  py: {out: py}
-  cpp: {out: cpp}
+  sv:  {language_id: rtl}
+  sim: {language_id: sim}
+  py:  {backend_root: py}
+  cpp: {backend_root: cpp}
