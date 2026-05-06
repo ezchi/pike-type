@@ -9,6 +9,9 @@ and syntax (per-type macros for scalar_alias, enum, flags, struct).
 
 from __future__ import annotations
 
+import shutil
+import subprocess
+import sys
 from dataclasses import replace
 from pathlib import Path
 
@@ -53,4 +56,25 @@ def emit_cpp(repo: RepoIR, *, config: Config, namespace: str | None = None) -> l
             encoding="utf-8",
         )
         written_paths.append(output_path)
+    _format_with_clang_format(written_paths)
     return written_paths
+
+
+def _format_with_clang_format(paths: list[Path]) -> None:
+    """Run clang-format -i on each generated file using the repo's .clang-format.
+
+    No-op (with a warning) if clang-format is not on PATH.
+    """
+    if not paths:
+        return
+    binary = shutil.which("clang-format")
+    if binary is None:
+        print(
+            "piketype: clang-format not found on PATH; skipping post-gen formatting",
+            file=sys.stderr,
+        )
+        return
+    subprocess.run(
+        [binary, "-i", "--style=file", *(str(p) for p in paths)],
+        check=False,
+    )

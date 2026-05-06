@@ -112,12 +112,15 @@ class CrossModuleNamespaceIntegrationTest:
             assert result.returncode == 0, result.stderr
             _assert_trees_equal(self, expected_root, repo_dir)
 
-    def test_bar_types_hpp_uses_qualified_byte_ct(self) -> None:
-        """AC-6: with --namespace=proj::lib, cross-module field types are ::proj::lib::foo::*_ct."""
+    def test_bar_types_hpp_uses_qualified_byte(self) -> None:
+        """AC-6: with --namespace=proj::lib, cross-module field types render the
+        shortest unambiguous qualifier (sibling-namespace lookup)."""
         bar_hpp = GOLDENS_DIR / "cross_module_type_refs_namespace_proj" / "cpp" / "alpha" / "bar_types.hpp"
         text = bar_hpp.read_text(encoding="utf-8")
-        assert "::proj::lib::foo::byte_ct field1" in text
-        assert "::proj::lib::foo::byte_ct field2" in text
+        # Inside namespace proj::lib::bar, foo::Byte resolves to proj::lib::foo::Byte
+        # via sibling-namespace lookup.
+        assert "foo::Byte field1" in text
+        assert "foo::Byte field2" in text
         # The include path is unaffected by --namespace.
         assert '#include "alpha/piketype/foo_types.hpp"' in text
 

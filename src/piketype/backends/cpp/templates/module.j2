@@ -1,13 +1,14 @@
 {% import "_macros.j2" as macros %}
 {{ header }}
-#ifndef {{ guard.macro }}
-#define {{ guard.macro }}
+#pragma once
 
 #include <cstdint>
 {% if has_types %}
+#include <array>
 #include <cstddef>
+#include <cstring>
+#include <span>
 #include <stdexcept>
-#include <vector>
 {% endif %}
 {% for p in cross_module_include_paths %}
 #include "{{ p }}"
@@ -41,5 +42,3 @@ constexpr {{ c.cpp_type }} {{ c.name }} = {{ c.value_expr }};
 
 {{ namespace.close_line }}
 {% endif %}
-
-#endif  // {{ guard.macro }}
