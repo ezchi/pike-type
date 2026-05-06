@@ -28,8 +28,8 @@
       ],
       "dependencies": [],
       "generated_outputs": {
-        "cpp": "alpha/cpp/constants_types.hpp",
-        "py": "alpha/py/constants_types.py",
+        "cpp": "cpp/alpha/constants_types.hpp",
+        "py": "py/alpha/constants_types.py",
         "sv": "alpha/rtl/constants_pkg.sv"
       },
       "namespace_parts": [

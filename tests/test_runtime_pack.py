@@ -73,27 +73,27 @@ class _RuntimeBase:
             if key in {"alpha", "foo"} or key.startswith(("alpha.", "foo.")):
                 del sys.modules[key]
         sys.path[:] = [p for p in sys.path if "/py" not in str(p)]
-        sys.path.insert(0, str(gen_root))
+        sys.path.insert(0, str(gen_root / "py"))
         return importlib.import_module(module_path)
 
 
 class ScalarAliasPackTest(_RuntimeBase):
 
     def test_narrow_unsigned_round_trip(self) -> None:
-        mod = self._import("scalar_sv_basic", "alpha.py.types_types")
+        mod = self._import("scalar_sv_basic", "alpha.types_types")
         # addr_t — Bit(13), unsigned
         a = mod.addr_ct(0x1ABC)
         assert a.pack() == 0x1ABC
         assert mod.addr_ct.unpack(0x1ABC) == a
 
     def test_narrow_unsigned_unpack_masks_excess_bits(self) -> None:
-        mod = self._import("scalar_sv_basic", "alpha.py.types_types")
+        mod = self._import("scalar_sv_basic", "alpha.types_types")
         # addr_t WIDTH=13. Excess high bits are masked away.
         a = mod.addr_ct.unpack(0xFFFF)
         assert a.value == 0x1FFF
 
     def test_narrow_signed_negative_round_trip(self) -> None:
-        mod = self._import("struct_signed", "alpha.py.types_types")
+        mod = self._import("struct_signed", "alpha.types_types")
         # signed_4_t — 4-bit signed
         s = mod.signed_4_ct(-3)
         # -3 in 4-bit two's complement = 0xD
@@ -102,20 +102,20 @@ class ScalarAliasPackTest(_RuntimeBase):
         assert rt.value == -3
 
     def test_narrow_signed_max_positive(self) -> None:
-        mod = self._import("struct_signed", "alpha.py.types_types")
+        mod = self._import("struct_signed", "alpha.types_types")
         s = mod.signed_4_ct(7)
         assert s.pack() == 7
         assert mod.signed_4_ct.unpack(7).value == 7
 
     def test_narrow_signed_min_negative(self) -> None:
-        mod = self._import("struct_signed", "alpha.py.types_types")
+        mod = self._import("struct_signed", "alpha.types_types")
         # -8 in 4-bit two's complement = 0x8
         s = mod.signed_4_ct(-8)
         assert s.pack() == 0x8
         assert mod.signed_4_ct.unpack(0x8).value == -8
 
     def test_wide_unsigned_round_trip(self) -> None:
-        mod = self._import("scalar_wide", "alpha.py.types_types")
+        mod = self._import("scalar_wide", "alpha.types_types")
         # wide_t — 65-bit unsigned
         v = (1 << 65) - 1  # all ones, 65 bits
         w = mod.wide_ct(v)
@@ -124,7 +124,7 @@ class ScalarAliasPackTest(_RuntimeBase):
         assert rt.value == w.value
 
     def test_wide_unpack_masks_excess_bits(self) -> None:
-        mod = self._import("scalar_wide", "alpha.py.types_types")
+        mod = self._import("scalar_wide", "alpha.types_types")
         # Pass an int wider than 65 bits — upper bits must be discarded.
         rt = mod.wide_ct.unpack((1 << 80) - 1)
         # Stored bytes have the upper byte's pad bits zero.
@@ -135,22 +135,22 @@ class ScalarAliasPackTest(_RuntimeBase):
 class EnumPackTest(_RuntimeBase):
 
     def test_pack_returns_int_value(self) -> None:
-        mod = self._import("enum_basic", "foo.py.defs_types")
+        mod = self._import("enum_basic", "foo.defs_types")
         c = mod.color_ct(mod.color_enum_t.GREEN)
         assert c.pack() == 5
 
     def test_unpack_round_trip(self) -> None:
-        mod = self._import("enum_basic", "foo.py.defs_types")
+        mod = self._import("enum_basic", "foo.defs_types")
         c = mod.color_ct.unpack(10)
         assert c.value == mod.color_enum_t.BLUE
 
     def test_unpack_rejects_unknown_value(self) -> None:
-        mod = self._import("enum_basic", "foo.py.defs_types")
+        mod = self._import("enum_basic", "foo.defs_types")
         with pytest.raises(ValueError):
             mod.color_ct.unpack(3)
 
     def test_unpack_masks_high_bits(self) -> None:
-        mod = self._import("enum_basic", "foo.py.defs_types")
+        mod = self._import("enum_basic", "foo.defs_types")
         # color_t WIDTH=4, mask=0xF. 0x15 & 0xF = 5 = GREEN.
         c = mod.color_ct.unpack(0x15)
         assert c.value == mod.color_enum_t.GREEN
@@ -159,7 +159,7 @@ class EnumPackTest(_RuntimeBase):
 class FlagsPackTest(_RuntimeBase):
 
     def test_pack_three_flags_msb_first(self) -> None:
-        mod = self._import("flags_basic", "alpha.py.types_types")
+        mod = self._import("flags_basic", "alpha.types_types")
         # triple_t has 3 flags: a, b, c — declaration order, a is MSB.
         f = mod.triple_ct()
         f.a = True
@@ -169,7 +169,7 @@ class FlagsPackTest(_RuntimeBase):
         assert f.pack() == 0b101
 
     def test_unpack_round_trip(self) -> None:
-        mod = self._import("flags_basic", "alpha.py.types_types")
+        mod = self._import("flags_basic", "alpha.types_types")
         f = mod.triple_ct.unpack(0b011)
         # bit 2 = a = 0, bit 1 = b = 1, bit 0 = c = 1
         assert not f.a
@@ -177,7 +177,7 @@ class FlagsPackTest(_RuntimeBase):
         assert f.c
 
     def test_pack_then_unpack_round_trip(self) -> None:
-        mod = self._import("flags_basic", "alpha.py.types_types")
+        mod = self._import("flags_basic", "alpha.types_types")
         f = mod.triple_ct()
         f.a = True
         f.b = True
@@ -186,7 +186,7 @@ class FlagsPackTest(_RuntimeBase):
         assert rt == f
 
     def test_no_alignment_byte_t_round_trip(self) -> None:
-        mod = self._import("flags_basic", "alpha.py.types_types")
+        mod = self._import("flags_basic", "alpha.types_types")
         # byte_t — 8 flags, no alignment.
         b = mod.byte_ct()
         b.f0 = True
@@ -204,20 +204,20 @@ class StructPackTest(_RuntimeBase):
     # -- Mixed signed struct (data_width = 9: signed_4 + signed 5-bit) --
 
     def test_struct_signed_pack_matches_concat(self) -> None:
-        mod = self._import("struct_signed", "alpha.py.types_types")
+        mod = self._import("struct_signed", "alpha.types_types")
         # field_s = -6 (4-bit two's comp = 0xA), field_u = -1 (5-bit two's comp = 0x1F)
         obj = mod.mixed_ct(field_s=-6, field_u=-1)
         # Concatenated MSB-first: 0b1010_11111 = 0x15F = 351
         assert obj.pack() == 0x15F
 
     def test_struct_signed_unpack_sign_extends_signed_fields(self) -> None:
-        mod = self._import("struct_signed", "alpha.py.types_types")
+        mod = self._import("struct_signed", "alpha.types_types")
         rt = mod.mixed_ct.unpack(0x15F)
         assert rt.field_s.value == -6
         assert rt.field_u == -1
 
     def test_struct_signed_pack_unpack_round_trip(self) -> None:
-        mod = self._import("struct_signed", "alpha.py.types_types")
+        mod = self._import("struct_signed", "alpha.types_types")
         for s in (-8, -1, 0, 7):
             for u in (-16, -1, 0, 15):
                 obj = mod.mixed_ct(field_s=s, field_u=u)
@@ -228,7 +228,7 @@ class StructPackTest(_RuntimeBase):
     # -- Padded struct (mix of unsigned and aligned padding bytes) --
 
     def test_struct_padded_pack_no_alignment_bits(self) -> None:
-        mod = self._import("struct_padded", "alpha.py.types_types")
+        mod = self._import("struct_padded", "alpha.types_types")
         # bar_t has alignment bytes in to_bytes; pack() must NOT include them.
         obj = mod.bar_ct(flag_a=1, field_1=0x1FFF, status=0xA, flag_b=0)
         # Sum of data widths = 1 + 13 + 4 + 1 = 19 bits.
@@ -239,7 +239,7 @@ class StructPackTest(_RuntimeBase):
         assert obj.pack() < 1 << 19
 
     def test_struct_padded_pack_unpack_round_trip(self) -> None:
-        mod = self._import("struct_padded", "alpha.py.types_types")
+        mod = self._import("struct_padded", "alpha.types_types")
         obj = mod.bar_ct(flag_a=1, field_1=0x1FFF, status=0xA, flag_b=0)
         rt = mod.bar_ct.unpack(obj.pack())
         assert rt.flag_a == 1
@@ -250,7 +250,7 @@ class StructPackTest(_RuntimeBase):
     # -- Wide-member struct (>64-bit fields stored as bytes) --
 
     def test_struct_wide_pack_concatenates_data_bits(self) -> None:
-        mod = self._import("struct_wide", "alpha.py.types_types")
+        mod = self._import("struct_wide", "alpha.types_types")
         obj = mod.big_ct()
         obj.data = b"\x01" + b"\xff" * 8  # 65-bit value: 2^64 + ... = (1 << 65) - 1
         obj.flag = 1
@@ -263,7 +263,7 @@ class StructPackTest(_RuntimeBase):
         assert obj.pack() == expected
 
     def test_struct_wide_unpack_round_trip(self) -> None:
-        mod = self._import("struct_wide", "alpha.py.types_types")
+        mod = self._import("struct_wide", "alpha.types_types")
         obj = mod.big_ct()
         obj.data = b"\x01" + b"\xff" * 8
         obj.flag = 1
@@ -276,7 +276,7 @@ class StructPackTest(_RuntimeBase):
     # -- Nested struct (header_t inside packet_t) --
 
     def test_nested_struct_pack_recursive(self) -> None:
-        mod = self._import("nested_struct_sv_basic", "alpha.py.types_types")
+        mod = self._import("nested_struct_sv_basic", "alpha.types_types")
         header = mod.header_ct(addr=0x1FFF, enable=1)
         pkt = mod.packet_ct()
         pkt.header = header
@@ -288,7 +288,7 @@ class StructPackTest(_RuntimeBase):
         assert pkt.pack() == expected
 
     def test_nested_struct_unpack_recursive(self) -> None:
-        mod = self._import("nested_struct_sv_basic", "alpha.py.types_types")
+        mod = self._import("nested_struct_sv_basic", "alpha.types_types")
         rt = mod.packet_ct.unpack((0x3FFF << 5) | (2 << 3) | 5)
         assert rt.header.addr.value == 0x1FFF
         assert rt.header.enable.value == 1
@@ -296,7 +296,7 @@ class StructPackTest(_RuntimeBase):
         assert rt.error_code == 5
 
     def test_nested_struct_raises_when_header_is_none(self) -> None:
-        mod = self._import("nested_struct_sv_basic", "alpha.py.types_types")
+        mod = self._import("nested_struct_sv_basic", "alpha.types_types")
         pkt = mod.packet_ct()
         pkt.header = None
         with pytest.raises(ValueError):
@@ -305,7 +305,7 @@ class StructPackTest(_RuntimeBase):
     # -- Struct with flags member --
 
     def test_struct_with_flags_member_pack(self) -> None:
-        mod = self._import("struct_flags_member", "alpha.py.types_types")
+        mod = self._import("struct_flags_member", "alpha.types_types")
         rep = mod.report_ct()
         rep.status.error = True
         rep.status.warning = False
@@ -315,7 +315,7 @@ class StructPackTest(_RuntimeBase):
         assert rep.pack() == (0b101 << 5) | 0xA
 
     def test_struct_with_flags_member_unpack(self) -> None:
-        mod = self._import("struct_flags_member", "alpha.py.types_types")
+        mod = self._import("struct_flags_member", "alpha.types_types")
         rt = mod.report_ct.unpack((0b101 << 5) | 0xA)
         assert rt.status.error
         assert not rt.status.warning
@@ -325,7 +325,7 @@ class StructPackTest(_RuntimeBase):
     # -- Struct with enum member --
 
     def test_struct_with_enum_member_round_trip(self) -> None:
-        mod = self._import("struct_enum_member", "alpha.py.types_types")
+        mod = self._import("struct_enum_member", "alpha.types_types")
         pkt = mod.pkt_ct()
         pkt.cmd = mod.cmd_ct(mod.cmd_enum_t.READ)  # value = 1, 2-bit
         pkt.data = 0xAB  # 8-bit
@@ -339,7 +339,7 @@ class StructPackTest(_RuntimeBase):
     # -- pack() return is data-only (no alignment, no per-field padding) --
 
     def test_struct_padded_pack_int_width_excludes_alignment(self) -> None:
-        mod = self._import("struct_padded", "alpha.py.types_types")
+        mod = self._import("struct_padded", "alpha.types_types")
         obj = mod.bar_ct(flag_a=1, field_1=0x1FFF, status=0xF, flag_b=1)
         # 19 data bits → max value 2^19 - 1.
         assert obj.pack() < 1 << 19
@@ -350,37 +350,37 @@ class StructPackTest(_RuntimeBase):
 class ScalarAliasLvTest(_RuntimeBase):
 
     def test_narrow_unsigned_to_lv_equals_value(self) -> None:
-        mod = self._import("scalar_sv_basic", "alpha.py.types_types")
+        mod = self._import("scalar_sv_basic", "alpha.types_types")
         # addr_t — 13-bit unsigned, byte_count=2. to_lv = byte interpretation = self.value.
         a = mod.addr_ct(0x1ABC)
         assert a.to_lv() == 0x1ABC
 
     def test_narrow_unsigned_from_lv_round_trip(self) -> None:
-        mod = self._import("scalar_sv_basic", "alpha.py.types_types")
+        mod = self._import("scalar_sv_basic", "alpha.types_types")
         a = mod.addr_ct(0x1ABC)
         rt = mod.addr_ct.from_lv(a.to_lv())
         assert rt.value == 0x1ABC
 
     def test_narrow_signed_to_lv_includes_sign_extension(self) -> None:
-        mod = self._import("struct_signed", "alpha.py.types_types")
+        mod = self._import("struct_signed", "alpha.types_types")
         # signed_4_t with -3: pack=0xD (4 bits), to_lv=0xFD (8 bits, sign-extended).
         s = mod.signed_4_ct(-3)
         assert s.pack() == 0xD
         assert s.to_lv() == 0xFD
 
     def test_narrow_signed_from_lv_decodes_sign_extension(self) -> None:
-        mod = self._import("struct_signed", "alpha.py.types_types")
+        mod = self._import("struct_signed", "alpha.types_types")
         rt = mod.signed_4_ct.from_lv(0xFD)
         assert rt.value == -3
 
     def test_narrow_signed_from_lv_rejects_invalid_padding(self) -> None:
-        mod = self._import("struct_signed", "alpha.py.types_types")
+        mod = self._import("struct_signed", "alpha.types_types")
         # Sign bit of data is 1 but padding bits are 0 → from_bytes raises.
         with pytest.raises(ValueError):
             mod.signed_4_ct.from_lv(0x0D)
 
     def test_wide_unsigned_to_lv_round_trip(self) -> None:
-        mod = self._import("scalar_wide", "alpha.py.types_types")
+        mod = self._import("scalar_wide", "alpha.types_types")
         v = (1 << 65) - 1
         w = mod.wide_ct(v)
         assert w.to_lv() == v
@@ -388,7 +388,7 @@ class ScalarAliasLvTest(_RuntimeBase):
         assert rt.value == w.value
 
     def test_from_lv_masks_excess_bits(self) -> None:
-        mod = self._import("scalar_sv_basic", "alpha.py.types_types")
+        mod = self._import("scalar_sv_basic", "alpha.types_types")
         # Bytes representation is 16 bits. Excess high bits are masked.
         # 0x1FF1ABC & 0xFFFF = 0x1ABC. Then from_bytes masks data bits to 0x1FFF? No,
         # 0x1ABC fits in 13 bits.
@@ -399,17 +399,17 @@ class ScalarAliasLvTest(_RuntimeBase):
 class EnumLvTest(_RuntimeBase):
 
     def test_to_lv_equals_int_value(self) -> None:
-        mod = self._import("enum_basic", "foo.py.defs_types")
+        mod = self._import("enum_basic", "foo.defs_types")
         c = mod.color_ct(mod.color_enum_t.GREEN)
         assert c.to_lv() == 5
 
     def test_from_lv_round_trip(self) -> None:
-        mod = self._import("enum_basic", "foo.py.defs_types")
+        mod = self._import("enum_basic", "foo.defs_types")
         rt = mod.color_ct.from_lv(10)
         assert rt.value == mod.color_enum_t.BLUE
 
     def test_from_lv_rejects_unknown(self) -> None:
-        mod = self._import("enum_basic", "foo.py.defs_types")
+        mod = self._import("enum_basic", "foo.defs_types")
         with pytest.raises(ValueError):
             mod.color_ct.from_lv(3)
 
@@ -417,7 +417,7 @@ class EnumLvTest(_RuntimeBase):
 class FlagsLvTest(_RuntimeBase):
 
     def test_to_lv_keeps_alignment_bits_zero(self) -> None:
-        mod = self._import("flags_basic", "alpha.py.types_types")
+        mod = self._import("flags_basic", "alpha.types_types")
         # triple_t — 3 flags, alignment_bits=5. Setting all flags:
         # _value bits: a=bit7, b=bit6, c=bit5 → 0b11100000 = 0xE0
         f = mod.triple_ct()
@@ -429,7 +429,7 @@ class FlagsLvTest(_RuntimeBase):
         assert f.pack() == 7
 
     def test_from_lv_round_trip(self) -> None:
-        mod = self._import("flags_basic", "alpha.py.types_types")
+        mod = self._import("flags_basic", "alpha.types_types")
         rt = mod.triple_ct.from_lv(0xA0)
         # 0xA0 = 0b10100000 → bit 7 (a) = 1, bit 6 (b) = 0, bit 5 (c) = 1
         assert rt.a
@@ -437,7 +437,7 @@ class FlagsLvTest(_RuntimeBase):
         assert rt.c
 
     def test_from_lv_masks_alignment_bits(self) -> None:
-        mod = self._import("flags_basic", "alpha.py.types_types")
+        mod = self._import("flags_basic", "alpha.types_types")
         # Bits in the alignment region (lower 5) are silently masked by from_bytes.
         rt = mod.triple_ct.from_lv(0xBF)  # 0b10111111: bit 7=1, bit 6=0, bit 5=1
         assert rt.a
@@ -448,7 +448,7 @@ class FlagsLvTest(_RuntimeBase):
 class StructLvTest(_RuntimeBase):
 
     def test_struct_signed_to_lv_includes_padding(self) -> None:
-        mod = self._import("struct_signed", "alpha.py.types_types")
+        mod = self._import("struct_signed", "alpha.types_types")
         # mixed_t fields: field_s (signed 4-bit, sign-extended into byte) + field_u (signed 5-bit).
         # field_s = -6 → byte 0xFA; field_u = -1 → byte 0xFF.
         # to_bytes = b"\xFA\xFF" → to_lv = 0xFAFF
@@ -458,19 +458,19 @@ class StructLvTest(_RuntimeBase):
         assert obj.pack() == 0x15F
 
     def test_struct_signed_from_lv_round_trip(self) -> None:
-        mod = self._import("struct_signed", "alpha.py.types_types")
+        mod = self._import("struct_signed", "alpha.types_types")
         rt = mod.mixed_ct.from_lv(0xFAFF)
         assert rt.field_s.value == -6
         assert rt.field_u == -1
 
     def test_struct_padded_to_lv_includes_alignment_bytes(self) -> None:
-        mod = self._import("struct_padded", "alpha.py.types_types")
+        mod = self._import("struct_padded", "alpha.types_types")
         obj = mod.bar_ct(flag_a=1, field_1=0x1FFF, status=0xA, flag_b=0)
         # to_bytes = b"\x01\x1f\xff\x0a\x00" (5 bytes incl. alignment).
         assert obj.to_lv() == int.from_bytes(b"\x01\x1f\xff\x0a\x00", "big")
 
     def test_struct_padded_from_lv_round_trip(self) -> None:
-        mod = self._import("struct_padded", "alpha.py.types_types")
+        mod = self._import("struct_padded", "alpha.types_types")
         obj = mod.bar_ct(flag_a=1, field_1=0x1FFF, status=0xA, flag_b=0)
         rt = mod.bar_ct.from_lv(obj.to_lv())
         assert rt.flag_a == obj.flag_a
@@ -479,7 +479,7 @@ class StructLvTest(_RuntimeBase):
         assert rt.flag_b == obj.flag_b
 
     def test_nested_struct_to_lv_round_trip(self) -> None:
-        mod = self._import("nested_struct_sv_basic", "alpha.py.types_types")
+        mod = self._import("nested_struct_sv_basic", "alpha.types_types")
         header = mod.header_ct(addr=0x1FFF, enable=1)
         pkt = mod.packet_ct()
         pkt.header = header
@@ -492,12 +492,12 @@ class StructLvTest(_RuntimeBase):
         assert rt.error_code == 5
 
     def test_struct_to_lv_equals_to_bytes_int(self) -> None:
-        mod = self._import("struct_padded", "alpha.py.types_types")
+        mod = self._import("struct_padded", "alpha.types_types")
         obj = mod.bar_ct(flag_a=1, field_1=0x0ABC, status=0x3, flag_b=1)
         assert obj.to_lv() == int.from_bytes(obj.to_bytes(), "big")
 
     def test_to_lv_differs_from_pack_when_padding_present(self) -> None:
-        mod = self._import("struct_signed", "alpha.py.types_types")
+        mod = self._import("struct_signed", "alpha.types_types")
         # mixed_t has signed-narrow fields with byte alignment → to_lv > pack typically.
         obj = mod.mixed_ct(field_s=-1, field_u=-1)
         assert obj.pack() != obj.to_lv()

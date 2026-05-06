@@ -64,8 +64,8 @@ class RuntimeBytesTest:
                 del sys.modules[key]
         # Remove old gen/py paths from sys.path
         sys.path[:] = [p for p in sys.path if "/py" not in str(p)]
-        sys.path.insert(0, str(gen_py))
-        return importlib.import_module("alpha.py.types_types")
+        sys.path.insert(0, str(gen_py / "py"))
+        return importlib.import_module("alpha.types_types")
 
     # -- AC-6: bar_t to_bytes produces {0x01, 0x1F, 0xFF, 0x0A, 0x00} --
 

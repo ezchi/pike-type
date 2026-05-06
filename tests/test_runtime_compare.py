@@ -71,20 +71,20 @@ class _CompareBase:
             if key in {"alpha", "foo"} or key.startswith(("alpha.", "foo.")):
                 del sys.modules[key]
         sys.path[:] = [p for p in sys.path if "/py" not in str(p)]
-        sys.path.insert(0, str(gen_root))
+        sys.path.insert(0, str(gen_root / "py"))
         return importlib.import_module(module_path)
 
 
 class ScalarAliasCompareTest(_CompareBase):
 
     def test_equal_returns_silently(self) -> None:
-        mod = self._import("struct_signed", "alpha.py.types_types")
+        mod = self._import("struct_signed", "alpha.types_types")
         a = mod.signed_4_ct(-3)
         b = mod.signed_4_ct(-3)
         a.compare(b)  # no exception
 
     def test_unequal_raises_assertion(self) -> None:
-        mod = self._import("struct_signed", "alpha.py.types_types")
+        mod = self._import("struct_signed", "alpha.types_types")
         a = mod.signed_4_ct(-3)
         b = mod.signed_4_ct(2)
         with pytest.raises(AssertionError) as ctx:
@@ -95,14 +95,14 @@ class ScalarAliasCompareTest(_CompareBase):
         assert "2" in text
 
     def test_wrong_type_raises_assertion(self) -> None:
-        mod = self._import("struct_signed", "alpha.py.types_types")
+        mod = self._import("struct_signed", "alpha.types_types")
         a = mod.signed_4_ct(0)
         with pytest.raises(AssertionError) as ctx:
             a.compare(123)  # not a wrapper instance
         assert "Expected signed_4_ct" in str(ctx.value)
 
     def test_msg_prefix_appears(self) -> None:
-        mod = self._import("struct_signed", "alpha.py.types_types")
+        mod = self._import("struct_signed", "alpha.types_types")
         a = mod.signed_4_ct(1)
         b = mod.signed_4_ct(2)
         with pytest.raises(AssertionError) as ctx:
@@ -110,12 +110,12 @@ class ScalarAliasCompareTest(_CompareBase):
         assert str(ctx.value).startswith("cycle 42:")
 
     def test_wide_scalar_equal_passes(self) -> None:
-        mod = self._import("scalar_wide", "alpha.py.types_types")
+        mod = self._import("scalar_wide", "alpha.types_types")
         v = (1 << 65) - 1
         mod.wide_ct(v).compare(mod.wide_ct(v))
 
     def test_wide_scalar_unequal_raises(self) -> None:
-        mod = self._import("scalar_wide", "alpha.py.types_types")
+        mod = self._import("scalar_wide", "alpha.types_types")
         with pytest.raises(AssertionError):
             mod.wide_ct(0).compare(mod.wide_ct(1))
 
@@ -123,13 +123,13 @@ class ScalarAliasCompareTest(_CompareBase):
 class EnumCompareTest(_CompareBase):
 
     def test_equal_returns_silently(self) -> None:
-        mod = self._import("enum_basic", "foo.py.defs_types")
+        mod = self._import("enum_basic", "foo.defs_types")
         a = mod.color_ct(mod.color_enum_t.RED)
         b = mod.color_ct(mod.color_enum_t.RED)
         a.compare(b)
 
     def test_unequal_raises(self) -> None:
-        mod = self._import("enum_basic", "foo.py.defs_types")
+        mod = self._import("enum_basic", "foo.defs_types")
         a = mod.color_ct(mod.color_enum_t.RED)
         b = mod.color_ct(mod.color_enum_t.GREEN)
         with pytest.raises(AssertionError) as ctx:
@@ -139,7 +139,7 @@ class EnumCompareTest(_CompareBase):
         assert "GREEN" in text or "color_enum_t" in text
 
     def test_wrong_type_raises(self) -> None:
-        mod = self._import("enum_basic", "foo.py.defs_types")
+        mod = self._import("enum_basic", "foo.defs_types")
         a = mod.color_ct(mod.color_enum_t.RED)
         with pytest.raises(AssertionError):
             a.compare("not an enum")
@@ -148,7 +148,7 @@ class EnumCompareTest(_CompareBase):
 class FlagsCompareTest(_CompareBase):
 
     def test_equal_returns_silently(self) -> None:
-        mod = self._import("flags_basic", "alpha.py.types_types")
+        mod = self._import("flags_basic", "alpha.types_types")
         a = mod.triple_ct()
         a.a = True
         a.b = False
@@ -160,7 +160,7 @@ class FlagsCompareTest(_CompareBase):
         a.compare(b)
 
     def test_per_flag_diff_lines(self) -> None:
-        mod = self._import("flags_basic", "alpha.py.types_types")
+        mod = self._import("flags_basic", "alpha.types_types")
         a = mod.triple_ct()
         a.a = True
         a.b = False
@@ -178,7 +178,7 @@ class FlagsCompareTest(_CompareBase):
         assert "b: expected" not in text
 
     def test_wrong_type_raises(self) -> None:
-        mod = self._import("flags_basic", "alpha.py.types_types")
+        mod = self._import("flags_basic", "alpha.types_types")
         a = mod.triple_ct()
         with pytest.raises(AssertionError):
             a.compare(0xFF)
@@ -187,13 +187,13 @@ class FlagsCompareTest(_CompareBase):
 class StructCompareTest(_CompareBase):
 
     def test_equal_returns_silently(self) -> None:
-        mod = self._import("struct_signed", "alpha.py.types_types")
+        mod = self._import("struct_signed", "alpha.types_types")
         a = mod.mixed_ct(field_s=-6, field_u=-1)
         b = mod.mixed_ct(field_s=-6, field_u=-1)
         a.compare(b)
 
     def test_per_field_diff_signed(self) -> None:
-        mod = self._import("struct_signed", "alpha.py.types_types")
+        mod = self._import("struct_signed", "alpha.types_types")
         a = mod.mixed_ct(field_s=-6, field_u=-1)
         b = mod.mixed_ct(field_s=-6, field_u=2)
         with pytest.raises(AssertionError) as ctx:
@@ -205,7 +205,7 @@ class StructCompareTest(_CompareBase):
         assert "field_u: expected -1, got 2" in text
 
     def test_unsigned_narrow_uses_hex_format(self) -> None:
-        mod = self._import("struct_padded", "alpha.py.types_types")
+        mod = self._import("struct_padded", "alpha.types_types")
         a = mod.bar_ct(flag_a=0, field_1=0x0123, status=0xA, flag_b=0)
         b = mod.bar_ct(flag_a=0, field_1=0x0FFF, status=0xA, flag_b=0)
         with pytest.raises(AssertionError) as ctx:
@@ -217,7 +217,7 @@ class StructCompareTest(_CompareBase):
         assert "field_1" in text
 
     def test_wide_field_uses_bytes_hex(self) -> None:
-        mod = self._import("nested_struct_sv_basic", "alpha.py.types_types")
+        mod = self._import("nested_struct_sv_basic", "alpha.types_types")
         # packet has header (struct ref) + mode + error_code (narrow unsigned)
         h = mod.header_ct(addr=0x1FFF, enable=1)
         a = mod.packet_ct()
@@ -235,14 +235,14 @@ class StructCompareTest(_CompareBase):
         assert "error_code: expected 0x2, got 0x5" in text
 
     def test_wrong_type_raises(self) -> None:
-        mod = self._import("struct_signed", "alpha.py.types_types")
+        mod = self._import("struct_signed", "alpha.types_types")
         a = mod.mixed_ct()
         with pytest.raises(AssertionError) as ctx:
             a.compare("not a struct")
         assert "Expected mixed_ct" in str(ctx.value)
 
     def test_msg_prefix_struct(self) -> None:
-        mod = self._import("struct_signed", "alpha.py.types_types")
+        mod = self._import("struct_signed", "alpha.types_types")
         a = mod.mixed_ct(field_s=0, field_u=0)
         b = mod.mixed_ct(field_s=0, field_u=1)
         with pytest.raises(AssertionError) as ctx:
@@ -250,7 +250,7 @@ class StructCompareTest(_CompareBase):
         assert str(ctx.value).startswith("frame 7:")
 
     def test_struct_ref_none_vs_value(self) -> None:
-        mod = self._import("nested_struct_sv_basic", "alpha.py.types_types")
+        mod = self._import("nested_struct_sv_basic", "alpha.types_types")
         a = mod.packet_ct()
         a.header = None
         b = mod.packet_ct()
@@ -260,7 +260,7 @@ class StructCompareTest(_CompareBase):
         assert "header:" in str(ctx.value)
 
     def test_struct_with_enum_member(self) -> None:
-        mod = self._import("struct_enum_member", "alpha.py.types_types")
+        mod = self._import("struct_enum_member", "alpha.types_types")
         a = mod.pkt_ct()
         a.cmd = mod.cmd_ct(mod.cmd_enum_t.READ)
         a.data = 0x10
@@ -273,7 +273,7 @@ class StructCompareTest(_CompareBase):
         assert "cmd:" in text
 
     def test_diff_includes_repr_of_self_and_other(self) -> None:
-        mod = self._import("struct_signed", "alpha.py.types_types")
+        mod = self._import("struct_signed", "alpha.types_types")
         a = mod.mixed_ct(field_s=1, field_u=2)
         b = mod.mixed_ct(field_s=1, field_u=3)
         with pytest.raises(AssertionError) as ctx:

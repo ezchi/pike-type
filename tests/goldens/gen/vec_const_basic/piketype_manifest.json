@@ -17,8 +17,8 @@
       ],
       "dependencies": [],
       "generated_outputs": {
-        "cpp": "alpha/cpp/vecs_types.hpp",
-        "py": "alpha/py/vecs_types.py",
+        "cpp": "cpp/alpha/vecs_types.hpp",
+        "py": "py/alpha/vecs_types.py",
         "sv": "alpha/rtl/vecs_pkg.sv"
       },
       "namespace_parts": [

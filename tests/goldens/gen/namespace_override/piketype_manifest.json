@@ -28,8 +28,8 @@
       ],
       "dependencies": [],
       "generated_outputs": {
-        "cpp": "alpha/cpp/constants_types.hpp",
-        "py": "alpha/py/constants_types.py",
+        "cpp": "cpp/alpha/constants_types.hpp",
+        "py": "py/alpha/constants_types.py",
         "sv": "alpha/rtl/constants_pkg.sv"
       },
       "namespace_parts": [
@@ -64,8 +64,8 @@
       ],
       "dependencies": [],
       "generated_outputs": {
-        "cpp": "beta/cpp/more_types.hpp",
-        "py": "beta/py/more_types.py",
+        "cpp": "cpp/beta/more_types.hpp",
+        "py": "py/beta/more_types.py",
         "sv": "beta/rtl/more_pkg.sv"
       },
       "namespace_parts": [

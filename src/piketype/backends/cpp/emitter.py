@@ -15,21 +15,32 @@ from pathlib import Path
 from piketype.backends.common.headers import render_header
 from piketype.backends.common.render import make_environment, render
 from piketype.backends.cpp.view import build_module_view_cpp
+from piketype.config import Config
 from piketype.ir.nodes import RepoIR
 from piketype.ir.repo_index import build_repo_type_index
-from piketype.paths import cpp_header_output_path
+from piketype.paths import backend_output_path
 
 
-def emit_cpp(repo: RepoIR, *, namespace: str | None = None) -> list[Path]:
+def emit_cpp(repo: RepoIR, *, config: Config, namespace: str | None = None) -> list[Path]:
     """Emit C++ outputs."""
     written_paths: list[Path] = []
+    cpp_backend = config.get_backend("cpp")
+    if cpp_backend is None:
+        return written_paths
+
+    project_root = config.project_root
+    piketype_root = config.frontend.piketype_root
     repo_root = Path(repo.repo_root)
     env = make_environment(package="piketype.backends.cpp")
     repo_type_index = build_repo_type_index(repo)
     for module in repo.modules:
-        output_path = cpp_header_output_path(
-            repo_root=repo_root,
+        output_path = backend_output_path(
+            backend=cpp_backend,
+            project_root=project_root,
+            piketype_root=piketype_root,
             module_path=repo_root / module.ref.repo_relative_path,
+            basename_suffix="_types",
+            ext=".hpp",
         )
         output_path.parent.mkdir(parents=True, exist_ok=True)
         header = render_header(source_paths=(module.ref.repo_relative_path,))

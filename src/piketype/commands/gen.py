@@ -1,78 +1,80 @@
-"""Generate command."""
+"""Generate command.
+
+Backend-only stage. Reads IR from the cache (written by ``piketype build``)
+and runs the configured language backends. This stage NEVER executes
+user Python — its only inputs are JSON files plus the ``Config``.
+
+A bare ``piketype gen`` runs the frontend build first (in-process) to
+refresh the cache, then reads it and runs all enabled backends. The
+``--lang`` flag restricts to a single backend. The legacy positional
+path is accepted for back-compat: when given, it anchors the upward
+config search and is checked for "must define DSL objects".
+"""
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from piketype import __version__
 from piketype.backends.cpp.emitter import emit_cpp
 from piketype.backends.py.emitter import emit_py
 from piketype.backends.sv.emitter import emit_sv
-from piketype.discovery.scanner import ensure_cli_path_is_valid, find_piketype_modules
-from piketype.dsl.freeze import (
-    FrozenModule,
-    build_const_definition_map,
-    build_loaded_module,
-    build_type_definition_map,
-    build_vec_const_definition_map,
-    freeze_module,
-    freeze_repo,
-)
-from piketype.loader.python_loader import load_or_get_module, prepare_run
+from piketype.commands.build import build_repo_in_process
+from piketype.config import Config, find_config, load_config
+from piketype.discovery.scanner import ensure_cli_path_is_valid
+from piketype.errors import ValidationError
+from piketype.ir.nodes import RepoIR
+from piketype.ir_io import read_cache
 from piketype.manifest.write_json import write_manifest
-from piketype.repo import find_repo_root
-from piketype.validate.engine import validate_repo
-from piketype.validate.namespace import check_duplicate_basenames, validate_cpp_namespace
+from piketype.validate.namespace import validate_cpp_namespace
 
 
-def run_gen(path: str, *, namespace: str | None = None) -> None:
-    """Run generation orchestration."""
+def run_gen(
+    *,
+    path: str | None = None,
+    config_path: Path | None = None,
+    namespace: str | None = None,
+    lang: str | None = None,
+) -> None:
+    """Run generation orchestration.
+
+    Either ``path`` (legacy) or ``config_path`` (preferred) anchors the
+    config lookup. Both omitted → upward walk from CWD.
+    """
     if namespace is not None:
         validate_cpp_namespace(namespace)
 
-    cli_path = Path(path).resolve()
-    ensure_cli_path_is_valid(cli_path)
-    repo_root = find_repo_root(cli_path)
-    module_paths = find_piketype_modules(repo_root)
+    cli_path: Path | None = None
+    start: Path | None = None
+    if path is not None:
+        cli_path = Path(path).resolve()
+        ensure_cli_path_is_valid(cli_path)
+        start = cli_path.parent
 
-    # FR-9a: basename uniqueness runs unconditionally (cross-module SV imports
-    # identify target packages by basename, so duplicates would silently misroute).
-    check_duplicate_basenames(module_paths=module_paths)
+    config = load_config(find_config(explicit=config_path, start=start))
 
-    with prepare_run(repo_root=repo_root, module_paths=module_paths):
-        loaded_modules = [
-            build_loaded_module(
-                module=load_or_get_module(module_path, repo_root=repo_root),
-                module_path=module_path,
-                repo_root=repo_root,
-            )
-            for module_path in module_paths
-        ]
-        definition_map = build_const_definition_map(loaded_modules=loaded_modules)
-        type_definition_map = build_type_definition_map(loaded_modules=loaded_modules)
-        vec_const_definition_map = build_vec_const_definition_map(loaded_modules=loaded_modules)
+    in_process_repo = build_repo_in_process(config=config)
+    if cli_path is not None and not _cli_module_has_local_definitions(in_process_repo, cli_path=cli_path):
+        raise ValidationError(f"{cli_path}: piketype file defines no DSL objects")
 
-        frozen_modules: list[FrozenModule] = []
-        cli_module_had_local_definitions = False
-        for loaded_module in loaded_modules:
-            frozen_module = freeze_module(
-                loaded_module=loaded_module,
-                definition_map=definition_map,
-                type_definition_map=type_definition_map,
-                vec_const_definition_map=vec_const_definition_map,
-            )
-            if loaded_module.module_path == cli_path and frozen_module.has_local_definitions:
-                cli_module_had_local_definitions = True
-            frozen_modules.append(frozen_module)
+    repo = read_cache(config=config)
+    _run_backends(repo, config=config, namespace=namespace, lang=lang)
+    write_manifest(repo, config=config)
 
-        repo = freeze_repo(repo_root=repo_root, frozen_modules=frozen_modules, tool_version=__version__)
-        validate_repo(repo)
-        if not cli_module_had_local_definitions:
-            from piketype.errors import ValidationError
 
-            raise ValidationError(f"{cli_path}: piketype file defines no DSL objects")
+def _run_backends(repo: RepoIR, *, config: Config, namespace: str | None, lang: str | None) -> None:
+    if lang is None or lang in {"sv", "sim"}:
+        emit_sv(repo, config=config)
+    if lang is None or lang == "py":
+        emit_py(repo, config=config)
+    if lang is None or lang == "cpp":
+        emit_cpp(repo, config=config, namespace=namespace)
 
-        emit_sv(repo)
-        emit_py(repo)
-        emit_cpp(repo, namespace=namespace)
-        write_manifest(repo)
+
+def _cli_module_has_local_definitions(repo: RepoIR, *, cli_path: Path) -> bool:
+    """Return True if the module that matches ``cli_path`` defines any DSL objects."""
+    cli_resolved = cli_path.resolve()
+    for module in repo.modules:
+        candidate = (Path(repo.repo_root) / module.ref.repo_relative_path).resolve()
+        if candidate == cli_resolved:
+            return bool(module.constants or module.types or module.vec_constants)
+    return False

@@ -14,28 +14,41 @@ from pathlib import Path
 from piketype.backends.common.headers import render_header
 from piketype.backends.common.render import make_environment, render
 from piketype.backends.py.view import build_module_view_py
+from piketype.config import Config
 from piketype.ir.nodes import ModuleIR, RepoIR, TypeDefIR
 from piketype.ir.repo_index import build_repo_type_index
-from piketype.paths import py_module_output_path
+from piketype.paths import backend_output_path
 
 
-def emit_py(repo: RepoIR) -> list[Path]:
+def emit_py(repo: RepoIR, *, config: Config) -> list[Path]:
     """Emit Python outputs.
 
-    Each module's output goes to ``<prefix>/py/<name>_types.py`` (per
-    `paths.py:py_module_output_path`). An ``__init__.py`` is created in
-    each ``<prefix>/py/`` directory so the generated module is a regular
-    Python package; ``<prefix>/`` itself relies on PEP 420 namespace
-    packages and is NOT modified.
+    Each module's output goes to ``<py.out>/<sub>/<name>_types.py`` (or
+    ``<py.out>/<sub>/py/<name>_types.py`` if ``language_id`` is set).
+    An ``__init__.py`` is created in each output directory so the
+    generated module is a regular Python package.
+
+    If the ``py`` backend is not declared in the config, no output is
+    produced and the function returns an empty list.
     """
     written_paths: list[Path] = []
+    py_backend = config.get_backend("py")
+    if py_backend is None:
+        return written_paths
+
+    project_root = config.project_root
+    piketype_root = config.frontend.piketype_root
     repo_root = Path(repo.repo_root)
     env = make_environment(package="piketype.backends.py")
     repo_type_index = build_repo_type_index(repo)
     for module in repo.modules:
-        output_path = py_module_output_path(
-            repo_root=repo_root,
+        output_path = backend_output_path(
+            backend=py_backend,
+            project_root=project_root,
+            piketype_root=piketype_root,
             module_path=repo_root / module.ref.repo_relative_path,
+            basename_suffix="_types",
+            ext=".py",
         )
         output_path.parent.mkdir(parents=True, exist_ok=True)
         _ensure_package_init(output_path.parent, written_paths)

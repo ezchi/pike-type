@@ -276,8 +276,8 @@ class StructEnumMemberRuntimeTest:
             if key == "alpha" or key.startswith("alpha."):
                 del sys.modules[key]
         sys.path[:] = [p for p in sys.path if "/py" not in str(p)]
-        sys.path.insert(0, str(self._gen_py))
-        return importlib.import_module("alpha.py.types_types")
+        sys.path.insert(0, str(self._gen_py / "py"))
+        return importlib.import_module("alpha.types_types")
 
     def test_round_trip(self) -> None:
         """AC-12, AC-13: to_bytes -> from_bytes round-trip for pkt_t."""

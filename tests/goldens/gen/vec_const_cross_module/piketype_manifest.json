@@ -5,8 +5,8 @@
       "constants": [],
       "dependencies": [],
       "generated_outputs": {
-        "cpp": "alpha/cpp/a_types.hpp",
-        "py": "alpha/py/a_types.py",
+        "cpp": "cpp/alpha/a_types.hpp",
+        "py": "py/alpha/a_types.py",
         "sv": "alpha/rtl/a_pkg.sv"
       },
       "namespace_parts": [
@@ -46,8 +46,8 @@
         }
       ],
       "generated_outputs": {
-        "cpp": "alpha/cpp/b_types.hpp",
-        "py": "alpha/py/b_types.py",
+        "cpp": "cpp/alpha/b_types.hpp",
+        "py": "py/alpha/b_types.py",
         "sv": "alpha/rtl/b_pkg.sv"
       },
       "namespace_parts": [

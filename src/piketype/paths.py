@@ -1,20 +1,23 @@
 """Path and naming helpers.
 
-Generated outputs are co-located with the DSL source's containing prefix.
-For a DSL file at ``<prefix>/piketype/<name>.py``, outputs land at:
+For a DSL file at ``<piketype_root>/<sub>/piketype/<base>.py``, generated
+outputs land at::
 
-  <prefix>/rtl/<name>_pkg.sv             (SV synthesis package)
-  <prefix>/sim/<name>_test_pkg.sv        (SV verification package)
-  <prefix>/py/<name>_types.py            (Python types)
-  <prefix>/cpp/<name>_types.hpp          (C++ header)
+    <backend.out>/<sub>/[<backend.name>/]<base><suffix><ext>
 
-The manifest is a single repo-root file: ``./piketype_manifest.json``.
+The ``<backend.name>`` segment is inserted only when ``backend.language_id``
+is true. The basename suffix and extension are backend-defined constants
+(e.g. ``_pkg.sv``, ``_test_pkg.sv``, ``_types.py``, ``_types.hpp``) and
+are not user-configurable.
+
+The manifest is written at ``<project_root>/piketype_manifest.json``.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
 
+from piketype.config import BackendConfig
 from piketype.errors import PikeTypeError
 
 
@@ -40,34 +43,62 @@ def module_prefix(*, repo_root: Path, module_path: Path) -> Path:
     return Path(*parts[:-2]) if len(parts) > 2 else Path()
 
 
-def sv_module_output_path(*, repo_root: Path, module_path: Path) -> Path:
-    """Return the generated SV synth-package path for a module."""
-    relative = repo_relative_path(module_path, repo_root=repo_root)
-    prefix = module_prefix(repo_root=repo_root, module_path=module_path)
-    return repo_root / prefix / "rtl" / f"{relative.stem}_pkg.sv"
+def backend_output_path(
+    *,
+    backend: BackendConfig,
+    project_root: Path,
+    piketype_root: Path,
+    module_path: Path,
+    basename_suffix: str,
+    ext: str,
+) -> Path:
+    """Compute the output path for a module under a given backend.
+
+    The shape depends on ``backend.out_layout``:
+
+    * ``prefix`` →  ``<backend.out>/<sub>/[<backend.name>/]<file>``.
+      ``backend.out`` is treated as an absolute path; ``<sub>`` is the
+      module's parent path (with the ``piketype/`` segment stripped).
+    * ``suffix`` →  ``<project_root>/<sub>/<rel_out>/[<backend.name>/]<file>``.
+      ``rel_out`` is ``backend.out`` made relative to ``project_root``;
+      this is the HDL role-directory convention (e.g. ``alpha/rtl/...``).
+
+    ``language_id: true`` inserts a ``<backend.name>/`` segment before
+    the file in either layout.
+    """
+    relative = repo_relative_path(module_path, repo_root=piketype_root)
+    parts = relative.parts
+    if len(parts) < 2 or parts[-2] != "piketype":
+        raise PikeTypeError(
+            f"DSL module {relative} must be at <prefix>/piketype/<name>.py "
+            f"(parent directory must be exactly 'piketype/')"
+        )
+    sub = parts[:-2]
+    base = relative.stem
+    file_name = f"{base}{basename_suffix}{ext}"
+
+    if backend.out_layout == "prefix":
+        components: list[str] = list(sub)
+        if backend.language_id:
+            components.append(backend.name)
+        components.append(file_name)
+        return backend.out / Path(*components)
+
+    # suffix layout
+    try:
+        rel_out = backend.out.resolve().relative_to(project_root.resolve())
+    except ValueError as exc:
+        raise PikeTypeError(
+            f"backend {backend.name!r}: out={backend.out} is outside project_root={project_root} "
+            f"and cannot be used with out_layout=suffix"
+        ) from exc
+    components_suffix: list[str] = [*sub, *rel_out.parts]
+    if backend.language_id:
+        components_suffix.append(backend.name)
+    components_suffix.append(file_name)
+    return project_root / Path(*components_suffix)
 
 
-def sv_test_module_output_path(*, repo_root: Path, module_path: Path) -> Path:
-    """Return the generated SV verification-package path for a module."""
-    relative = repo_relative_path(module_path, repo_root=repo_root)
-    prefix = module_prefix(repo_root=repo_root, module_path=module_path)
-    return repo_root / prefix / "sim" / f"{relative.stem}_test_pkg.sv"
-
-
-def py_module_output_path(*, repo_root: Path, module_path: Path) -> Path:
-    """Return the generated Python types path for a module."""
-    relative = repo_relative_path(module_path, repo_root=repo_root)
-    prefix = module_prefix(repo_root=repo_root, module_path=module_path)
-    return repo_root / prefix / "py" / f"{relative.stem}_types.py"
-
-
-def cpp_header_output_path(*, repo_root: Path, module_path: Path) -> Path:
-    """Return the generated C++ header path for a module."""
-    relative = repo_relative_path(module_path, repo_root=repo_root)
-    prefix = module_prefix(repo_root=repo_root, module_path=module_path)
-    return repo_root / prefix / "cpp" / f"{relative.stem}_types.hpp"
-
-
-def manifest_output_path(*, repo_root: Path) -> Path:
-    """Return the generated manifest file path (repo-root)."""
-    return repo_root / "piketype_manifest.json"
+def manifest_output_path(*, project_root: Path) -> Path:
+    """Return the generated manifest file path under project root."""
+    return project_root / "piketype_manifest.json"

@@ -1,0 +1,168 @@
+{
+  "modules": [
+    {
+      "basename": "a",
+      "constants": [],
+      "dependencies": [],
+      "generated_outputs": {
+        "cpp": "includes/dir0/cpp/a_types.hpp",
+        "py": "python_lib/dir0/a_types.py",
+        "sv": "dir0/rtl/a_pkg.sv",
+        "sv_test": "dir0/sim/a_test_pkg.sv"
+      },
+      "namespace_parts": [
+        "dir0",
+        "piketype",
+        "a"
+      ],
+      "python_module_name": "dir0.piketype.a",
+      "repo_relative_path": "dir0/piketype/a.py",
+      "source": {
+        "column": null,
+        "line": 1,
+        "path": "dir0/piketype/a.py"
+      },
+      "types": [
+        {
+          "kind": "scalar_alias",
+          "name": "a_t",
+          "resolved_width": 4,
+          "signed": false,
+          "source": {
+            "column": null,
+            "line": 3,
+            "path": "dir0/piketype/a.py"
+          },
+          "state_kind": "logic"
+        }
+      ],
+      "vec_constants": []
+    },
+    {
+      "basename": "b",
+      "constants": [],
+      "dependencies": [
+        {
+          "kind": "type_ref",
+          "target_module": "dir0.piketype.a"
+        }
+      ],
+      "generated_outputs": {
+        "cpp": "includes/dir1/cpp/b_types.hpp",
+        "py": "python_lib/dir1/b_types.py",
+        "sv": "dir1/rtl/b_pkg.sv",
+        "sv_test": "dir1/sim/b_test_pkg.sv"
+      },
+      "namespace_parts": [
+        "dir1",
+        "piketype",
+        "b"
+      ],
+      "python_module_name": "dir1.piketype.b",
+      "repo_relative_path": "dir1/piketype/b.py",
+      "source": {
+        "column": null,
+        "line": 1,
+        "path": "dir1/piketype/b.py"
+      },
+      "types": [
+        {
+          "field_count": 1,
+          "kind": "struct",
+          "name": "b_t",
+          "source": {
+            "column": null,
+            "line": 5,
+            "path": "dir1/piketype/b.py"
+          }
+        }
+      ],
+      "vec_constants": []
+    },
+    {
+      "basename": "c",
+      "constants": [],
+      "dependencies": [
+        {
+          "kind": "type_ref",
+          "target_module": "dir0.piketype.a"
+        },
+        {
+          "kind": "type_ref",
+          "target_module": "dir1.piketype.b"
+        }
+      ],
+      "generated_outputs": {
+        "cpp": "includes/dir2/cpp/c_types.hpp",
+        "py": "python_lib/dir2/c_types.py",
+        "sv": "dir2/rtl/c_pkg.sv",
+        "sv_test": "dir2/sim/c_test_pkg.sv"
+      },
+      "namespace_parts": [
+        "dir2",
+        "piketype",
+        "c"
+      ],
+      "python_module_name": "dir2.piketype.c",
+      "repo_relative_path": "dir2/piketype/c.py",
+      "source": {
+        "column": null,
+        "line": 1,
+        "path": "dir2/piketype/c.py"
+      },
+      "types": [
+        {
+          "field_count": 2,
+          "kind": "struct",
+          "name": "c_t",
+          "source": {
+            "column": null,
+            "line": 6,
+            "path": "dir2/piketype/c.py"
+          }
+        }
+      ],
+      "vec_constants": []
+    },
+    {
+      "basename": "d",
+      "constants": [],
+      "dependencies": [],
+      "generated_outputs": {
+        "cpp": "includes/dir3/cpp/d_types.hpp",
+        "py": "python_lib/dir3/d_types.py",
+        "sv": "dir3/rtl/d_pkg.sv",
+        "sv_test": "dir3/sim/d_test_pkg.sv"
+      },
+      "namespace_parts": [
+        "dir3",
+        "piketype",
+        "d"
+      ],
+      "python_module_name": "dir3.piketype.d",
+      "repo_relative_path": "dir3/piketype/d.py",
+      "source": {
+        "column": null,
+        "line": 1,
+        "path": "dir3/piketype/d.py"
+      },
+      "types": [
+        {
+          "kind": "scalar_alias",
+          "name": "d_t",
+          "resolved_width": 5,
+          "signed": false,
+          "source": {
+            "column": null,
+            "line": 3,
+            "path": "dir3/piketype/d.py"
+          },
+          "state_kind": "logic"
+        }
+      ],
+      "vec_constants": []
+    }
+  ],
+  "repo_root": ".",
+  "tool_version": "0.1.0"
+}

@@ -16,17 +16,24 @@ FIXTURES_DIR = TESTS_DIR / "fixtures"
 GOLDENS_DIR = TESTS_DIR / "goldens" / "gen"
 
 
+_SKIP_DIRS = {"__pycache__", ".piketype-cache"}
+
+
 def _assert_trees_equal(_unused: object, expected: Path, actual: Path) -> None:
     """Compare two directory trees byte-for-byte (recursive)."""
     comparison = filecmp.dircmp(expected, actual)
-    assert not comparison.left_only, f"missing generated files: {comparison.left_only}"
-    assert not comparison.right_only, f"unexpected generated files: {comparison.right_only}"
+    left_only = [n for n in comparison.left_only if n not in _SKIP_DIRS]
+    right_only = [n for n in comparison.right_only if n not in _SKIP_DIRS]
+    assert not left_only, f"missing generated files: {left_only}"
+    assert not right_only, f"unexpected generated files: {right_only}"
     assert not comparison.funny_files, f"uncomparable files: {comparison.funny_files}"
     for filename in comparison.common_files:
         expected_text = (expected / filename).read_text(encoding="utf-8")
         actual_text = (actual / filename).read_text(encoding="utf-8")
         assert expected_text == actual_text, f"content mismatch for {filename}"
     for subdir in comparison.common_dirs:
+        if subdir in _SKIP_DIRS:
+            continue
         _assert_trees_equal(None, expected / subdir, actual / subdir)
 
 
@@ -107,7 +114,7 @@ class CrossModuleNamespaceIntegrationTest:
 
     def test_bar_types_hpp_uses_qualified_byte_ct(self) -> None:
         """AC-6: with --namespace=proj::lib, cross-module field types are ::proj::lib::foo::*_ct."""
-        bar_hpp = GOLDENS_DIR / "cross_module_type_refs_namespace_proj" / "alpha" / "cpp" / "bar_types.hpp"
+        bar_hpp = GOLDENS_DIR / "cross_module_type_refs_namespace_proj" / "cpp" / "alpha" / "bar_types.hpp"
         text = bar_hpp.read_text(encoding="utf-8")
         assert "::proj::lib::foo::byte_ct field1" in text
         assert "::proj::lib::foo::byte_ct field2" in text
