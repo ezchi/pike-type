@@ -2,100 +2,62 @@
 // Source: alpha/piketype/bar.py
 // Do not edit by hand.
 
-#ifndef PROJ_LIB_BAR_TYPES_HPP
-#define PROJ_LIB_BAR_TYPES_HPP
+#pragma once
 
 #include <cstdint>
+#include <array>
 #include <cstddef>
+#include <cstring>
+#include <span>
 #include <stdexcept>
-#include <vector>
 #include "alpha/piketype/foo_types.hpp"
 
 namespace proj::lib::bar {
 
-class bar_ct {
- public:
-  static constexpr std::size_t WIDTH = 36;
-  static constexpr std::size_t BYTE_COUNT = 6;
-  ::proj::lib::foo::byte_ct field1{};
-  ::proj::lib::foo::byte_ct field2{};
-  ::proj::lib::foo::addr_ct hdr{};
-  ::proj::lib::foo::cmd_ct op{};
-  ::proj::lib::foo::perms_ct perm{};
+class Bar {
+public:
+    static constexpr size_t WIDTH      = 36;
+    static constexpr size_t BYTE_COUNT = 6;
+    foo::Byte               field1{};
+    foo::Byte               field2{};
+    foo::Addr               hdr{};
+    foo::Cmd                op{};
+    foo::Perms              perm{};
 
-  bar_ct() = default;
+    Bar() = default;
 
-  std::vector<std::uint8_t> to_bytes() const {
-    std::vector<std::uint8_t> bytes;
-    bytes.reserve(BYTE_COUNT);
-    {
-      auto field_bytes = field1.to_bytes();
-      bytes.insert(bytes.end(), field_bytes.begin(), field_bytes.end());
+    [[nodiscard]] std::array<uint8_t, BYTE_COUNT> to_bytes() const {
+        std::array<uint8_t, BYTE_COUNT> out{};
+        pack_into(out.data());
+        return out;
     }
-    {
-      auto field_bytes = field2.to_bytes();
-      bytes.insert(bytes.end(), field_bytes.begin(), field_bytes.end());
-    }
-    {
-      auto field_bytes = hdr.to_bytes();
-      bytes.insert(bytes.end(), field_bytes.begin(), field_bytes.end());
-    }
-    {
-      auto field_bytes = op.to_bytes();
-      bytes.insert(bytes.end(), field_bytes.begin(), field_bytes.end());
-    }
-    {
-      auto field_bytes = perm.to_bytes();
-      bytes.insert(bytes.end(), field_bytes.begin(), field_bytes.end());
-    }
-    return bytes;
-  }
 
-  void from_bytes(const std::vector<std::uint8_t>& bytes) {
-    if (bytes.size() != BYTE_COUNT) {
-      throw std::invalid_argument("byte width mismatch");
+    [[nodiscard]] static Bar from_bytes(std::span<const uint8_t> bytes) {
+        if (bytes.size() != BYTE_COUNT) {
+            throw std::invalid_argument("byte width mismatch");
+        }
+        Bar result;
+        result.unpack_from(bytes.data());
+        return result;
     }
-    std::size_t offset = 0;
-    {
-      std::vector<std::uint8_t> field_bytes(bytes.begin() + static_cast<std::ptrdiff_t>(offset), bytes.begin() + static_cast<std::ptrdiff_t>(offset + 1));
-      field1.from_bytes(field_bytes);
-      offset += 1;
-    }
-    {
-      std::vector<std::uint8_t> field_bytes(bytes.begin() + static_cast<std::ptrdiff_t>(offset), bytes.begin() + static_cast<std::ptrdiff_t>(offset + 1));
-      field2.from_bytes(field_bytes);
-      offset += 1;
-    }
-    {
-      std::vector<std::uint8_t> field_bytes(bytes.begin() + static_cast<std::ptrdiff_t>(offset), bytes.begin() + static_cast<std::ptrdiff_t>(offset + 2));
-      hdr.from_bytes(field_bytes);
-      offset += 2;
-    }
-    {
-      std::vector<std::uint8_t> field_bytes(bytes.begin() + static_cast<std::ptrdiff_t>(offset), bytes.begin() + static_cast<std::ptrdiff_t>(offset + 1));
-      op.from_bytes(field_bytes);
-      offset += 1;
-    }
-    {
-      std::vector<std::uint8_t> field_bytes(bytes.begin() + static_cast<std::ptrdiff_t>(offset), bytes.begin() + static_cast<std::ptrdiff_t>(offset + 1));
-      perm.from_bytes(field_bytes);
-      offset += 1;
-    }
-  }
 
-  bar_ct clone() const {
-    bar_ct cloned;
-    cloned.field1 = field1.clone();
-    cloned.field2 = field2.clone();
-    cloned.hdr = hdr.clone();
-    cloned.op = op.clone();
-    cloned.perm = perm.clone();
-    return cloned;
-  }
+    void pack_into(uint8_t* dst) const {
+        field1.pack_into(dst + 0);
+        field2.pack_into(dst + 1);
+        hdr.pack_into(dst + 2);
+        op.pack_into(dst + 4);
+        perm.pack_into(dst + 5);
+    }
 
-  bool operator==(const bar_ct& other) const = default;
+    void unpack_from(const uint8_t* src) {
+        field1.unpack_from(src + 0);
+        field2.unpack_from(src + 1);
+        hdr.unpack_from(src + 2);
+        op.unpack_from(src + 4);
+        perm.unpack_from(src + 5);
+    }
+
+    bool operator==(const Bar& other) const = default;
 };
 
 }  // namespace proj::lib::bar
-
-#endif  // PROJ_LIB_BAR_TYPES_HPP

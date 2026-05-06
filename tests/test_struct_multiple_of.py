@@ -1,4 +1,4 @@
-"""Negative and runtime tests for Struct.multiple_of(N)."""
+"""Negative and runtime tests for struct alignment."""
 
 from __future__ import annotations
 
@@ -19,43 +19,50 @@ PROJECT_ROOT = TESTS_DIR.parent
 FIXTURES_DIR = TESTS_DIR / "fixtures"
 
 
-class MultipleOfValidationTest:
-    """DSL-level negative tests for multiple_of()."""
+class StructAlignmentValidationTest:
+    """DSL-level negative tests for align_to_bits()."""
 
-    def test_multiple_of_zero(self) -> None:
+    def test_align_to_bits_zero(self) -> None:
         with pytest.raises(ValidationError) as ctx:
-            Struct().add_member("a", Logic(8)).multiple_of(0)
+            Struct().add_member("a", Logic(8)).align_to_bits(0)
         assert "must be positive" in str(ctx.value)
 
-    def test_multiple_of_negative(self) -> None:
+    def test_align_to_bits_negative(self) -> None:
         with pytest.raises(ValidationError) as ctx:
-            Struct().add_member("a", Logic(8)).multiple_of(-1)
+            Struct().add_member("a", Logic(8)).align_to_bits(-1)
         assert "must be positive" in str(ctx.value)
 
-    def test_multiple_of_not_multiple_of_8_val_5(self) -> None:
+    def test_align_to_bits_not_multiple_of_8_val_5(self) -> None:
         with pytest.raises(ValidationError) as ctx:
-            Struct().add_member("a", Logic(8)).multiple_of(5)
+            Struct().add_member("a", Logic(8)).align_to_bits(5)
         assert "must be a multiple of 8" in str(ctx.value)
 
-    def test_multiple_of_not_multiple_of_8_val_3(self) -> None:
+    def test_align_to_bits_not_multiple_of_8_val_3(self) -> None:
         with pytest.raises(ValidationError) as ctx:
-            Struct().add_member("a", Logic(8)).multiple_of(3)
+            Struct().add_member("a", Logic(8)).align_to_bits(3)
         assert "must be a multiple of 8" in str(ctx.value)
 
-    def test_multiple_of_bool(self) -> None:
+    def test_align_to_bits_bool(self) -> None:
         with pytest.raises(ValidationError) as ctx:
-            Struct().add_member("a", Logic(8)).multiple_of(True)
+            Struct().add_member("a", Logic(8)).align_to_bits(True)
         assert "must be int" in str(ctx.value)
 
-    def test_multiple_of_twice(self) -> None:
+    def test_align_to_bits_twice(self) -> None:
         with pytest.raises(ValidationError) as ctx:
-            Struct().add_member("a", Logic(8)).multiple_of(32).multiple_of(64)
+            Struct().add_member("a", Logic(8)).align_to_bits(32).align_to_bits(64)
         assert "already set" in str(ctx.value)
 
-    def test_add_member_after_multiple_of(self) -> None:
+    def test_add_member_after_align_to_bits(self) -> None:
         with pytest.raises(ValidationError) as ctx:
-            Struct().add_member("a", Logic(8)).multiple_of(32).add_member("b", Logic(8))
+            Struct().add_member("a", Logic(8)).align_to_bits(32).add_member("b", Logic(8))
         assert "cannot add" in str(ctx.value)
+
+    def test_multiple_of_alias_keeps_existing_dsl_sources_working(self) -> None:
+        s = Struct().add_member("a", Logic(8))
+        assert s.multiple_of(32) is s
+        with pytest.raises(ValidationError) as ctx:
+            s.align_to_bits(64)
+        assert "already set" in str(ctx.value)
 
 
 def gen_fixture(fixture_name: str, tmp_dir: Path) -> Path:

@@ -6,6 +6,7 @@ from piketype.errors import ValidationError
 import re
 
 from piketype.ir.nodes import EnumIR, FlagsIR, ModuleIR, RepoIR, ScalarAliasIR, ScalarTypeSpecIR, StructIR, TypeRefIR
+from piketype.names import is_valid_type_name, sv_type_base_name
 from piketype.validate.keywords import (
     CPP_KEYWORDS,
     PY_HARD_KEYWORDS,
@@ -55,8 +56,11 @@ def validate_repo(repo: RepoIR) -> None:
             if type_ir.name in seen_names or type_ir.name in seen_type_names:
                 raise ValidationError(f"{module.ref.repo_relative_path}: duplicate type name {type_ir.name}")
             seen_type_names.add(type_ir.name)
-            if not type_ir.name.endswith("_t"):
-                raise ValidationError(f"{module.ref.repo_relative_path}: type {type_ir.name} must end with _t")
+            if not is_valid_type_name(type_ir.name):
+                raise ValidationError(
+                    f"{module.ref.repo_relative_path}: type {type_ir.name} "
+                    "must be CapWords or lower_snake_case ending with _t"
+                )
             if isinstance(type_ir, ScalarAliasIR):
                 if type_ir.resolved_width <= 0:
                     raise ValidationError(f"{module.ref.repo_relative_path}: type {type_ir.name} width must be positive")
@@ -274,7 +278,7 @@ def _validate_generated_identifier_collision(*, module: ModuleIR) -> None:
     """FR-14: Reject modules where constant names collide with generated identifiers."""
     reserved: dict[str, str] = {}
     for type_ir in module.types:
-        base = type_ir.name[:-2] if type_ir.name.endswith("_t") else type_ir.name
+        base = sv_type_base_name(type_ir.name)
         upper_base = base.upper()
         for ident in (
             f"LP_{upper_base}_WIDTH",

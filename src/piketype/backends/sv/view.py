@@ -17,9 +17,7 @@ from piketype.ir.nodes import (
     ConstIR,
     ConstRefExprIR,
     EnumIR,
-    EnumValueIR,
     ExprIR,
-    FlagFieldIR,
     FlagsIR,
     IntLiteralExprIR,
     ModuleIR,
@@ -33,6 +31,7 @@ from piketype.ir.nodes import (
     VecConstIR,
     byte_count,
 )
+from piketype.names import sv_helper_class_name, sv_type_base_name, sv_type_name
 
 
 # ---------------------------------------------------------------------------
@@ -294,13 +293,11 @@ class SvTestModuleView:
 
 
 def _type_base_name(name: str) -> str:
-    return name[:-2] if name.endswith("_t") else name
+    return sv_type_base_name(name)
 
 
 def _helper_class_name(type_name: str) -> str:
-    if type_name.endswith("_t"):
-        return f"{type_name[:-2]}_ct"
-    return f"{type_name}_ct"
+    return sv_helper_class_name(type_name)
 
 
 def _render_sv_expr(expr: ExprIR) -> str:
@@ -394,15 +391,17 @@ def _is_field_signed(*, field: StructFieldIR, repo_type_index: dict[tuple[str, s
     return False
 
 
-def _is_sv_composite_ref(*, field_type, repo_type_index: dict[tuple[str, str], TypeDefIR]) -> bool:  # type: ignore[no-untyped-def]
+def _is_sv_composite_ref(
+    *, field_type: ScalarTypeSpecIR | TypeRefIR, repo_type_index: dict[tuple[str, str], TypeDefIR]
+) -> bool:
     return isinstance(field_type, TypeRefIR) and isinstance(
         repo_type_index[(field_type.module.python_module_name, field_type.name)], (StructIR, FlagsIR, EnumIR)
     )
 
 
-def _render_sv_struct_field_type(field_type) -> str:  # type: ignore[no-untyped-def]
+def _render_sv_struct_field_type(field_type: ScalarTypeSpecIR | TypeRefIR) -> str:
     if isinstance(field_type, TypeRefIR):
-        return field_type.name
+        return sv_type_name(field_type.name)
     base_type = field_type.state_kind
     signed_kw = " signed" if field_type.signed else ""
     if field_type.resolved_width == 1:
@@ -416,7 +415,7 @@ def _render_sv_helper_field_decl(*, field: StructFieldIR, repo_type_index: dict[
         if isinstance(target, (StructIR, FlagsIR, EnumIR)):
             return f"{_helper_class_name(target.name)} {field.name};"
         rand_kw = "rand " if field.rand else ""
-        return f"{rand_kw}{target.name} {field.name};"
+        return f"{rand_kw}{sv_type_name(target.name)} {field.name};"
     rand_kw = "rand " if field.rand else ""
     return f"{rand_kw}{_render_sv_struct_field_type(field.type_ir)} {field.name};"
 
@@ -458,7 +457,7 @@ def _build_synth_scalar_alias(*, type_ir: ScalarAliasIR) -> SvScalarAliasView:
     base = _type_base_name(type_ir.name)
     return SvScalarAliasView(
         kind="scalar_alias",
-        name=type_ir.name,
+        name=sv_type_name(type_ir.name),
         base=base,
         upper_base=base.upper(),
         base_type=type_ir.state_kind,
@@ -484,7 +483,7 @@ def _build_synth_struct(*, type_ir: StructIR, repo_type_index: dict[tuple[str, s
     )
     return SvSynthStructView(
         kind="struct",
-        name=type_ir.name,
+        name=sv_type_name(type_ir.name),
         base=base,
         upper_base=base.upper(),
         width=_data_width(type_ir=type_ir, repo_type_index=repo_type_index),
@@ -505,7 +504,7 @@ def _build_synth_flags(*, type_ir: FlagsIR) -> SvSynthFlagsView:
     )
     return SvSynthFlagsView(
         kind="flags",
-        name=type_ir.name,
+        name=sv_type_name(type_ir.name),
         base=base,
         upper_base=base.upper(),
         width=len(type_ir.fields),
@@ -522,7 +521,7 @@ def _build_synth_enum(*, type_ir: EnumIR) -> SvSynthEnumView:
     base = _type_base_name(type_ir.name)
     return SvSynthEnumView(
         kind="enum",
-        name=type_ir.name,
+        name=sv_type_name(type_ir.name),
         base=base,
         upper_base=base.upper(),
         width=type_ir.resolved_width,
@@ -611,7 +610,7 @@ def _build_test_scalar_helper(*, type_ir: ScalarAliasIR) -> SvTestScalarHelperVi
     return SvTestScalarHelperView(
         kind="scalar_alias",
         helper_class_name=_helper_class_name(type_ir.name),
-        underlying_typedef=type_ir.name,
+        underlying_typedef=sv_type_name(type_ir.name),
         upper_base=base.upper(),
         width=type_ir.resolved_width,
         byte_count=bc,
@@ -672,7 +671,7 @@ def _build_test_struct_helper(
     return SvTestStructHelperView(
         kind="struct",
         helper_class_name=helper_name,
-        underlying_typedef=type_ir.name,
+        underlying_typedef=sv_type_name(type_ir.name),
         upper_base=base.upper(),
         has_alignment=type_ir.alignment_bits > 0,
         alignment_bits=type_ir.alignment_bits,
@@ -697,7 +696,7 @@ def _build_test_flags_helper(*, type_ir: FlagsIR) -> SvTestFlagsHelperView:
     return SvTestFlagsHelperView(
         kind="flags",
         helper_class_name=_helper_class_name(type_ir.name),
-        underlying_typedef=type_ir.name,
+        underlying_typedef=sv_type_name(type_ir.name),
         upper_base=base.upper(),
         num_flags=num_flags,
         byte_count=bc,
@@ -716,7 +715,7 @@ def _build_test_enum_helper(*, type_ir: EnumIR) -> SvTestEnumHelperView:
     return SvTestEnumHelperView(
         kind="enum",
         helper_class_name=_helper_class_name(type_ir.name),
-        underlying_typedef=type_ir.name,
+        underlying_typedef=sv_type_name(type_ir.name),
         upper_base=base.upper(),
         width=type_ir.resolved_width,
         byte_count=bc,
@@ -829,7 +828,7 @@ def _collect_cross_module_synth_imports(
         pkg = f"{ref.module.basename}_pkg"
         base = _type_base_name(ref.name)
         upper = base.upper()
-        pairs.add((pkg, ref.name))
+        pairs.add((pkg, sv_type_name(ref.name)))
         pairs.add((pkg, f"LP_{upper}_WIDTH"))
         pairs.add((pkg, f"pack_{base}"))
         pairs.add((pkg, f"unpack_{base}"))
@@ -852,7 +851,7 @@ def _collect_cross_module_test_synth_imports(
     for ref in _iter_cross_module_typerefs(module=module):
         target = repo_type_index.get((ref.module.python_module_name, ref.name))
         if isinstance(target, ScalarAliasIR):
-            pairs.add((f"{ref.module.basename}_pkg", ref.name))
+            pairs.add((f"{ref.module.basename}_pkg", sv_type_name(ref.name)))
     return tuple(sorted(pairs))
 
 

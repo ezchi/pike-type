@@ -1,0 +1,84 @@
+---
+Language: Cpp
+BasedOnStyle: LLVM
+
+# --- Indentation --------------------------------------------------------
+IndentWidth:              4
+TabWidth:                 4
+UseTab:                   Never
+ContinuationIndentWidth:  4
+
+# --- Column limit -------------------------------------------------------
+ColumnLimit: 100
+
+# --- Braces -------------------------------------------------------------
+BreakBeforeBraces: Attach
+
+# --- Namespace ----------------------------------------------------------
+NamespaceIndentation: None
+CompactNamespaces:    false
+
+# --- Access modifiers ---------------------------------------------------
+# Flush with the class keyword (no extra indentation)
+AccessModifierOffset: -4
+
+# --- Pointer / reference alignment --------------------------------------
+PointerAlignment:   Left
+ReferenceAlignment: Left
+
+# --- Templates ----------------------------------------------------------
+SpaceAfterTemplateKeyword: true
+SpacesInAngles:            Never
+
+# --- Constructor initializer lists -------------------------------------
+# Leading-comma style:  , member_(val)
+BreakConstructorInitializers:       BeforeComma
+ConstructorInitializerIndentWidth:  4
+PackConstructorInitializers:        Never
+
+# --- Includes -----------------------------------------------------------
+SortIncludes:  Never
+IncludeBlocks: Preserve
+
+# --- Spacing ------------------------------------------------------------
+SpaceBeforeParens:              ControlStatements
+SpaceBeforeAssignmentOperators: true
+SpaceInEmptyParentheses:        false
+SpacesInCStyleCastParentheses:  false
+SpacesInParentheses:            false
+SpacesInSquareBrackets:         false
+
+# --- Short statement policy ---------------------------------------------
+AllowShortFunctionsOnASingleLine:    Empty   # collapse empty bodies to {}
+AllowShortIfStatementsOnASingleLine: WithoutElse   # allows:  if (!x) co_return;
+AllowShortLoopsOnASingleLine:        false
+AllowShortBlocksOnASingleLine:       Empty
+AllowShortCaseLabelsOnASingleLine:   true
+IndentCaseLabels:                    true
+
+# --- Parameter / argument alignment ------------------------------------
+# Break after open bracket, then pack args onto lines up to ColumnLimit.
+AlignAfterOpenBracket: AlwaysBreak
+BinPackArguments:      true
+BinPackParameters:     true
+
+# --- Misc alignment -----------------------------------------------------
+AlignEscapedNewlines:        Right
+AlignOperands:               Align
+AlignTrailingComments:        true
+SpacesBeforeTrailingComments: 2
+AlignConsecutiveDeclarations: true
+AlignConsecutiveAssignments:  true
+
+# --- Line breaks --------------------------------------------------------
+BreakBeforeTernaryOperators: true
+BreakBeforeBinaryOperators:  None
+
+# --- Trailing commas ----------------------------------------------------
+InsertTrailingCommas: None
+
+# --- Empty lines --------------------------------------------------------
+MaxEmptyLinesToKeep: 2
+
+# --- Comments -----------------------------------------------------------
+ReflowComments: false

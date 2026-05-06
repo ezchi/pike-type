@@ -192,10 +192,10 @@ class EnumValidationTest:
             _validate_enum("dup_t", [("A", 1), ("B", 1)])
         assert "duplicate resolved value" in str(ctx.value)
 
-    def test_rejects_missing_t_suffix(self) -> None:
+    def test_rejects_invalid_type_name_style(self) -> None:
         with pytest.raises(ValidationError) as ctx:
             _validate_enum("no_suffix", [("A", 0)])
-        assert "must end with _t" in str(ctx.value)
+        assert "must be CapWords or lower_snake_case ending with _t" in str(ctx.value)
 
     def test_rejects_value_exceeds_width(self) -> None:
         with pytest.raises(ValidationError) as ctx:
@@ -204,6 +204,9 @@ class EnumValidationTest:
 
     def test_accepts_valid_enum(self) -> None:
         _validate_enum("ok_t", [("A", 0), ("B", 1), ("C", 2)])
+
+    def test_accepts_capwords_type_name(self) -> None:
+        _validate_enum("OkEnum", [("A", 0), ("B", 1), ("C", 2)])
 
     def test_accepts_explicit_width_larger_than_minimum(self) -> None:
         _validate_enum("wide_t", [("A", 0), ("B", 1)], width=8)

@@ -80,7 +80,14 @@ class IncludesAndTypesTests:
     def test_standard_includes_with_types_in_declaration_order(self) -> None:
         module = _load_fixture_module("scalar_wide")
         view = build_module_view_cpp(module=module)
-        assert view.standard_includes == ("<cstdint>", "<cstddef>", "<stdexcept>", "<vector>")
+        assert view.standard_includes == (
+            "<cstdint>",
+            "<array>",
+            "<cstddef>",
+            "<cstring>",
+            "<span>",
+            "<stdexcept>",
+        )
 
     def test_module_view_carries_one_type_per_ir_type(self) -> None:
         module = _load_fixture_module("scalar_wide")

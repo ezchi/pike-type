@@ -2,68 +2,54 @@
 // Source: dir2/piketype/c.py
 // Do not edit by hand.
 
-#ifndef DIR2_PIKETYPE_C_TYPES_HPP
-#define DIR2_PIKETYPE_C_TYPES_HPP
+#pragma once
 
 #include <cstdint>
+#include <array>
 #include <cstddef>
+#include <cstring>
+#include <span>
 #include <stdexcept>
-#include <vector>
 #include "dir0/piketype/a_types.hpp"
 #include "dir1/piketype/b_types.hpp"
 
 namespace dir2::c {
 
-class c_ct {
- public:
-  static constexpr std::size_t WIDTH = 8;
-  static constexpr std::size_t BYTE_COUNT = 2;
-  ::dir0::a::a_ct a{};
-  ::dir1::b::b_ct b{};
+class C {
+public:
+    static constexpr size_t WIDTH      = 8;
+    static constexpr size_t BYTE_COUNT = 2;
+    ::dir0::a::A            a{};
+    ::dir1::b::B            b{};
 
-  c_ct() = default;
+    C() = default;
 
-  std::vector<std::uint8_t> to_bytes() const {
-    std::vector<std::uint8_t> bytes;
-    bytes.reserve(BYTE_COUNT);
-    {
-      auto field_bytes = a.to_bytes();
-      bytes.insert(bytes.end(), field_bytes.begin(), field_bytes.end());
+    [[nodiscard]] std::array<uint8_t, BYTE_COUNT> to_bytes() const {
+        std::array<uint8_t, BYTE_COUNT> out{};
+        pack_into(out.data());
+        return out;
     }
-    {
-      auto field_bytes = b.to_bytes();
-      bytes.insert(bytes.end(), field_bytes.begin(), field_bytes.end());
-    }
-    return bytes;
-  }
 
-  void from_bytes(const std::vector<std::uint8_t>& bytes) {
-    if (bytes.size() != BYTE_COUNT) {
-      throw std::invalid_argument("byte width mismatch");
+    [[nodiscard]] static C from_bytes(std::span<const uint8_t> bytes) {
+        if (bytes.size() != BYTE_COUNT) {
+            throw std::invalid_argument("byte width mismatch");
+        }
+        C result;
+        result.unpack_from(bytes.data());
+        return result;
     }
-    std::size_t offset = 0;
-    {
-      std::vector<std::uint8_t> field_bytes(bytes.begin() + static_cast<std::ptrdiff_t>(offset), bytes.begin() + static_cast<std::ptrdiff_t>(offset + 1));
-      a.from_bytes(field_bytes);
-      offset += 1;
-    }
-    {
-      std::vector<std::uint8_t> field_bytes(bytes.begin() + static_cast<std::ptrdiff_t>(offset), bytes.begin() + static_cast<std::ptrdiff_t>(offset + 1));
-      b.from_bytes(field_bytes);
-      offset += 1;
-    }
-  }
 
-  c_ct clone() const {
-    c_ct cloned;
-    cloned.a = a.clone();
-    cloned.b = b.clone();
-    return cloned;
-  }
+    void pack_into(uint8_t* dst) const {
+        a.pack_into(dst + 0);
+        b.pack_into(dst + 1);
+    }
 
-  bool operator==(const c_ct& other) const = default;
+    void unpack_from(const uint8_t* src) {
+        a.unpack_from(src + 0);
+        b.unpack_from(src + 1);
+    }
+
+    bool operator==(const C& other) const = default;
 };
 
 }  // namespace dir2::c
-
-#endif  // DIR2_PIKETYPE_C_TYPES_HPP

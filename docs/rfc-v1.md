@@ -122,19 +122,20 @@ Example:
 ```python
 FOO = Const(3)
 
-addr_t = Bit(13)
+Addr = Bit(13)
 
-packet_t = (
+Packet = (
     Struct()
-    .add_member("addr", addr_t)
+    .add_member("addr", Addr)
     .add_member("flag", Bit(1), rand=False)
 )
 ```
 
 Naming rules:
 
-- user-defined type names must end with `_t`
-- generated software/helper class names replace trailing `_t` with `_ct`
+- user-defined type names should be `CapWords`; legacy `lower_snake_case_t` names are also accepted
+- SystemVerilog typedefs render as `lower_snake_case_t`
+- Python runtime classes render from the DSL type name (`Packet` -> `Packet`, `packet_t` -> `packet_ct`)
 - field names must be `snake_case`
 - enum value names must be `UPPER_CASE`
 

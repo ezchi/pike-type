@@ -2,15 +2,12 @@
 // Source: beta/piketype/more.py
 // Do not edit by hand.
 
-#ifndef FOO_BAR_MORE_TYPES_HPP
-#define FOO_BAR_MORE_TYPES_HPP
+#pragma once
 
 #include <cstdint>
 
 namespace foo::bar::more {
 
-constexpr std::int32_t BAZ = 7;
+constexpr int32_t BAZ = 7;
 
 }  // namespace foo::bar::more
-
-#endif  // FOO_BAR_MORE_TYPES_HPP

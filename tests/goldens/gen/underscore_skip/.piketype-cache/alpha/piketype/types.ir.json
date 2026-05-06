@@ -1,0 +1,73 @@
+{
+  "__kind__": "ModuleIR",
+  "constants": [],
+  "dependencies": [],
+  "ref": {
+    "__kind__": "ModuleRefIR",
+    "basename": "types",
+    "namespace_parts": [
+      "alpha",
+      "piketype",
+      "types"
+    ],
+    "python_module_name": "alpha.piketype.types",
+    "repo_relative_path": "alpha/piketype/types.py"
+  },
+  "source": {
+    "__kind__": "SourceSpanIR",
+    "column": null,
+    "line": 1,
+    "path": "/home/ljoau/pike-type/tests/goldens/gen/underscore_skip/alpha/piketype/types.py"
+  },
+  "types": [
+    {
+      "__kind__": "StructIR",
+      "alignment_bits": 0,
+      "fields": [
+        {
+          "__kind__": "StructFieldIR",
+          "name": "v",
+          "padding_bits": 0,
+          "rand": true,
+          "source": {
+            "__kind__": "SourceSpanIR",
+            "column": null,
+            "line": 5,
+            "path": "/home/ljoau/pike-type/tests/goldens/gen/underscore_skip/alpha/piketype/types.py"
+          },
+          "type_ir": {
+            "__kind__": "ScalarTypeSpecIR",
+            "resolved_width": 8,
+            "signed": false,
+            "source": {
+              "__kind__": "SourceSpanIR",
+              "column": null,
+              "line": 4,
+              "path": "/home/ljoau/pike-type/tests/goldens/gen/underscore_skip/alpha/piketype/_helper.py"
+            },
+            "state_kind": "logic",
+            "width_expr": {
+              "__kind__": "IntLiteralExprIR",
+              "source": {
+                "__kind__": "SourceSpanIR",
+                "column": null,
+                "line": 4,
+                "path": "/home/ljoau/pike-type/tests/goldens/gen/underscore_skip/alpha/piketype/_helper.py"
+              },
+              "value": 8
+            }
+          }
+        }
+      ],
+      "name": "main_t",
+      "source": {
+        "__kind__": "SourceSpanIR",
+        "column": null,
+        "line": 5,
+        "path": "/home/ljoau/pike-type/tests/goldens/gen/underscore_skip/alpha/piketype/types.py"
+      }
+    }
+  ],
+  "vec_const_imports": [],
+  "vec_constants": []
+}

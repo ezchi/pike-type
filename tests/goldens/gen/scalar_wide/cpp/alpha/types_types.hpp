@@ -2,137 +2,157 @@
 // Source: alpha/piketype/types.py
 // Do not edit by hand.
 
-#ifndef ALPHA_PIKETYPE_TYPES_TYPES_HPP
-#define ALPHA_PIKETYPE_TYPES_TYPES_HPP
+#pragma once
 
 #include <cstdint>
+#include <array>
 #include <cstddef>
+#include <cstring>
+#include <span>
 #include <stdexcept>
-#include <vector>
 
 namespace alpha::types {
 
-class narrow_ct {
- public:
-  static constexpr std::size_t WIDTH = 37;
-  static constexpr bool SIGNED = false;
-  static constexpr std::size_t BYTE_COUNT = 5;
-  using value_type = std::uint64_t;
-  value_type value;
-  static constexpr std::uint64_t MASK = 137438953471ULL;
-  static constexpr value_type MAX_VALUE = static_cast<value_type>(137438953471ULL);
-  narrow_ct() : value(0) {}
-  narrow_ct(value_type value_in) : value(validate_value(value_in)) {}
+class Narrow {
+public:
+    static constexpr size_t WIDTH         = 37;
+    static constexpr bool   SIGNED        = false;
+    static constexpr size_t BYTE_COUNT    = 5;
+    using value_type                      = uint64_t;
+    static constexpr uint64_t   MASK      = 137438953471ULL;
+    static constexpr value_type MAX_VALUE = static_cast<value_type>(137438953471ULL);
 
-  std::vector<std::uint8_t> to_bytes() const {
-    std::vector<std::uint8_t> bytes(BYTE_COUNT, 0);
-    std::uint64_t bits = static_cast<std::uint64_t>(value);
-    for (std::size_t idx = 0; idx < BYTE_COUNT; ++idx) {
-      bytes[BYTE_COUNT - 1 - idx] = static_cast<std::uint8_t>((bits >> (8U * idx)) & 0xFFU);
+    value_type value;
+
+    Narrow()
+        : value(0) {}
+    Narrow(value_type value_in)
+        : value(validate_value(value_in)) {}
+
+    [[nodiscard]] std::array<uint8_t, BYTE_COUNT> to_bytes() const {
+        std::array<uint8_t, BYTE_COUNT> out{};
+        pack_into(out.data());
+        return out;
     }
-    return bytes;
-  }
 
-  void from_bytes(const std::vector<std::uint8_t>& bytes) {
-    if (bytes.size() != BYTE_COUNT) {
-      throw std::invalid_argument("byte width mismatch");
+    [[nodiscard]] static Narrow from_bytes(std::span<const uint8_t> bytes) {
+        if (bytes.size() != BYTE_COUNT) {
+            throw std::invalid_argument("byte width mismatch");
+        }
+        Narrow result;
+        result.unpack_from(bytes.data());
+        return result;
     }
-    std::uint64_t bits = 0;
-    for (std::size_t idx = 0; idx < BYTE_COUNT; ++idx) {
-      bits = (bits << 8U) | bytes[idx];
+
+    void pack_into(uint8_t* dst) const {
+        {
+            uint64_t bits = static_cast<uint64_t>(value);
+            uint8_t* p    = dst + 0;
+            for (size_t i = 0; i < 5; ++i) {
+                p[5 - 1 - i] = static_cast<uint8_t>((bits >> (8U * i)) & 0xFFU);
+            }
+        }
     }
-    value = validate_value(static_cast<value_type>(bits & MASK));
-  }
 
-  narrow_ct clone() const {
-    return narrow_ct(value);
-  }
-
-  operator value_type() const {
-    return value;
-  }
-
-  bool operator==(const narrow_ct& other) const = default;
-
- private:
-  static value_type validate_value(value_type value_in) {
-    if (value_in > MAX_VALUE) {
-      throw std::out_of_range("value out of range");
+    void unpack_from(const uint8_t* src) {
+        uint64_t       bits = 0;
+        const uint8_t* p    = src + 0;
+        for (size_t i = 0; i < 5; ++i) {
+            bits = (bits << 8U) | p[i];
+        }
+        value = validate_value(static_cast<value_type>(bits & MASK));
     }
-    return value_in;
-  }
+
+    operator value_type() const {
+        return value;
+    }
+    bool operator==(const Narrow& other) const = default;
+
+private:
+    static value_type validate_value(value_type value_in) {
+        if (value_in > MAX_VALUE) {
+            throw std::out_of_range("value out of range");
+        }
+        return value_in;
+    }
 };
 
-class wide_ct {
- public:
-  static constexpr std::size_t WIDTH = 65;
-  static constexpr bool SIGNED = false;
-  static constexpr std::size_t BYTE_COUNT = 9;
-  using value_type = std::vector<std::uint8_t>;
-  value_type value;
-  wide_ct() : value(BYTE_COUNT, 0U) {}
-  wide_ct(const value_type& value_in) : value(validate_value(value_in)) {}
+class Wide {
+public:
+    static constexpr size_t WIDTH      = 65;
+    static constexpr bool   SIGNED     = false;
+    static constexpr size_t BYTE_COUNT = 9;
+    using value_type                   = std::array<uint8_t, BYTE_COUNT>;
+    value_type value{};
 
-  std::vector<std::uint8_t> to_bytes() const {
-    return value;
-  }
-
-  void from_bytes(const std::vector<std::uint8_t>& bytes) {
-    value = validate_value(bytes);
-  }
-
-  wide_ct clone() const {
-    return wide_ct(value);
-  }
-
-  bool operator==(const wide_ct& other) const = default;
-
- private:
-  static value_type validate_value(const value_type& value_in) {
-    if (value_in.size() != BYTE_COUNT) {
-      throw std::invalid_argument("byte width mismatch");
+    Wide() = default;
+    explicit Wide(const value_type& value_in)
+        : value(value_in) {
+        value[0] &= 1U;
     }
-    value_type normalized = value_in;
-    normalized[0] &= 1U;
-    return normalized;
-  }
+
+    [[nodiscard]] std::array<uint8_t, BYTE_COUNT> to_bytes() const {
+        return value;
+    }
+
+    [[nodiscard]] static Wide from_bytes(std::span<const uint8_t> bytes) {
+        if (bytes.size() != BYTE_COUNT) {
+            throw std::invalid_argument("byte width mismatch");
+        }
+        Wide result;
+        result.unpack_from(bytes.data());
+        return result;
+    }
+
+    void pack_into(uint8_t* dst) const {
+        std::memcpy(dst, value.data(), BYTE_COUNT);
+    }
+
+    void unpack_from(const uint8_t* src) {
+        std::memcpy(value.data(), src, BYTE_COUNT);
+        value[0] &= 1U;
+    }
+
+    bool operator==(const Wide& other) const = default;
 };
 
-class very_wide_ct {
- public:
-  static constexpr std::size_t WIDTH = 128;
-  static constexpr bool SIGNED = false;
-  static constexpr std::size_t BYTE_COUNT = 16;
-  using value_type = std::vector<std::uint8_t>;
-  value_type value;
-  very_wide_ct() : value(BYTE_COUNT, 0U) {}
-  very_wide_ct(const value_type& value_in) : value(validate_value(value_in)) {}
+class VeryWide {
+public:
+    static constexpr size_t WIDTH      = 128;
+    static constexpr bool   SIGNED     = false;
+    static constexpr size_t BYTE_COUNT = 16;
+    using value_type                   = std::array<uint8_t, BYTE_COUNT>;
+    value_type value{};
 
-  std::vector<std::uint8_t> to_bytes() const {
-    return value;
-  }
-
-  void from_bytes(const std::vector<std::uint8_t>& bytes) {
-    value = validate_value(bytes);
-  }
-
-  very_wide_ct clone() const {
-    return very_wide_ct(value);
-  }
-
-  bool operator==(const very_wide_ct& other) const = default;
-
- private:
-  static value_type validate_value(const value_type& value_in) {
-    if (value_in.size() != BYTE_COUNT) {
-      throw std::invalid_argument("byte width mismatch");
+    VeryWide() = default;
+    explicit VeryWide(const value_type& value_in)
+        : value(value_in) {
+        value[0] &= 0xFFU;
     }
-    value_type normalized = value_in;
-    normalized[0] &= 0xFFU;
-    return normalized;
-  }
+
+    [[nodiscard]] std::array<uint8_t, BYTE_COUNT> to_bytes() const {
+        return value;
+    }
+
+    [[nodiscard]] static VeryWide from_bytes(std::span<const uint8_t> bytes) {
+        if (bytes.size() != BYTE_COUNT) {
+            throw std::invalid_argument("byte width mismatch");
+        }
+        VeryWide result;
+        result.unpack_from(bytes.data());
+        return result;
+    }
+
+    void pack_into(uint8_t* dst) const {
+        std::memcpy(dst, value.data(), BYTE_COUNT);
+    }
+
+    void unpack_from(const uint8_t* src) {
+        std::memcpy(value.data(), src, BYTE_COUNT);
+        value[0] &= 0xFFU;
+    }
+
+    bool operator==(const VeryWide& other) const = default;
 };
 
 }  // namespace alpha::types
-
-#endif  // ALPHA_PIKETYPE_TYPES_TYPES_HPP

@@ -2,15 +2,12 @@
 // Source: alpha/piketype/b.py
 // Do not edit by hand.
 
-#ifndef ALPHA_PIKETYPE_B_TYPES_HPP
-#define ALPHA_PIKETYPE_B_TYPES_HPP
+#pragma once
 
 #include <cstdint>
 
 namespace alpha::b {
 
-constexpr std::uint8_t LP_Y = 0xAB;
+constexpr uint8_t LP_Y = 0xAB;
 
 }  // namespace alpha::b
-
-#endif  // ALPHA_PIKETYPE_B_TYPES_HPP

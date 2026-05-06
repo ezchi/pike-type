@@ -170,13 +170,14 @@ Generated forms:
 V1 supports named scalar aliases like:
 
 ```python
-addr_t = Bit(13)
-mask_t = Logic(8, signed=False)
+Addr = Bit(13)
+Mask = Logic(8, signed=False)
 ```
 
 Rules:
 
-- all user-defined type names must end with `_t`
+- user-defined type names should be `CapWords`; legacy `lower_snake_case_t` names are also accepted
+- SystemVerilog typedefs render as `lower_snake_case_t`
 - field names must be `snake_case`
 - enum values must be `UPPER_CASE`
 
@@ -309,14 +310,14 @@ Enum DSL:
 
 SystemVerilog:
 
-- original enum type keeps `_t`
+- enum typedefs render as `lower_snake_case_t`
 - SV helper class for enum type is `<base>_ct`
 
-Python/C++:
+Python:
 
 - real generated enum type exists separately
-- naming: `state_t` -> enum type `state_enum_t`
-- ergonomic wrapper class: `state_ct`
+- naming: `State` -> Python enum type `StateEnum`; legacy `state_t` -> `state_enum_t`
+- ergonomic wrapper class: `State`; legacy `state_t` -> `state_ct`
 - wrapper stores actual enum member as primary state
 - constructors accept generated enum members only
 - `from_slv()` / `from_bytes()` reject unknown numeric values

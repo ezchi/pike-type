@@ -1,0 +1,13 @@
+{
+  "modules": [
+    {
+      "ir_relpath": "alpha/piketype/types.ir.json",
+      "python_module_name": "alpha.piketype.types",
+      "repo_relative_path": "alpha/piketype/types.py",
+      "source_hash": "sha256:065b363bc8d2fbdc90d5e727e52ee62e9e0a20838cc3d35aaa451cf1f0cfc093"
+    }
+  ],
+  "project_root": ".",
+  "schema_version": 1,
+  "tool_version": "0.1.0"
+}

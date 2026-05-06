@@ -2,19 +2,16 @@
 // Source: alpha/piketype/constants.py
 // Do not edit by hand.
 
-#ifndef ALPHA_PIKETYPE_CONSTANTS_TYPES_HPP
-#define ALPHA_PIKETYPE_CONSTANTS_TYPES_HPP
+#pragma once
 
 #include <cstdint>
 
 namespace alpha::constants {
 
-constexpr std::int32_t A = 3;
-constexpr std::int32_t B = (A + 5);
-constexpr std::int32_t C = ((A << 2) | 1);
-constexpr std::int32_t D = (-A);
-constexpr std::int32_t E = (~A);
+constexpr int32_t A = 3;
+constexpr int32_t B = (A + 5);
+constexpr int32_t C = ((A << 2) | 1);
+constexpr int32_t D = (-A);
+constexpr int32_t E = (~A);
 
 }  // namespace alpha::constants
-
-#endif  // ALPHA_PIKETYPE_CONSTANTS_TYPES_HPP

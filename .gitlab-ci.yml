@@ -1,0 +1,170 @@
+# pike-type CI/CD pipeline.
+#
+# Stages:
+#   lint     -- basedpyright strict + template hygiene check
+#   test     -- pytest (with clang-format installed; the cpp emitter shells out)
+#   build    -- uv build (wheel + sdist)              [tag pipelines only]
+#   publish  -- twine -> GitLab Package Registry      [tag pipelines only]
+#   release  -- create a GitLab Release with assets   [tag pipelines only]
+#
+# Tag a release with `git tag v1.2.3 && git push origin v1.2.3`. The
+# build/publish/release stages run only when the tag matches `vX.Y.Z`
+# AND pyproject.toml's version equals X.Y.Z (the build:dist job enforces
+# this so a forgotten version bump fails fast instead of shipping the
+# wrong version).
+
+stages:
+  - lint
+  - test
+  - build
+  - publish
+  - release
+
+# Run an MR pipeline OR a branch pipeline, never both for the same commit.
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH
+    - if: $CI_COMMIT_TAG
+
+default:
+  image: python:3.13-slim
+  cache:
+    key:
+      files:
+        - uv.lock
+        - pyproject.toml
+    paths:
+      - .uv-cache/
+      - .venv/
+  before_script:
+    - pip install --quiet --root-user-action=ignore uv
+    - uv sync --frozen --extra dev
+
+variables:
+  UV_CACHE_DIR: $CI_PROJECT_DIR/.uv-cache
+  UV_LINK_MODE: copy
+  UV_NO_PROGRESS: "1"
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+  # Bumped here so a forgotten pyproject bump still fails the release check
+  # (see build:dist) rather than silently uploading the wrong version.
+  RELEASE_TAG_PATTERN: /^v\d+\.\d+\.\d+$/
+
+# ---------------------------------------------------------------------------
+# Lint stage
+# ---------------------------------------------------------------------------
+
+lint:typecheck:
+  stage: lint
+  script:
+    - uv run --frozen basedpyright src/piketype
+
+lint:templates:
+  stage: lint
+  script:
+    - uv run --frozen python tools/check_templates.py
+
+# ---------------------------------------------------------------------------
+# Test stage
+# ---------------------------------------------------------------------------
+
+test:unit:
+  stage: test
+  before_script:
+    # The cpp backend invokes `clang-format` via subprocess; without it,
+    # generated headers aren't formatted and golden-comparison tests fail.
+    - apt-get update -qq
+    - apt-get install -qq -y --no-install-recommends clang-format
+    - pip install --quiet --root-user-action=ignore uv
+    - uv sync --frozen --extra dev
+  script:
+    - uv run --frozen pytest -n auto --junitxml=report.xml
+  artifacts:
+    when: always
+    reports:
+      junit: report.xml
+    paths:
+      - report.xml
+    expire_in: 1 week
+
+# ---------------------------------------------------------------------------
+# Build stage (release only)
+# ---------------------------------------------------------------------------
+
+build:dist:
+  stage: build
+  rules:
+    - if: $CI_COMMIT_TAG =~ $RELEASE_TAG_PATTERN
+  script:
+    # Verify pyproject.toml's version matches the tag before building.
+    # `git tag v1.2.3` requires `version = "1.2.3"` in pyproject.toml.
+    - |
+      TAG_VERSION="${CI_COMMIT_TAG#v}"
+      PROJECT_VERSION="$(uv run --frozen python -c 'import tomllib, sys; print(tomllib.loads(open("pyproject.toml","rb").read().decode())["project"]["version"])')"
+      if [ "$TAG_VERSION" != "$PROJECT_VERSION" ]; then
+        echo "ERROR: tag $CI_COMMIT_TAG (=> $TAG_VERSION) does not match pyproject version $PROJECT_VERSION"
+        exit 1
+      fi
+      echo "Version check OK: $TAG_VERSION"
+    - uv build
+    - ls -la dist/
+  artifacts:
+    paths:
+      - dist/
+    expire_in: 1 month
+
+# ---------------------------------------------------------------------------
+# Publish stage -- GitLab Package Registry (Python / pypi format)
+#
+# To publish to public PyPI instead/additionally, add a `publish:pypi` job
+# that uploads to https://upload.pypi.org/legacy/ using $PYPI_API_TOKEN
+# (set in CI/CD Settings as a masked, protected variable).
+# ---------------------------------------------------------------------------
+
+publish:gitlab-registry:
+  stage: publish
+  needs:
+    - build:dist
+  rules:
+    - if: $CI_COMMIT_TAG =~ $RELEASE_TAG_PATTERN
+  variables:
+    TWINE_USERNAME: gitlab-ci-token
+    TWINE_PASSWORD: $CI_JOB_TOKEN
+    TWINE_NON_INTERACTIVE: "1"
+  before_script:
+    - pip install --quiet --root-user-action=ignore twine
+  script:
+    - |
+      twine upload \
+        --repository-url "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/pypi" \
+        dist/*
+
+# ---------------------------------------------------------------------------
+# Release stage -- create a GitLab Release entry with download links
+# ---------------------------------------------------------------------------
+
+release:gitlab:
+  stage: release
+  needs:
+    - publish:gitlab-registry
+  image: registry.gitlab.com/gitlab-org/release-cli:latest
+  rules:
+    - if: $CI_COMMIT_TAG =~ $RELEASE_TAG_PATTERN
+  before_script: []
+  script:
+    - echo "Creating GitLab release for $CI_COMMIT_TAG"
+  release:
+    name: "pike-type $CI_COMMIT_TAG"
+    tag_name: "$CI_COMMIT_TAG"
+    ref: "$CI_COMMIT_TAG"
+    description: |
+      Automated release of pike-type $CI_COMMIT_TAG.
+
+      Install from the GitLab Package Registry:
+        pip install pike-type==${CI_COMMIT_TAG#v} \
+          --index-url ${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/pypi/simple
+    assets:
+      links:
+        - name: "Package Registry"
+          url: "${CI_PROJECT_URL}/-/packages"
+          link_type: package

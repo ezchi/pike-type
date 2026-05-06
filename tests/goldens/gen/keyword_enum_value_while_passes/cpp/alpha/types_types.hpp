@@ -2,69 +2,76 @@
 // Source: alpha/piketype/types.py
 // Do not edit by hand.
 
-#ifndef ALPHA_PIKETYPE_TYPES_TYPES_HPP
-#define ALPHA_PIKETYPE_TYPES_TYPES_HPP
+#pragma once
 
 #include <cstdint>
+#include <array>
 #include <cstddef>
+#include <cstring>
+#include <span>
 #include <stdexcept>
-#include <vector>
 
 namespace alpha::types {
 
-enum class state_enum_t : std::uint8_t {IDLE = 0U, WHILE = 1U};
+enum class state_enum_t : uint8_t { IDLE = 0U, WHILE = 1U };
 
-class state_ct {
- public:
-  static constexpr std::size_t WIDTH = 1;
-  static constexpr std::size_t BYTE_COUNT = 1;
-  using enum_type = state_enum_t;
-  enum_type value;
+class State {
+public:
+    static constexpr size_t WIDTH      = 1;
+    static constexpr size_t BYTE_COUNT = 1;
+    using enum_type                    = state_enum_t;
+    static constexpr uint64_t MASK     = 1U;
 
-  state_ct() : value(state_enum_t::IDLE) {}
-  explicit state_ct(enum_type value_in) : value(validate_value(value_in)) {}
+    enum_type value;
 
-  std::vector<std::uint8_t> to_bytes() const {
-    std::vector<std::uint8_t> bytes(1, 0);
-    std::uint64_t bits = static_cast<std::uint64_t>(value);
-    for (std::size_t idx = 0; idx < 1; ++idx) {
-      bytes[1 - 1 - idx] = static_cast<std::uint8_t>((bits >> (8U * idx)) & 0xFFU);
+    State()
+        : value(state_enum_t::IDLE) {}
+    explicit State(enum_type value_in)
+        : value(validate_value(value_in)) {}
+
+    [[nodiscard]] std::array<uint8_t, BYTE_COUNT> to_bytes() const {
+        std::array<uint8_t, BYTE_COUNT> out{};
+        pack_into(out.data());
+        return out;
     }
-    return bytes;
-  }
 
-  void from_bytes(const std::vector<std::uint8_t>& bytes) {
-    if (bytes.size() != 1) {
-      throw std::invalid_argument("byte width mismatch");
+    [[nodiscard]] static State from_bytes(std::span<const uint8_t> bytes) {
+        if (bytes.size() != BYTE_COUNT) {
+            throw std::invalid_argument("byte width mismatch");
+        }
+        State result;
+        result.unpack_from(bytes.data());
+        return result;
     }
-    std::uint64_t bits = 0;
-    for (std::size_t idx = 0; idx < 1; ++idx) {
-      bits = (bits << 8U) | bytes[idx];
+
+    void pack_into(uint8_t* dst) const {
+        uint64_t bits = static_cast<uint64_t>(value);
+        for (size_t i = 0; i < BYTE_COUNT; ++i) {
+            dst[BYTE_COUNT - 1 - i] = static_cast<uint8_t>((bits >> (8U * i)) & 0xFFU);
+        }
     }
-    value = validate_value(static_cast<enum_type>(bits & 1U));
-  }
 
-  state_ct clone() const {
-    return state_ct(value);
-  }
-
-  operator enum_type() const {
-    return value;
-  }
-
-  bool operator==(const state_ct& other) const = default;
-
- private:
-  static enum_type validate_value(enum_type v) {
-    switch (v) {
-      case state_enum_t::IDLE: return v;
-      case state_enum_t::WHILE: return v;
-      default:
-        throw std::invalid_argument("unknown enum value");
+    void unpack_from(const uint8_t* src) {
+        uint64_t bits = 0;
+        for (size_t i = 0; i < BYTE_COUNT; ++i) {
+            bits = (bits << 8U) | src[i];
+        }
+        value = validate_value(static_cast<enum_type>(bits & MASK));
     }
-  }
+
+    operator enum_type() const {
+        return value;
+    }
+    bool operator==(const State& other) const = default;
+
+private:
+    static enum_type validate_value(enum_type v) {
+        switch (v) {
+            case state_enum_t::IDLE: return v;
+            case state_enum_t::WHILE: return v;
+            default: throw std::invalid_argument("unknown enum value");
+        }
+    }
 };
 
 }  // namespace alpha::types
-
-#endif  // ALPHA_PIKETYPE_TYPES_TYPES_HPP
