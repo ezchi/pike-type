@@ -7,7 +7,8 @@ Loading rules:
 * Absolute paths are used as-is (after ``expanduser``).
 * Defaults: ``frontend.piketype_root`` = project root,
   ``frontend.ir_cache`` = ``<project_root>/.piketype-cache``.
-* Backend ``out`` is required. Backend ``language_id`` defaults to ``False``.
+* Backend ``backend_root`` defaults to the project root;
+  ``language_id`` defaults to ``""`` (no language segment).
 * Unknown keys raise ``ConfigError`` so typos surface immediately.
 """
 
@@ -28,18 +29,7 @@ class ConfigError(PikeTypeError):
 
 _TOP_LEVEL_KEYS = frozenset({"frontend", "backends"})
 _FRONTEND_KEYS = frozenset({"piketype_root", "ir_cache", "exclude"})
-_BACKEND_KEYS = frozenset({"out", "out_layout", "language_id"})
-_VALID_LAYOUTS = frozenset({"prefix", "suffix"})
-
-# HDL roles place the role directory next to the source (`<sub>/<role>/`);
-# language packages place a single output root above the source tree
-# (`<root>/<sub>/`). Backends not listed here default to ``prefix``.
-_DEFAULT_OUT_LAYOUTS: dict[str, str] = {
-    "sv": "suffix",
-    "sim": "suffix",
-    "py": "prefix",
-    "cpp": "prefix",
-}
+_BACKEND_KEYS = frozenset({"backend_root", "language_id"})
 
 
 def load_config(config_path: Path) -> Config:
@@ -127,24 +117,27 @@ def _parse_backends(raw: object, project_root: Path, config_path: Path) -> tuple
         backend_body = _as_mapping(body_raw, where=f"backends.{name_raw}", config_path=config_path)
         _check_unknown_keys(backend_body, _BACKEND_KEYS, where=f"backends.{name_raw}", config_path=config_path)
 
-        if "out" not in backend_body:
-            raise ConfigError(f"{config_path}: 'backends.{name_raw}.out' is required")
-        out = _resolve_path(backend_body["out"], project_root, f"backends.{name_raw}.out", config_path)
-
-        layout_default = _DEFAULT_OUT_LAYOUTS.get(name_raw, "prefix")
-        layout_raw = backend_body.get("out_layout", layout_default)
-        if not isinstance(layout_raw, str) or layout_raw not in _VALID_LAYOUTS:
-            raise ConfigError(
-                f"{config_path}: 'backends.{name_raw}.out_layout' must be one of "
-                f"{sorted(_VALID_LAYOUTS)}, got {layout_raw!r}"
+        backend_root_raw = backend_body.get("backend_root")
+        if backend_root_raw is None or backend_root_raw == "":
+            backend_root = project_root
+        else:
+            backend_root = _resolve_path(
+                backend_root_raw, project_root, f"backends.{name_raw}.backend_root", config_path
             )
 
-        language_id_raw = backend_body.get("language_id", False)
-        if not isinstance(language_id_raw, bool):
-            raise ConfigError(f"{config_path}: 'backends.{name_raw}.language_id' must be bool")
+        language_id_raw = backend_body.get("language_id", "")
+        if not isinstance(language_id_raw, str):
+            raise ConfigError(
+                f"{config_path}: 'backends.{name_raw}.language_id' must be a string"
+            )
+        if "/" in language_id_raw or "\\" in language_id_raw:
+            raise ConfigError(
+                f"{config_path}: 'backends.{name_raw}.language_id' must be a single path "
+                f"segment, got {language_id_raw!r}"
+            )
 
         backends.append(
-            BackendConfig(name=name_raw, out=out, out_layout=layout_raw, language_id=language_id_raw)
+            BackendConfig(name=name_raw, backend_root=backend_root, language_id=language_id_raw)
         )
 
     return tuple(backends)

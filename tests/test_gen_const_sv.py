@@ -382,7 +382,11 @@ class GenConstSvIntegrationTest:
             repo_dir = Path(tmp_dir) / "project"
             repo_dir.mkdir()
             (repo_dir / "piketype.yaml").write_text(
-                "backends:\n  sv: {out: rtl}\n  sim: {out: sim}\n  py: {out: py}\n  cpp: {out: cpp}\n"
+                "backends:\n"
+                "  sv:  {language_id: rtl}\n"
+                "  sim: {language_id: sim}\n"
+                "  py:  {backend_root: py}\n"
+                "  cpp: {backend_root: cpp}\n"
             )
             (repo_dir / "alpha" / "piketype").mkdir(parents=True)
             (repo_dir / "beta" / "piketype").mkdir(parents=True)

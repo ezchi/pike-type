@@ -16,19 +16,19 @@ from pathlib import Path
 class BackendConfig:
     """Per-backend output configuration.
 
-    ``out_layout`` controls where the configured ``out`` directory sits
-    relative to the per-module ``<sub>`` segment:
+    A backend's outputs land at::
 
-      * ``prefix`` (default for language packages such as ``py``/``cpp``):
-        output = ``<out>/<sub>/[<backend_id>/]<file>``.
-      * ``suffix`` (default for HDL roles such as ``sv``/``sim``):
-        output = ``<project_root>/<sub>/<out>/[<backend_id>/]<file>``.
+        <backend_root>/<sub>/<language_id>/<file>
+
+    where ``<sub>`` is the module's path relative to
+    ``frontend.piketype_root`` (with the trailing ``piketype/`` stripped).
+    Empty ``backend_root`` resolves to the project root; an empty
+    ``language_id`` collapses that segment.
     """
 
     name: str
-    out: Path
-    out_layout: str = "prefix"
-    language_id: bool = False
+    backend_root: Path
+    language_id: str = ""
 
 
 @dataclass(frozen=True, slots=True)

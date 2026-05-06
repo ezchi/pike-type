@@ -71,7 +71,7 @@ class MultiRootLayoutTest:
             assert (repo_dir / "dir3" / "rtl" / "d_pkg.sv").is_file()
 
     def test_language_id_segment_inserted_for_cpp(self) -> None:
-        """`language_id: true` for cpp inserts a `cpp/` directory segment."""
+        """`language_id: cpp` for cpp inserts a `cpp/` directory segment."""
         fixture_root = FIXTURES_DIR / "multi_root_layout" / "project"
         with tempfile.TemporaryDirectory() as tmp_dir:
             repo_dir = Path(tmp_dir) / "project"
@@ -79,9 +79,9 @@ class MultiRootLayoutTest:
             cli_file = repo_dir / "dir0" / "piketype" / "a.py"
             result = _run_gen(repo_dir, str(cli_file))
             assert result.returncode == 0, result.stderr
-            # cpp has language_id=true → includes/dir0/cpp/a_types.hpp
+            # cpp has language_id=cpp → includes/dir0/cpp/a_types.hpp
             assert (repo_dir / "includes" / "dir0" / "cpp" / "a_types.hpp").is_file()
-            # py has language_id=false → python_lib/dir0/a_types.py (no `py/` segment)
+            # py has language_id="" → python_lib/dir0/a_types.py (no `py/` segment)
             assert (repo_dir / "python_lib" / "dir0" / "a_types.py").is_file()
             assert not (repo_dir / "python_lib" / "dir0" / "py" / "a_types.py").exists()
 

@@ -23,8 +23,8 @@ from piketype.paths import backend_output_path
 def emit_py(repo: RepoIR, *, config: Config) -> list[Path]:
     """Emit Python outputs.
 
-    Each module's output goes to ``<py.out>/<sub>/<name>_types.py`` (or
-    ``<py.out>/<sub>/py/<name>_types.py`` if ``language_id`` is set).
+    Each module's output goes to
+    ``<py.backend_root>/<sub>/[<py.language_id>/]<name>_types.py``.
     An ``__init__.py`` is created in each output directory so the
     generated module is a regular Python package.
 

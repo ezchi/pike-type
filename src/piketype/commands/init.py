@@ -14,6 +14,11 @@ _DEFAULT_CONFIG_YAML = """\
 # Every key below is shown with its default value. Remove any key you
 # don't override to keep the file short. Unknown keys cause a hard
 # error so typos surface immediately.
+#
+# Output path formula: <backend_root>/<sub>/<language_id>/<file>
+# where <sub> is the module path between piketype_root and piketype/.
+# Empty backend_root defaults to the project root; empty language_id
+# collapses that segment.
 
 frontend:
   # Where DSL files live. Walked recursively for <sub>/piketype/<base>.py.
@@ -28,32 +33,28 @@ frontend:
   exclude: []
 
 backends:
-  # SystemVerilog synthesis package. With out_layout=suffix, the role
-  # directory sits next to the source: <sub>/rtl/<base>_pkg.sv.
+  # SystemVerilog synthesis package. Role directory sits next to source:
+  # <sub>/rtl/<base>_pkg.sv.
   sv:
-    out: rtl
-    out_layout: suffix      # 'suffix': <sub>/<out>/<file>; 'prefix': <out>/<sub>/<file>
-    language_id: false      # if true, insert <backend_id>/ before the file
+    backend_root: ""    # empty -> project root
+    language_id: rtl
 
   # SystemVerilog test/verification package: <sub>/sim/<base>_test_pkg.sv
   sim:
-    out: sim
-    out_layout: suffix
-    language_id: false
+    backend_root: ""
+    language_id: sim
 
-  # Python wrapper module. With out_layout=prefix, the package root sits
-  # above the source tree: py/<sub>/<base>_types.py. Add <out> to
-  # PYTHONPATH at runtime to import as <sub>.<base>_types.
+  # Python wrapper module. The package root sits above the source tree:
+  # py/<sub>/<base>_types.py. Add <backend_root> to PYTHONPATH at
+  # runtime to import as <sub>.<base>_types.
   py:
-    out: py
-    out_layout: prefix
-    language_id: false
+    backend_root: py
+    language_id: ""     # no per-language subdir
 
   # C++ header: cpp/<sub>/<base>_types.hpp
   cpp:
-    out: cpp
-    out_layout: prefix
-    language_id: false
+    backend_root: cpp
+    language_id: ""
 """
 
 _FILENAME = "piketype.yaml"

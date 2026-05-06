@@ -152,7 +152,7 @@ class TestCacheReadWrite:
         config_path = tmp_path / "piketype.yaml"
         config_path.write_text(
             "frontend:\n  ir_cache: build/cache\n"
-            "backends:\n  py: {out: py}\n",
+            "backends:\n  py: {backend_root: py}\n",
             encoding="utf-8",
         )
         return source, config_path
