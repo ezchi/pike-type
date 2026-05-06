@@ -35,7 +35,7 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 "piketype.backends.py" = ["templates/**/*.j2"]
-"piketype.backends.cpp" = ["templates/**/*.j2"]
+"piketype.backends.cpp" = ["templates/**/*.j2", "clang_format.yaml"]
 "piketype.backends.sv" = ["templates/**/*.j2"]
 
 [tool.pytest.ini_options]

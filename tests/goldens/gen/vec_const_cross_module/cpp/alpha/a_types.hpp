@@ -2,15 +2,12 @@
 // Source: alpha/piketype/a.py
 // Do not edit by hand.
 
-#ifndef ALPHA_PIKETYPE_A_TYPES_HPP
-#define ALPHA_PIKETYPE_A_TYPES_HPP
+#pragma once
 
 #include <cstdint>
 
 namespace alpha::a {
 
-constexpr std::uint16_t LP_X = 0x1234;
+constexpr uint16_t LP_X = 0x1234;
 
 }  // namespace alpha::a
-
-#endif  // ALPHA_PIKETYPE_A_TYPES_HPP

@@ -2,56 +2,50 @@
 // Source: dir1/piketype/b.py
 // Do not edit by hand.
 
-#ifndef DIR1_PIKETYPE_B_TYPES_HPP
-#define DIR1_PIKETYPE_B_TYPES_HPP
+#pragma once
 
 #include <cstdint>
+#include <array>
 #include <cstddef>
+#include <cstring>
+#include <span>
 #include <stdexcept>
-#include <vector>
 #include "dir0/piketype/a_types.hpp"
 
 namespace dir1::b {
 
-class b_ct {
- public:
-  static constexpr std::size_t WIDTH = 4;
-  static constexpr std::size_t BYTE_COUNT = 1;
-  ::dir0::a::a_ct a{};
+class B {
+public:
+    static constexpr size_t WIDTH      = 4;
+    static constexpr size_t BYTE_COUNT = 1;
+    ::dir0::a::A            a{};
 
-  b_ct() = default;
+    B() = default;
 
-  std::vector<std::uint8_t> to_bytes() const {
-    std::vector<std::uint8_t> bytes;
-    bytes.reserve(BYTE_COUNT);
-    {
-      auto field_bytes = a.to_bytes();
-      bytes.insert(bytes.end(), field_bytes.begin(), field_bytes.end());
+    [[nodiscard]] std::array<uint8_t, BYTE_COUNT> to_bytes() const {
+        std::array<uint8_t, BYTE_COUNT> out{};
+        pack_into(out.data());
+        return out;
     }
-    return bytes;
-  }
 
-  void from_bytes(const std::vector<std::uint8_t>& bytes) {
-    if (bytes.size() != BYTE_COUNT) {
-      throw std::invalid_argument("byte width mismatch");
+    [[nodiscard]] static B from_bytes(std::span<const uint8_t> bytes) {
+        if (bytes.size() != BYTE_COUNT) {
+            throw std::invalid_argument("byte width mismatch");
+        }
+        B result;
+        result.unpack_from(bytes.data());
+        return result;
     }
-    std::size_t offset = 0;
-    {
-      std::vector<std::uint8_t> field_bytes(bytes.begin() + static_cast<std::ptrdiff_t>(offset), bytes.begin() + static_cast<std::ptrdiff_t>(offset + 1));
-      a.from_bytes(field_bytes);
-      offset += 1;
+
+    void pack_into(uint8_t* dst) const {
+        a.pack_into(dst + 0);
     }
-  }
 
-  b_ct clone() const {
-    b_ct cloned;
-    cloned.a = a.clone();
-    return cloned;
-  }
+    void unpack_from(const uint8_t* src) {
+        a.unpack_from(src + 0);
+    }
 
-  bool operator==(const b_ct& other) const = default;
+    bool operator==(const B& other) const = default;
 };
 
 }  // namespace dir1::b
-
-#endif  // DIR1_PIKETYPE_B_TYPES_HPP

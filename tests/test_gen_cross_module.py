@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import filecmp
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -118,9 +119,10 @@ class CrossModuleNamespaceIntegrationTest:
         bar_hpp = GOLDENS_DIR / "cross_module_type_refs_namespace_proj" / "cpp" / "alpha" / "bar_types.hpp"
         text = bar_hpp.read_text(encoding="utf-8")
         # Inside namespace proj::lib::bar, foo::Byte resolves to proj::lib::foo::Byte
-        # via sibling-namespace lookup.
-        assert "foo::Byte field1" in text
-        assert "foo::Byte field2" in text
+        # via sibling-namespace lookup. clang-format may pad the gap between
+        # type and identifier for AlignConsecutiveDeclarations, so match flexibly.
+        assert re.search(r"foo::Byte\s+field1\b", text)
+        assert re.search(r"foo::Byte\s+field2\b", text)
         # The include path is unaffected by --namespace.
         assert '#include "alpha/piketype/foo_types.hpp"' in text
 

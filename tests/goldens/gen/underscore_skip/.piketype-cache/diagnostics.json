@@ -1,0 +1,9 @@
+{
+  "diagnostics": [
+    {
+      "code": "underscore-skip",
+      "message": "skipped alpha/piketype/_helper.py (leading underscore)",
+      "severity": "info"
+    }
+  ]
+}

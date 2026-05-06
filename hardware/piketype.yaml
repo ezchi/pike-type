@@ -1,0 +1,47 @@
+# piketype project configuration.
+# Reference: docs/piketype-yaml.md
+#
+# Every key below is shown with its default value. Remove any key you
+# don't override to keep the file short. Unknown keys cause a hard
+# error so typos surface immediately.
+#
+# Output path formula: <backend_root>/<sub>/<language_id>/<file>
+# where <sub> is the module path between piketype_root and piketype/.
+# Empty backend_root defaults to the project root; empty language_id
+# collapses that segment.
+
+frontend:
+  # Where DSL files live. Walked recursively for <sub>/piketype/<base>.py.
+  # Default: this directory (project root).
+  piketype_root: .
+
+  # Where the build writes IR cache, _index.json, and diagnostics.json.
+  # Default: <project_root>/.piketype-cache
+  ir_cache: .piketype-cache
+
+  # Glob patterns to skip during discovery (reserved; currently unused).
+  exclude: []
+
+backends:
+  # SystemVerilog synthesis package. Role directory sits next to source:
+  # <sub>/rtl/<base>_pkg.sv.
+  sv:
+    backend_root: ""    # empty -> project root
+    language_id: rtl
+
+  # SystemVerilog test/verification package: <sub>/sim/<base>_test_pkg.sv
+  sim:
+    backend_root: ""
+    language_id: sim
+
+  # Python wrapper module. The package root sits above the source tree:
+  # py/<sub>/<base>_types.py. Add <backend_root> to PYTHONPATH at
+  # runtime to import as <sub>.<base>_types.
+  py:
+    backend_root: py
+    language_id: ""     # no per-language subdir
+
+  # C++ header: cpp/<sub>/<base>_types.hpp
+  cpp:
+    backend_root: cpp
+    language_id: ""

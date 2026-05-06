@@ -2,16 +2,13 @@
 // Source: alpha/piketype/constants.py
 // Do not edit by hand.
 
-#ifndef ALPHA_PIKETYPE_CONSTANTS_TYPES_HPP
-#define ALPHA_PIKETYPE_CONSTANTS_TYPES_HPP
+#pragma once
 
 #include <cstdint>
 
 namespace alpha::constants {
 
-constexpr std::int32_t FOO = 3;
-constexpr std::int32_t BAR = 0;
+constexpr int32_t FOO = 3;
+constexpr int32_t BAR = 0;
 
 }  // namespace alpha::constants
-
-#endif  // ALPHA_PIKETYPE_CONSTANTS_TYPES_HPP

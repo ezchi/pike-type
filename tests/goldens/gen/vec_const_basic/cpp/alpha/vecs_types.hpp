@@ -2,25 +2,22 @@
 // Source: alpha/piketype/vecs.py
 // Do not edit by hand.
 
-#ifndef ALPHA_PIKETYPE_VECS_TYPES_HPP
-#define ALPHA_PIKETYPE_VECS_TYPES_HPP
+#pragma once
 
 #include <cstdint>
 
 namespace alpha::vecs {
 
-constexpr std::int32_t A = 5;
-constexpr std::uint8_t B = 15;
-constexpr std::uint16_t LP_ETHERTYPE_VLAN = 0x8100;
-constexpr std::uint8_t LP_IP_PROTOCOL_TCP = 6;
-constexpr std::uint8_t LP_IP_PROTOCOL_UDP = 17;
-constexpr std::uint8_t LP_NIBBLE_F = 0xF;
-constexpr std::uint8_t LP_PADDED_HEX = 0x0F;
-constexpr std::uint8_t LP_PADDED_BIN = 0b00001111;
-constexpr std::uint16_t LP_AB16 = 0x00AB;
-constexpr std::uint8_t F = 3;
-constexpr std::uint8_t G = 12;
+constexpr int32_t  A                  = 5;
+constexpr uint8_t  B                  = 15;
+constexpr uint16_t LP_ETHERTYPE_VLAN  = 0x8100;
+constexpr uint8_t  LP_IP_PROTOCOL_TCP = 6;
+constexpr uint8_t  LP_IP_PROTOCOL_UDP = 17;
+constexpr uint8_t  LP_NIBBLE_F        = 0xF;
+constexpr uint8_t  LP_PADDED_HEX      = 0x0F;
+constexpr uint8_t  LP_PADDED_BIN      = 0b00001111;
+constexpr uint16_t LP_AB16            = 0x00AB;
+constexpr uint8_t  F                  = 3;
+constexpr uint8_t  G                  = 12;
 
 }  // namespace alpha::vecs
-
-#endif  // ALPHA_PIKETYPE_VECS_TYPES_HPP

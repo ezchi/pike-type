@@ -2,432 +2,839 @@
 // Source: alpha/piketype/types.py
 // Do not edit by hand.
 
-#ifndef ALPHA_PIKETYPE_TYPES_TYPES_HPP
-#define ALPHA_PIKETYPE_TYPES_TYPES_HPP
+#pragma once
 
 #include <cstdint>
+#include <array>
 #include <cstddef>
+#include <cstring>
+#include <span>
 #include <stdexcept>
-#include <vector>
 
 namespace alpha::types {
 
-class single_ct {
- public:
-  static constexpr std::size_t WIDTH = 1;
-  static constexpr std::size_t BYTE_COUNT = 1;
-  using value_type = std::uint8_t;
-  static constexpr value_type FLAG_MASK = 0x80U;
-  value_type value = 0;
+class Single {
+public:
+    static constexpr size_t WIDTH         = 1;
+    static constexpr size_t BYTE_COUNT    = 1;
+    using value_type                      = uint8_t;
+    static constexpr value_type DATA_MASK = 0x80U;
+    static constexpr value_type FLAG_MASK = 0x80U;
 
-  single_ct() = default;
+    value_type value = 0;
 
-  bool get_flag() const { return (value & FLAG_MASK) != 0; }
-  void set_flag(bool v) { if (v) value |= FLAG_MASK; else value &= static_cast<value_type>(~FLAG_MASK); }
+    Single() = default;
 
-  std::vector<std::uint8_t> to_bytes() const {
-    std::vector<std::uint8_t> bytes(BYTE_COUNT, 0);
-    value_type masked = value & 0x80U;
-    for (std::size_t idx = 0; idx < BYTE_COUNT; ++idx) {
-      bytes[BYTE_COUNT - 1 - idx] = static_cast<std::uint8_t>((static_cast<std::uint64_t>(masked) >> (8U * idx)) & 0xFFU);
+    bool get_flag() const {
+        return (value & FLAG_MASK) != 0;
     }
-    return bytes;
-  }
-
-  void from_bytes(const std::vector<std::uint8_t>& bytes) {
-    if (bytes.size() != BYTE_COUNT) {
-      throw std::invalid_argument("byte width mismatch");
+    void set_flag(bool v) {
+        if (v)
+            value |= FLAG_MASK;
+        else
+            value &= static_cast<value_type>(~FLAG_MASK);
     }
-    std::uint64_t bits = 0;
-    for (std::size_t idx = 0; idx < BYTE_COUNT; ++idx) {
-      bits = (bits << 8U) | bytes[idx];
+
+    [[nodiscard]] std::array<uint8_t, BYTE_COUNT> to_bytes() const {
+        std::array<uint8_t, BYTE_COUNT> out{};
+        pack_into(out.data());
+        return out;
     }
-    value = static_cast<value_type>(bits) & 0x80U;
-  }
 
-  single_ct clone() const {
-    single_ct cloned;
-    cloned.value = value;
-    return cloned;
-  }
+    [[nodiscard]] static Single from_bytes(std::span<const uint8_t> bytes) {
+        if (bytes.size() != BYTE_COUNT) {
+            throw std::invalid_argument("byte width mismatch");
+        }
+        Single result;
+        result.unpack_from(bytes.data());
+        return result;
+    }
 
-  bool operator==(const single_ct& other) const {
-    return (value & 0x80U) == (other.value & 0x80U);
-  }
+    void pack_into(uint8_t* dst) const {
+        uint64_t bits = static_cast<uint64_t>(value & DATA_MASK);
+        for (size_t i = 0; i < BYTE_COUNT; ++i) {
+            dst[BYTE_COUNT - 1 - i] = static_cast<uint8_t>((bits >> (8U * i)) & 0xFFU);
+        }
+    }
+
+    void unpack_from(const uint8_t* src) {
+        uint64_t bits = 0;
+        for (size_t i = 0; i < BYTE_COUNT; ++i) {
+            bits = (bits << 8U) | src[i];
+        }
+        value = static_cast<value_type>(bits) & DATA_MASK;
+    }
+
+    bool operator==(const Single& other) const {
+        return (value & DATA_MASK) == (other.value & DATA_MASK);
+    }
 };
 
-class triple_ct {
- public:
-  static constexpr std::size_t WIDTH = 3;
-  static constexpr std::size_t BYTE_COUNT = 1;
-  using value_type = std::uint8_t;
-  static constexpr value_type A_MASK = 0x80U;
-  static constexpr value_type B_MASK = 0x40U;
-  static constexpr value_type C_MASK = 0x20U;
-  value_type value = 0;
+class Triple {
+public:
+    static constexpr size_t WIDTH         = 3;
+    static constexpr size_t BYTE_COUNT    = 1;
+    using value_type                      = uint8_t;
+    static constexpr value_type DATA_MASK = 0xE0U;
+    static constexpr value_type A_MASK    = 0x80U;
+    static constexpr value_type B_MASK    = 0x40U;
+    static constexpr value_type C_MASK    = 0x20U;
 
-  triple_ct() = default;
+    value_type value = 0;
 
-  bool get_a() const { return (value & A_MASK) != 0; }
-  void set_a(bool v) { if (v) value |= A_MASK; else value &= static_cast<value_type>(~A_MASK); }
+    Triple() = default;
 
-  bool get_b() const { return (value & B_MASK) != 0; }
-  void set_b(bool v) { if (v) value |= B_MASK; else value &= static_cast<value_type>(~B_MASK); }
-
-  bool get_c() const { return (value & C_MASK) != 0; }
-  void set_c(bool v) { if (v) value |= C_MASK; else value &= static_cast<value_type>(~C_MASK); }
-
-  std::vector<std::uint8_t> to_bytes() const {
-    std::vector<std::uint8_t> bytes(BYTE_COUNT, 0);
-    value_type masked = value & 0xE0U;
-    for (std::size_t idx = 0; idx < BYTE_COUNT; ++idx) {
-      bytes[BYTE_COUNT - 1 - idx] = static_cast<std::uint8_t>((static_cast<std::uint64_t>(masked) >> (8U * idx)) & 0xFFU);
+    bool get_a() const {
+        return (value & A_MASK) != 0;
     }
-    return bytes;
-  }
-
-  void from_bytes(const std::vector<std::uint8_t>& bytes) {
-    if (bytes.size() != BYTE_COUNT) {
-      throw std::invalid_argument("byte width mismatch");
+    void set_a(bool v) {
+        if (v)
+            value |= A_MASK;
+        else
+            value &= static_cast<value_type>(~A_MASK);
     }
-    std::uint64_t bits = 0;
-    for (std::size_t idx = 0; idx < BYTE_COUNT; ++idx) {
-      bits = (bits << 8U) | bytes[idx];
+
+    bool get_b() const {
+        return (value & B_MASK) != 0;
     }
-    value = static_cast<value_type>(bits) & 0xE0U;
-  }
+    void set_b(bool v) {
+        if (v)
+            value |= B_MASK;
+        else
+            value &= static_cast<value_type>(~B_MASK);
+    }
 
-  triple_ct clone() const {
-    triple_ct cloned;
-    cloned.value = value;
-    return cloned;
-  }
+    bool get_c() const {
+        return (value & C_MASK) != 0;
+    }
+    void set_c(bool v) {
+        if (v)
+            value |= C_MASK;
+        else
+            value &= static_cast<value_type>(~C_MASK);
+    }
 
-  bool operator==(const triple_ct& other) const {
-    return (value & 0xE0U) == (other.value & 0xE0U);
-  }
+    [[nodiscard]] std::array<uint8_t, BYTE_COUNT> to_bytes() const {
+        std::array<uint8_t, BYTE_COUNT> out{};
+        pack_into(out.data());
+        return out;
+    }
+
+    [[nodiscard]] static Triple from_bytes(std::span<const uint8_t> bytes) {
+        if (bytes.size() != BYTE_COUNT) {
+            throw std::invalid_argument("byte width mismatch");
+        }
+        Triple result;
+        result.unpack_from(bytes.data());
+        return result;
+    }
+
+    void pack_into(uint8_t* dst) const {
+        uint64_t bits = static_cast<uint64_t>(value & DATA_MASK);
+        for (size_t i = 0; i < BYTE_COUNT; ++i) {
+            dst[BYTE_COUNT - 1 - i] = static_cast<uint8_t>((bits >> (8U * i)) & 0xFFU);
+        }
+    }
+
+    void unpack_from(const uint8_t* src) {
+        uint64_t bits = 0;
+        for (size_t i = 0; i < BYTE_COUNT; ++i) {
+            bits = (bits << 8U) | src[i];
+        }
+        value = static_cast<value_type>(bits) & DATA_MASK;
+    }
+
+    bool operator==(const Triple& other) const {
+        return (value & DATA_MASK) == (other.value & DATA_MASK);
+    }
 };
 
-class byte_ct {
- public:
-  static constexpr std::size_t WIDTH = 8;
-  static constexpr std::size_t BYTE_COUNT = 1;
-  using value_type = std::uint8_t;
-  static constexpr value_type F0_MASK = 0x80U;
-  static constexpr value_type F1_MASK = 0x40U;
-  static constexpr value_type F2_MASK = 0x20U;
-  static constexpr value_type F3_MASK = 0x10U;
-  static constexpr value_type F4_MASK = 0x08U;
-  static constexpr value_type F5_MASK = 0x04U;
-  static constexpr value_type F6_MASK = 0x02U;
-  static constexpr value_type F7_MASK = 0x01U;
-  value_type value = 0;
+class Byte {
+public:
+    static constexpr size_t WIDTH         = 8;
+    static constexpr size_t BYTE_COUNT    = 1;
+    using value_type                      = uint8_t;
+    static constexpr value_type DATA_MASK = 0xFFU;
+    static constexpr value_type F0_MASK   = 0x80U;
+    static constexpr value_type F1_MASK   = 0x40U;
+    static constexpr value_type F2_MASK   = 0x20U;
+    static constexpr value_type F3_MASK   = 0x10U;
+    static constexpr value_type F4_MASK   = 0x08U;
+    static constexpr value_type F5_MASK   = 0x04U;
+    static constexpr value_type F6_MASK   = 0x02U;
+    static constexpr value_type F7_MASK   = 0x01U;
 
-  byte_ct() = default;
+    value_type value = 0;
 
-  bool get_f0() const { return (value & F0_MASK) != 0; }
-  void set_f0(bool v) { if (v) value |= F0_MASK; else value &= static_cast<value_type>(~F0_MASK); }
+    Byte() = default;
 
-  bool get_f1() const { return (value & F1_MASK) != 0; }
-  void set_f1(bool v) { if (v) value |= F1_MASK; else value &= static_cast<value_type>(~F1_MASK); }
-
-  bool get_f2() const { return (value & F2_MASK) != 0; }
-  void set_f2(bool v) { if (v) value |= F2_MASK; else value &= static_cast<value_type>(~F2_MASK); }
-
-  bool get_f3() const { return (value & F3_MASK) != 0; }
-  void set_f3(bool v) { if (v) value |= F3_MASK; else value &= static_cast<value_type>(~F3_MASK); }
-
-  bool get_f4() const { return (value & F4_MASK) != 0; }
-  void set_f4(bool v) { if (v) value |= F4_MASK; else value &= static_cast<value_type>(~F4_MASK); }
-
-  bool get_f5() const { return (value & F5_MASK) != 0; }
-  void set_f5(bool v) { if (v) value |= F5_MASK; else value &= static_cast<value_type>(~F5_MASK); }
-
-  bool get_f6() const { return (value & F6_MASK) != 0; }
-  void set_f6(bool v) { if (v) value |= F6_MASK; else value &= static_cast<value_type>(~F6_MASK); }
-
-  bool get_f7() const { return (value & F7_MASK) != 0; }
-  void set_f7(bool v) { if (v) value |= F7_MASK; else value &= static_cast<value_type>(~F7_MASK); }
-
-  std::vector<std::uint8_t> to_bytes() const {
-    std::vector<std::uint8_t> bytes(BYTE_COUNT, 0);
-    value_type masked = value & 0xFFU;
-    for (std::size_t idx = 0; idx < BYTE_COUNT; ++idx) {
-      bytes[BYTE_COUNT - 1 - idx] = static_cast<std::uint8_t>((static_cast<std::uint64_t>(masked) >> (8U * idx)) & 0xFFU);
+    bool get_f0() const {
+        return (value & F0_MASK) != 0;
     }
-    return bytes;
-  }
-
-  void from_bytes(const std::vector<std::uint8_t>& bytes) {
-    if (bytes.size() != BYTE_COUNT) {
-      throw std::invalid_argument("byte width mismatch");
+    void set_f0(bool v) {
+        if (v)
+            value |= F0_MASK;
+        else
+            value &= static_cast<value_type>(~F0_MASK);
     }
-    std::uint64_t bits = 0;
-    for (std::size_t idx = 0; idx < BYTE_COUNT; ++idx) {
-      bits = (bits << 8U) | bytes[idx];
+
+    bool get_f1() const {
+        return (value & F1_MASK) != 0;
     }
-    value = static_cast<value_type>(bits) & 0xFFU;
-  }
+    void set_f1(bool v) {
+        if (v)
+            value |= F1_MASK;
+        else
+            value &= static_cast<value_type>(~F1_MASK);
+    }
 
-  byte_ct clone() const {
-    byte_ct cloned;
-    cloned.value = value;
-    return cloned;
-  }
+    bool get_f2() const {
+        return (value & F2_MASK) != 0;
+    }
+    void set_f2(bool v) {
+        if (v)
+            value |= F2_MASK;
+        else
+            value &= static_cast<value_type>(~F2_MASK);
+    }
 
-  bool operator==(const byte_ct& other) const {
-    return (value & 0xFFU) == (other.value & 0xFFU);
-  }
+    bool get_f3() const {
+        return (value & F3_MASK) != 0;
+    }
+    void set_f3(bool v) {
+        if (v)
+            value |= F3_MASK;
+        else
+            value &= static_cast<value_type>(~F3_MASK);
+    }
+
+    bool get_f4() const {
+        return (value & F4_MASK) != 0;
+    }
+    void set_f4(bool v) {
+        if (v)
+            value |= F4_MASK;
+        else
+            value &= static_cast<value_type>(~F4_MASK);
+    }
+
+    bool get_f5() const {
+        return (value & F5_MASK) != 0;
+    }
+    void set_f5(bool v) {
+        if (v)
+            value |= F5_MASK;
+        else
+            value &= static_cast<value_type>(~F5_MASK);
+    }
+
+    bool get_f6() const {
+        return (value & F6_MASK) != 0;
+    }
+    void set_f6(bool v) {
+        if (v)
+            value |= F6_MASK;
+        else
+            value &= static_cast<value_type>(~F6_MASK);
+    }
+
+    bool get_f7() const {
+        return (value & F7_MASK) != 0;
+    }
+    void set_f7(bool v) {
+        if (v)
+            value |= F7_MASK;
+        else
+            value &= static_cast<value_type>(~F7_MASK);
+    }
+
+    [[nodiscard]] std::array<uint8_t, BYTE_COUNT> to_bytes() const {
+        std::array<uint8_t, BYTE_COUNT> out{};
+        pack_into(out.data());
+        return out;
+    }
+
+    [[nodiscard]] static Byte from_bytes(std::span<const uint8_t> bytes) {
+        if (bytes.size() != BYTE_COUNT) {
+            throw std::invalid_argument("byte width mismatch");
+        }
+        Byte result;
+        result.unpack_from(bytes.data());
+        return result;
+    }
+
+    void pack_into(uint8_t* dst) const {
+        uint64_t bits = static_cast<uint64_t>(value & DATA_MASK);
+        for (size_t i = 0; i < BYTE_COUNT; ++i) {
+            dst[BYTE_COUNT - 1 - i] = static_cast<uint8_t>((bits >> (8U * i)) & 0xFFU);
+        }
+    }
+
+    void unpack_from(const uint8_t* src) {
+        uint64_t bits = 0;
+        for (size_t i = 0; i < BYTE_COUNT; ++i) {
+            bits = (bits << 8U) | src[i];
+        }
+        value = static_cast<value_type>(bits) & DATA_MASK;
+    }
+
+    bool operator==(const Byte& other) const {
+        return (value & DATA_MASK) == (other.value & DATA_MASK);
+    }
 };
 
-class wide_ct {
- public:
-  static constexpr std::size_t WIDTH = 9;
-  static constexpr std::size_t BYTE_COUNT = 2;
-  using value_type = std::uint16_t;
-  static constexpr value_type F0_MASK = 0x8000U;
-  static constexpr value_type F1_MASK = 0x4000U;
-  static constexpr value_type F2_MASK = 0x2000U;
-  static constexpr value_type F3_MASK = 0x1000U;
-  static constexpr value_type F4_MASK = 0x800U;
-  static constexpr value_type F5_MASK = 0x400U;
-  static constexpr value_type F6_MASK = 0x200U;
-  static constexpr value_type F7_MASK = 0x100U;
-  static constexpr value_type F8_MASK = 0x80U;
-  value_type value = 0;
+class Wide {
+public:
+    static constexpr size_t WIDTH         = 9;
+    static constexpr size_t BYTE_COUNT    = 2;
+    using value_type                      = uint16_t;
+    static constexpr value_type DATA_MASK = 0xFF80U;
+    static constexpr value_type F0_MASK   = 0x8000U;
+    static constexpr value_type F1_MASK   = 0x4000U;
+    static constexpr value_type F2_MASK   = 0x2000U;
+    static constexpr value_type F3_MASK   = 0x1000U;
+    static constexpr value_type F4_MASK   = 0x800U;
+    static constexpr value_type F5_MASK   = 0x400U;
+    static constexpr value_type F6_MASK   = 0x200U;
+    static constexpr value_type F7_MASK   = 0x100U;
+    static constexpr value_type F8_MASK   = 0x80U;
 
-  wide_ct() = default;
+    value_type value = 0;
 
-  bool get_f0() const { return (value & F0_MASK) != 0; }
-  void set_f0(bool v) { if (v) value |= F0_MASK; else value &= static_cast<value_type>(~F0_MASK); }
+    Wide() = default;
 
-  bool get_f1() const { return (value & F1_MASK) != 0; }
-  void set_f1(bool v) { if (v) value |= F1_MASK; else value &= static_cast<value_type>(~F1_MASK); }
-
-  bool get_f2() const { return (value & F2_MASK) != 0; }
-  void set_f2(bool v) { if (v) value |= F2_MASK; else value &= static_cast<value_type>(~F2_MASK); }
-
-  bool get_f3() const { return (value & F3_MASK) != 0; }
-  void set_f3(bool v) { if (v) value |= F3_MASK; else value &= static_cast<value_type>(~F3_MASK); }
-
-  bool get_f4() const { return (value & F4_MASK) != 0; }
-  void set_f4(bool v) { if (v) value |= F4_MASK; else value &= static_cast<value_type>(~F4_MASK); }
-
-  bool get_f5() const { return (value & F5_MASK) != 0; }
-  void set_f5(bool v) { if (v) value |= F5_MASK; else value &= static_cast<value_type>(~F5_MASK); }
-
-  bool get_f6() const { return (value & F6_MASK) != 0; }
-  void set_f6(bool v) { if (v) value |= F6_MASK; else value &= static_cast<value_type>(~F6_MASK); }
-
-  bool get_f7() const { return (value & F7_MASK) != 0; }
-  void set_f7(bool v) { if (v) value |= F7_MASK; else value &= static_cast<value_type>(~F7_MASK); }
-
-  bool get_f8() const { return (value & F8_MASK) != 0; }
-  void set_f8(bool v) { if (v) value |= F8_MASK; else value &= static_cast<value_type>(~F8_MASK); }
-
-  std::vector<std::uint8_t> to_bytes() const {
-    std::vector<std::uint8_t> bytes(BYTE_COUNT, 0);
-    value_type masked = value & 0xFF80U;
-    for (std::size_t idx = 0; idx < BYTE_COUNT; ++idx) {
-      bytes[BYTE_COUNT - 1 - idx] = static_cast<std::uint8_t>((static_cast<std::uint64_t>(masked) >> (8U * idx)) & 0xFFU);
+    bool get_f0() const {
+        return (value & F0_MASK) != 0;
     }
-    return bytes;
-  }
-
-  void from_bytes(const std::vector<std::uint8_t>& bytes) {
-    if (bytes.size() != BYTE_COUNT) {
-      throw std::invalid_argument("byte width mismatch");
+    void set_f0(bool v) {
+        if (v)
+            value |= F0_MASK;
+        else
+            value &= static_cast<value_type>(~F0_MASK);
     }
-    std::uint64_t bits = 0;
-    for (std::size_t idx = 0; idx < BYTE_COUNT; ++idx) {
-      bits = (bits << 8U) | bytes[idx];
+
+    bool get_f1() const {
+        return (value & F1_MASK) != 0;
     }
-    value = static_cast<value_type>(bits) & 0xFF80U;
-  }
+    void set_f1(bool v) {
+        if (v)
+            value |= F1_MASK;
+        else
+            value &= static_cast<value_type>(~F1_MASK);
+    }
 
-  wide_ct clone() const {
-    wide_ct cloned;
-    cloned.value = value;
-    return cloned;
-  }
+    bool get_f2() const {
+        return (value & F2_MASK) != 0;
+    }
+    void set_f2(bool v) {
+        if (v)
+            value |= F2_MASK;
+        else
+            value &= static_cast<value_type>(~F2_MASK);
+    }
 
-  bool operator==(const wide_ct& other) const {
-    return (value & 0xFF80U) == (other.value & 0xFF80U);
-  }
+    bool get_f3() const {
+        return (value & F3_MASK) != 0;
+    }
+    void set_f3(bool v) {
+        if (v)
+            value |= F3_MASK;
+        else
+            value &= static_cast<value_type>(~F3_MASK);
+    }
+
+    bool get_f4() const {
+        return (value & F4_MASK) != 0;
+    }
+    void set_f4(bool v) {
+        if (v)
+            value |= F4_MASK;
+        else
+            value &= static_cast<value_type>(~F4_MASK);
+    }
+
+    bool get_f5() const {
+        return (value & F5_MASK) != 0;
+    }
+    void set_f5(bool v) {
+        if (v)
+            value |= F5_MASK;
+        else
+            value &= static_cast<value_type>(~F5_MASK);
+    }
+
+    bool get_f6() const {
+        return (value & F6_MASK) != 0;
+    }
+    void set_f6(bool v) {
+        if (v)
+            value |= F6_MASK;
+        else
+            value &= static_cast<value_type>(~F6_MASK);
+    }
+
+    bool get_f7() const {
+        return (value & F7_MASK) != 0;
+    }
+    void set_f7(bool v) {
+        if (v)
+            value |= F7_MASK;
+        else
+            value &= static_cast<value_type>(~F7_MASK);
+    }
+
+    bool get_f8() const {
+        return (value & F8_MASK) != 0;
+    }
+    void set_f8(bool v) {
+        if (v)
+            value |= F8_MASK;
+        else
+            value &= static_cast<value_type>(~F8_MASK);
+    }
+
+    [[nodiscard]] std::array<uint8_t, BYTE_COUNT> to_bytes() const {
+        std::array<uint8_t, BYTE_COUNT> out{};
+        pack_into(out.data());
+        return out;
+    }
+
+    [[nodiscard]] static Wide from_bytes(std::span<const uint8_t> bytes) {
+        if (bytes.size() != BYTE_COUNT) {
+            throw std::invalid_argument("byte width mismatch");
+        }
+        Wide result;
+        result.unpack_from(bytes.data());
+        return result;
+    }
+
+    void pack_into(uint8_t* dst) const {
+        uint64_t bits = static_cast<uint64_t>(value & DATA_MASK);
+        for (size_t i = 0; i < BYTE_COUNT; ++i) {
+            dst[BYTE_COUNT - 1 - i] = static_cast<uint8_t>((bits >> (8U * i)) & 0xFFU);
+        }
+    }
+
+    void unpack_from(const uint8_t* src) {
+        uint64_t bits = 0;
+        for (size_t i = 0; i < BYTE_COUNT; ++i) {
+            bits = (bits << 8U) | src[i];
+        }
+        value = static_cast<value_type>(bits) & DATA_MASK;
+    }
+
+    bool operator==(const Wide& other) const {
+        return (value & DATA_MASK) == (other.value & DATA_MASK);
+    }
 };
 
-class very_wide_ct {
- public:
-  static constexpr std::size_t WIDTH = 33;
-  static constexpr std::size_t BYTE_COUNT = 5;
-  using value_type = std::uint64_t;
-  static constexpr value_type F0_MASK = 0x8000000000ULL;
-  static constexpr value_type F1_MASK = 0x4000000000ULL;
-  static constexpr value_type F2_MASK = 0x2000000000ULL;
-  static constexpr value_type F3_MASK = 0x1000000000ULL;
-  static constexpr value_type F4_MASK = 0x800000000ULL;
-  static constexpr value_type F5_MASK = 0x400000000ULL;
-  static constexpr value_type F6_MASK = 0x200000000ULL;
-  static constexpr value_type F7_MASK = 0x100000000ULL;
-  static constexpr value_type F8_MASK = 0x80000000ULL;
-  static constexpr value_type F9_MASK = 0x40000000ULL;
-  static constexpr value_type F10_MASK = 0x20000000ULL;
-  static constexpr value_type F11_MASK = 0x10000000ULL;
-  static constexpr value_type F12_MASK = 0x8000000ULL;
-  static constexpr value_type F13_MASK = 0x4000000ULL;
-  static constexpr value_type F14_MASK = 0x2000000ULL;
-  static constexpr value_type F15_MASK = 0x1000000ULL;
-  static constexpr value_type F16_MASK = 0x800000ULL;
-  static constexpr value_type F17_MASK = 0x400000ULL;
-  static constexpr value_type F18_MASK = 0x200000ULL;
-  static constexpr value_type F19_MASK = 0x100000ULL;
-  static constexpr value_type F20_MASK = 0x80000ULL;
-  static constexpr value_type F21_MASK = 0x40000ULL;
-  static constexpr value_type F22_MASK = 0x20000ULL;
-  static constexpr value_type F23_MASK = 0x10000ULL;
-  static constexpr value_type F24_MASK = 0x8000ULL;
-  static constexpr value_type F25_MASK = 0x4000ULL;
-  static constexpr value_type F26_MASK = 0x2000ULL;
-  static constexpr value_type F27_MASK = 0x1000ULL;
-  static constexpr value_type F28_MASK = 0x800ULL;
-  static constexpr value_type F29_MASK = 0x400ULL;
-  static constexpr value_type F30_MASK = 0x200ULL;
-  static constexpr value_type F31_MASK = 0x100ULL;
-  static constexpr value_type F32_MASK = 0x80ULL;
-  value_type value = 0;
+class VeryWide {
+public:
+    static constexpr size_t WIDTH         = 33;
+    static constexpr size_t BYTE_COUNT    = 5;
+    using value_type                      = uint64_t;
+    static constexpr value_type DATA_MASK = 0xFFFFFFFF80ULL;
+    static constexpr value_type F0_MASK   = 0x8000000000ULL;
+    static constexpr value_type F1_MASK   = 0x4000000000ULL;
+    static constexpr value_type F2_MASK   = 0x2000000000ULL;
+    static constexpr value_type F3_MASK   = 0x1000000000ULL;
+    static constexpr value_type F4_MASK   = 0x800000000ULL;
+    static constexpr value_type F5_MASK   = 0x400000000ULL;
+    static constexpr value_type F6_MASK   = 0x200000000ULL;
+    static constexpr value_type F7_MASK   = 0x100000000ULL;
+    static constexpr value_type F8_MASK   = 0x80000000ULL;
+    static constexpr value_type F9_MASK   = 0x40000000ULL;
+    static constexpr value_type F10_MASK  = 0x20000000ULL;
+    static constexpr value_type F11_MASK  = 0x10000000ULL;
+    static constexpr value_type F12_MASK  = 0x8000000ULL;
+    static constexpr value_type F13_MASK  = 0x4000000ULL;
+    static constexpr value_type F14_MASK  = 0x2000000ULL;
+    static constexpr value_type F15_MASK  = 0x1000000ULL;
+    static constexpr value_type F16_MASK  = 0x800000ULL;
+    static constexpr value_type F17_MASK  = 0x400000ULL;
+    static constexpr value_type F18_MASK  = 0x200000ULL;
+    static constexpr value_type F19_MASK  = 0x100000ULL;
+    static constexpr value_type F20_MASK  = 0x80000ULL;
+    static constexpr value_type F21_MASK  = 0x40000ULL;
+    static constexpr value_type F22_MASK  = 0x20000ULL;
+    static constexpr value_type F23_MASK  = 0x10000ULL;
+    static constexpr value_type F24_MASK  = 0x8000ULL;
+    static constexpr value_type F25_MASK  = 0x4000ULL;
+    static constexpr value_type F26_MASK  = 0x2000ULL;
+    static constexpr value_type F27_MASK  = 0x1000ULL;
+    static constexpr value_type F28_MASK  = 0x800ULL;
+    static constexpr value_type F29_MASK  = 0x400ULL;
+    static constexpr value_type F30_MASK  = 0x200ULL;
+    static constexpr value_type F31_MASK  = 0x100ULL;
+    static constexpr value_type F32_MASK  = 0x80ULL;
 
-  very_wide_ct() = default;
+    value_type value = 0;
 
-  bool get_f0() const { return (value & F0_MASK) != 0; }
-  void set_f0(bool v) { if (v) value |= F0_MASK; else value &= static_cast<value_type>(~F0_MASK); }
+    VeryWide() = default;
 
-  bool get_f1() const { return (value & F1_MASK) != 0; }
-  void set_f1(bool v) { if (v) value |= F1_MASK; else value &= static_cast<value_type>(~F1_MASK); }
-
-  bool get_f2() const { return (value & F2_MASK) != 0; }
-  void set_f2(bool v) { if (v) value |= F2_MASK; else value &= static_cast<value_type>(~F2_MASK); }
-
-  bool get_f3() const { return (value & F3_MASK) != 0; }
-  void set_f3(bool v) { if (v) value |= F3_MASK; else value &= static_cast<value_type>(~F3_MASK); }
-
-  bool get_f4() const { return (value & F4_MASK) != 0; }
-  void set_f4(bool v) { if (v) value |= F4_MASK; else value &= static_cast<value_type>(~F4_MASK); }
-
-  bool get_f5() const { return (value & F5_MASK) != 0; }
-  void set_f5(bool v) { if (v) value |= F5_MASK; else value &= static_cast<value_type>(~F5_MASK); }
-
-  bool get_f6() const { return (value & F6_MASK) != 0; }
-  void set_f6(bool v) { if (v) value |= F6_MASK; else value &= static_cast<value_type>(~F6_MASK); }
-
-  bool get_f7() const { return (value & F7_MASK) != 0; }
-  void set_f7(bool v) { if (v) value |= F7_MASK; else value &= static_cast<value_type>(~F7_MASK); }
-
-  bool get_f8() const { return (value & F8_MASK) != 0; }
-  void set_f8(bool v) { if (v) value |= F8_MASK; else value &= static_cast<value_type>(~F8_MASK); }
-
-  bool get_f9() const { return (value & F9_MASK) != 0; }
-  void set_f9(bool v) { if (v) value |= F9_MASK; else value &= static_cast<value_type>(~F9_MASK); }
-
-  bool get_f10() const { return (value & F10_MASK) != 0; }
-  void set_f10(bool v) { if (v) value |= F10_MASK; else value &= static_cast<value_type>(~F10_MASK); }
-
-  bool get_f11() const { return (value & F11_MASK) != 0; }
-  void set_f11(bool v) { if (v) value |= F11_MASK; else value &= static_cast<value_type>(~F11_MASK); }
-
-  bool get_f12() const { return (value & F12_MASK) != 0; }
-  void set_f12(bool v) { if (v) value |= F12_MASK; else value &= static_cast<value_type>(~F12_MASK); }
-
-  bool get_f13() const { return (value & F13_MASK) != 0; }
-  void set_f13(bool v) { if (v) value |= F13_MASK; else value &= static_cast<value_type>(~F13_MASK); }
-
-  bool get_f14() const { return (value & F14_MASK) != 0; }
-  void set_f14(bool v) { if (v) value |= F14_MASK; else value &= static_cast<value_type>(~F14_MASK); }
-
-  bool get_f15() const { return (value & F15_MASK) != 0; }
-  void set_f15(bool v) { if (v) value |= F15_MASK; else value &= static_cast<value_type>(~F15_MASK); }
-
-  bool get_f16() const { return (value & F16_MASK) != 0; }
-  void set_f16(bool v) { if (v) value |= F16_MASK; else value &= static_cast<value_type>(~F16_MASK); }
-
-  bool get_f17() const { return (value & F17_MASK) != 0; }
-  void set_f17(bool v) { if (v) value |= F17_MASK; else value &= static_cast<value_type>(~F17_MASK); }
-
-  bool get_f18() const { return (value & F18_MASK) != 0; }
-  void set_f18(bool v) { if (v) value |= F18_MASK; else value &= static_cast<value_type>(~F18_MASK); }
-
-  bool get_f19() const { return (value & F19_MASK) != 0; }
-  void set_f19(bool v) { if (v) value |= F19_MASK; else value &= static_cast<value_type>(~F19_MASK); }
-
-  bool get_f20() const { return (value & F20_MASK) != 0; }
-  void set_f20(bool v) { if (v) value |= F20_MASK; else value &= static_cast<value_type>(~F20_MASK); }
-
-  bool get_f21() const { return (value & F21_MASK) != 0; }
-  void set_f21(bool v) { if (v) value |= F21_MASK; else value &= static_cast<value_type>(~F21_MASK); }
-
-  bool get_f22() const { return (value & F22_MASK) != 0; }
-  void set_f22(bool v) { if (v) value |= F22_MASK; else value &= static_cast<value_type>(~F22_MASK); }
-
-  bool get_f23() const { return (value & F23_MASK) != 0; }
-  void set_f23(bool v) { if (v) value |= F23_MASK; else value &= static_cast<value_type>(~F23_MASK); }
-
-  bool get_f24() const { return (value & F24_MASK) != 0; }
-  void set_f24(bool v) { if (v) value |= F24_MASK; else value &= static_cast<value_type>(~F24_MASK); }
-
-  bool get_f25() const { return (value & F25_MASK) != 0; }
-  void set_f25(bool v) { if (v) value |= F25_MASK; else value &= static_cast<value_type>(~F25_MASK); }
-
-  bool get_f26() const { return (value & F26_MASK) != 0; }
-  void set_f26(bool v) { if (v) value |= F26_MASK; else value &= static_cast<value_type>(~F26_MASK); }
-
-  bool get_f27() const { return (value & F27_MASK) != 0; }
-  void set_f27(bool v) { if (v) value |= F27_MASK; else value &= static_cast<value_type>(~F27_MASK); }
-
-  bool get_f28() const { return (value & F28_MASK) != 0; }
-  void set_f28(bool v) { if (v) value |= F28_MASK; else value &= static_cast<value_type>(~F28_MASK); }
-
-  bool get_f29() const { return (value & F29_MASK) != 0; }
-  void set_f29(bool v) { if (v) value |= F29_MASK; else value &= static_cast<value_type>(~F29_MASK); }
-
-  bool get_f30() const { return (value & F30_MASK) != 0; }
-  void set_f30(bool v) { if (v) value |= F30_MASK; else value &= static_cast<value_type>(~F30_MASK); }
-
-  bool get_f31() const { return (value & F31_MASK) != 0; }
-  void set_f31(bool v) { if (v) value |= F31_MASK; else value &= static_cast<value_type>(~F31_MASK); }
-
-  bool get_f32() const { return (value & F32_MASK) != 0; }
-  void set_f32(bool v) { if (v) value |= F32_MASK; else value &= static_cast<value_type>(~F32_MASK); }
-
-  std::vector<std::uint8_t> to_bytes() const {
-    std::vector<std::uint8_t> bytes(BYTE_COUNT, 0);
-    value_type masked = value & 0xFFFFFFFF80ULL;
-    for (std::size_t idx = 0; idx < BYTE_COUNT; ++idx) {
-      bytes[BYTE_COUNT - 1 - idx] = static_cast<std::uint8_t>((static_cast<std::uint64_t>(masked) >> (8U * idx)) & 0xFFU);
+    bool get_f0() const {
+        return (value & F0_MASK) != 0;
     }
-    return bytes;
-  }
-
-  void from_bytes(const std::vector<std::uint8_t>& bytes) {
-    if (bytes.size() != BYTE_COUNT) {
-      throw std::invalid_argument("byte width mismatch");
+    void set_f0(bool v) {
+        if (v)
+            value |= F0_MASK;
+        else
+            value &= static_cast<value_type>(~F0_MASK);
     }
-    std::uint64_t bits = 0;
-    for (std::size_t idx = 0; idx < BYTE_COUNT; ++idx) {
-      bits = (bits << 8U) | bytes[idx];
+
+    bool get_f1() const {
+        return (value & F1_MASK) != 0;
     }
-    value = static_cast<value_type>(bits) & 0xFFFFFFFF80ULL;
-  }
+    void set_f1(bool v) {
+        if (v)
+            value |= F1_MASK;
+        else
+            value &= static_cast<value_type>(~F1_MASK);
+    }
 
-  very_wide_ct clone() const {
-    very_wide_ct cloned;
-    cloned.value = value;
-    return cloned;
-  }
+    bool get_f2() const {
+        return (value & F2_MASK) != 0;
+    }
+    void set_f2(bool v) {
+        if (v)
+            value |= F2_MASK;
+        else
+            value &= static_cast<value_type>(~F2_MASK);
+    }
 
-  bool operator==(const very_wide_ct& other) const {
-    return (value & 0xFFFFFFFF80ULL) == (other.value & 0xFFFFFFFF80ULL);
-  }
+    bool get_f3() const {
+        return (value & F3_MASK) != 0;
+    }
+    void set_f3(bool v) {
+        if (v)
+            value |= F3_MASK;
+        else
+            value &= static_cast<value_type>(~F3_MASK);
+    }
+
+    bool get_f4() const {
+        return (value & F4_MASK) != 0;
+    }
+    void set_f4(bool v) {
+        if (v)
+            value |= F4_MASK;
+        else
+            value &= static_cast<value_type>(~F4_MASK);
+    }
+
+    bool get_f5() const {
+        return (value & F5_MASK) != 0;
+    }
+    void set_f5(bool v) {
+        if (v)
+            value |= F5_MASK;
+        else
+            value &= static_cast<value_type>(~F5_MASK);
+    }
+
+    bool get_f6() const {
+        return (value & F6_MASK) != 0;
+    }
+    void set_f6(bool v) {
+        if (v)
+            value |= F6_MASK;
+        else
+            value &= static_cast<value_type>(~F6_MASK);
+    }
+
+    bool get_f7() const {
+        return (value & F7_MASK) != 0;
+    }
+    void set_f7(bool v) {
+        if (v)
+            value |= F7_MASK;
+        else
+            value &= static_cast<value_type>(~F7_MASK);
+    }
+
+    bool get_f8() const {
+        return (value & F8_MASK) != 0;
+    }
+    void set_f8(bool v) {
+        if (v)
+            value |= F8_MASK;
+        else
+            value &= static_cast<value_type>(~F8_MASK);
+    }
+
+    bool get_f9() const {
+        return (value & F9_MASK) != 0;
+    }
+    void set_f9(bool v) {
+        if (v)
+            value |= F9_MASK;
+        else
+            value &= static_cast<value_type>(~F9_MASK);
+    }
+
+    bool get_f10() const {
+        return (value & F10_MASK) != 0;
+    }
+    void set_f10(bool v) {
+        if (v)
+            value |= F10_MASK;
+        else
+            value &= static_cast<value_type>(~F10_MASK);
+    }
+
+    bool get_f11() const {
+        return (value & F11_MASK) != 0;
+    }
+    void set_f11(bool v) {
+        if (v)
+            value |= F11_MASK;
+        else
+            value &= static_cast<value_type>(~F11_MASK);
+    }
+
+    bool get_f12() const {
+        return (value & F12_MASK) != 0;
+    }
+    void set_f12(bool v) {
+        if (v)
+            value |= F12_MASK;
+        else
+            value &= static_cast<value_type>(~F12_MASK);
+    }
+
+    bool get_f13() const {
+        return (value & F13_MASK) != 0;
+    }
+    void set_f13(bool v) {
+        if (v)
+            value |= F13_MASK;
+        else
+            value &= static_cast<value_type>(~F13_MASK);
+    }
+
+    bool get_f14() const {
+        return (value & F14_MASK) != 0;
+    }
+    void set_f14(bool v) {
+        if (v)
+            value |= F14_MASK;
+        else
+            value &= static_cast<value_type>(~F14_MASK);
+    }
+
+    bool get_f15() const {
+        return (value & F15_MASK) != 0;
+    }
+    void set_f15(bool v) {
+        if (v)
+            value |= F15_MASK;
+        else
+            value &= static_cast<value_type>(~F15_MASK);
+    }
+
+    bool get_f16() const {
+        return (value & F16_MASK) != 0;
+    }
+    void set_f16(bool v) {
+        if (v)
+            value |= F16_MASK;
+        else
+            value &= static_cast<value_type>(~F16_MASK);
+    }
+
+    bool get_f17() const {
+        return (value & F17_MASK) != 0;
+    }
+    void set_f17(bool v) {
+        if (v)
+            value |= F17_MASK;
+        else
+            value &= static_cast<value_type>(~F17_MASK);
+    }
+
+    bool get_f18() const {
+        return (value & F18_MASK) != 0;
+    }
+    void set_f18(bool v) {
+        if (v)
+            value |= F18_MASK;
+        else
+            value &= static_cast<value_type>(~F18_MASK);
+    }
+
+    bool get_f19() const {
+        return (value & F19_MASK) != 0;
+    }
+    void set_f19(bool v) {
+        if (v)
+            value |= F19_MASK;
+        else
+            value &= static_cast<value_type>(~F19_MASK);
+    }
+
+    bool get_f20() const {
+        return (value & F20_MASK) != 0;
+    }
+    void set_f20(bool v) {
+        if (v)
+            value |= F20_MASK;
+        else
+            value &= static_cast<value_type>(~F20_MASK);
+    }
+
+    bool get_f21() const {
+        return (value & F21_MASK) != 0;
+    }
+    void set_f21(bool v) {
+        if (v)
+            value |= F21_MASK;
+        else
+            value &= static_cast<value_type>(~F21_MASK);
+    }
+
+    bool get_f22() const {
+        return (value & F22_MASK) != 0;
+    }
+    void set_f22(bool v) {
+        if (v)
+            value |= F22_MASK;
+        else
+            value &= static_cast<value_type>(~F22_MASK);
+    }
+
+    bool get_f23() const {
+        return (value & F23_MASK) != 0;
+    }
+    void set_f23(bool v) {
+        if (v)
+            value |= F23_MASK;
+        else
+            value &= static_cast<value_type>(~F23_MASK);
+    }
+
+    bool get_f24() const {
+        return (value & F24_MASK) != 0;
+    }
+    void set_f24(bool v) {
+        if (v)
+            value |= F24_MASK;
+        else
+            value &= static_cast<value_type>(~F24_MASK);
+    }
+
+    bool get_f25() const {
+        return (value & F25_MASK) != 0;
+    }
+    void set_f25(bool v) {
+        if (v)
+            value |= F25_MASK;
+        else
+            value &= static_cast<value_type>(~F25_MASK);
+    }
+
+    bool get_f26() const {
+        return (value & F26_MASK) != 0;
+    }
+    void set_f26(bool v) {
+        if (v)
+            value |= F26_MASK;
+        else
+            value &= static_cast<value_type>(~F26_MASK);
+    }
+
+    bool get_f27() const {
+        return (value & F27_MASK) != 0;
+    }
+    void set_f27(bool v) {
+        if (v)
+            value |= F27_MASK;
+        else
+            value &= static_cast<value_type>(~F27_MASK);
+    }
+
+    bool get_f28() const {
+        return (value & F28_MASK) != 0;
+    }
+    void set_f28(bool v) {
+        if (v)
+            value |= F28_MASK;
+        else
+            value &= static_cast<value_type>(~F28_MASK);
+    }
+
+    bool get_f29() const {
+        return (value & F29_MASK) != 0;
+    }
+    void set_f29(bool v) {
+        if (v)
+            value |= F29_MASK;
+        else
+            value &= static_cast<value_type>(~F29_MASK);
+    }
+
+    bool get_f30() const {
+        return (value & F30_MASK) != 0;
+    }
+    void set_f30(bool v) {
+        if (v)
+            value |= F30_MASK;
+        else
+            value &= static_cast<value_type>(~F30_MASK);
+    }
+
+    bool get_f31() const {
+        return (value & F31_MASK) != 0;
+    }
+    void set_f31(bool v) {
+        if (v)
+            value |= F31_MASK;
+        else
+            value &= static_cast<value_type>(~F31_MASK);
+    }
+
+    bool get_f32() const {
+        return (value & F32_MASK) != 0;
+    }
+    void set_f32(bool v) {
+        if (v)
+            value |= F32_MASK;
+        else
+            value &= static_cast<value_type>(~F32_MASK);
+    }
+
+    [[nodiscard]] std::array<uint8_t, BYTE_COUNT> to_bytes() const {
+        std::array<uint8_t, BYTE_COUNT> out{};
+        pack_into(out.data());
+        return out;
+    }
+
+    [[nodiscard]] static VeryWide from_bytes(std::span<const uint8_t> bytes) {
+        if (bytes.size() != BYTE_COUNT) {
+            throw std::invalid_argument("byte width mismatch");
+        }
+        VeryWide result;
+        result.unpack_from(bytes.data());
+        return result;
+    }
+
+    void pack_into(uint8_t* dst) const {
+        uint64_t bits = static_cast<uint64_t>(value & DATA_MASK);
+        for (size_t i = 0; i < BYTE_COUNT; ++i) {
+            dst[BYTE_COUNT - 1 - i] = static_cast<uint8_t>((bits >> (8U * i)) & 0xFFU);
+        }
+    }
+
+    void unpack_from(const uint8_t* src) {
+        uint64_t bits = 0;
+        for (size_t i = 0; i < BYTE_COUNT; ++i) {
+            bits = (bits << 8U) | src[i];
+        }
+        value = static_cast<value_type>(bits) & DATA_MASK;
+    }
+
+    bool operator==(const VeryWide& other) const {
+        return (value & DATA_MASK) == (other.value & DATA_MASK);
+    }
 };
 
 }  // namespace alpha::types
-
-#endif  // ALPHA_PIKETYPE_TYPES_TYPES_HPP

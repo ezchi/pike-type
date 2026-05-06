@@ -2,79 +2,57 @@
 // Source: alpha/piketype/bar.py
 // Do not edit by hand.
 
-#ifndef ALPHA_PIKETYPE_BAR_TYPES_HPP
-#define ALPHA_PIKETYPE_BAR_TYPES_HPP
+#pragma once
 
 #include <cstdint>
+#include <array>
 #include <cstddef>
+#include <cstring>
+#include <span>
 #include <stdexcept>
-#include <vector>
 #include "alpha/piketype/foo_types.hpp"
 
 namespace alpha::bar {
 
-class bar_ct {
- public:
-  static constexpr std::size_t WIDTH = 24;
-  static constexpr std::size_t BYTE_COUNT = 4;
-  ::alpha::foo::byte_ct a{};
-  ::alpha::foo::byte_ct b{};
-  ::alpha::foo::byte_ct c{};
+class Bar {
+public:
+    static constexpr size_t WIDTH      = 24;
+    static constexpr size_t BYTE_COUNT = 4;
+    foo::Byte               a{};
+    foo::Byte               b{};
+    foo::Byte               c{};
 
-  bar_ct() = default;
+    Bar() = default;
 
-  std::vector<std::uint8_t> to_bytes() const {
-    std::vector<std::uint8_t> bytes;
-    bytes.reserve(BYTE_COUNT);
-    {
-      auto field_bytes = a.to_bytes();
-      bytes.insert(bytes.end(), field_bytes.begin(), field_bytes.end());
+    [[nodiscard]] std::array<uint8_t, BYTE_COUNT> to_bytes() const {
+        std::array<uint8_t, BYTE_COUNT> out{};
+        pack_into(out.data());
+        return out;
     }
-    {
-      auto field_bytes = b.to_bytes();
-      bytes.insert(bytes.end(), field_bytes.begin(), field_bytes.end());
-    }
-    {
-      auto field_bytes = c.to_bytes();
-      bytes.insert(bytes.end(), field_bytes.begin(), field_bytes.end());
-    }
-    for (std::size_t i = 0; i < 1; ++i) bytes.push_back(0);
-    return bytes;
-  }
 
-  void from_bytes(const std::vector<std::uint8_t>& bytes) {
-    if (bytes.size() != BYTE_COUNT) {
-      throw std::invalid_argument("byte width mismatch");
+    [[nodiscard]] static Bar from_bytes(std::span<const uint8_t> bytes) {
+        if (bytes.size() != BYTE_COUNT) {
+            throw std::invalid_argument("byte width mismatch");
+        }
+        Bar result;
+        result.unpack_from(bytes.data());
+        return result;
     }
-    std::size_t offset = 0;
-    {
-      std::vector<std::uint8_t> field_bytes(bytes.begin() + static_cast<std::ptrdiff_t>(offset), bytes.begin() + static_cast<std::ptrdiff_t>(offset + 1));
-      a.from_bytes(field_bytes);
-      offset += 1;
-    }
-    {
-      std::vector<std::uint8_t> field_bytes(bytes.begin() + static_cast<std::ptrdiff_t>(offset), bytes.begin() + static_cast<std::ptrdiff_t>(offset + 1));
-      b.from_bytes(field_bytes);
-      offset += 1;
-    }
-    {
-      std::vector<std::uint8_t> field_bytes(bytes.begin() + static_cast<std::ptrdiff_t>(offset), bytes.begin() + static_cast<std::ptrdiff_t>(offset + 1));
-      c.from_bytes(field_bytes);
-      offset += 1;
-    }
-  }
 
-  bar_ct clone() const {
-    bar_ct cloned;
-    cloned.a = a.clone();
-    cloned.b = b.clone();
-    cloned.c = c.clone();
-    return cloned;
-  }
+    void pack_into(uint8_t* dst) const {
+        a.pack_into(dst + 0);
+        b.pack_into(dst + 1);
+        c.pack_into(dst + 2);
+        std::memset(dst + 3, 0, 1);
+    }
 
-  bool operator==(const bar_ct& other) const = default;
+    void unpack_from(const uint8_t* src) {
+        a.unpack_from(src + 0);
+        b.unpack_from(src + 1);
+        c.unpack_from(src + 2);
+    }
+
+    bool operator==(const Bar& other) const = default;
 };
 
 }  // namespace alpha::bar
-
-#endif  // ALPHA_PIKETYPE_BAR_TYPES_HPP

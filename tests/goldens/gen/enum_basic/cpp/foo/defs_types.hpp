@@ -2,230 +2,261 @@
 // Source: foo/piketype/defs.py
 // Do not edit by hand.
 
-#ifndef FOO_PIKETYPE_DEFS_TYPES_HPP
-#define FOO_PIKETYPE_DEFS_TYPES_HPP
+#pragma once
 
 #include <cstdint>
+#include <array>
 #include <cstddef>
+#include <cstring>
+#include <span>
 #include <stdexcept>
-#include <vector>
 
 namespace foo::defs {
 
-enum class color_enum_t : std::uint8_t {RED = 0U, GREEN = 5U, BLUE = 10U};
+enum class color_enum_t : uint8_t { RED = 0U, GREEN = 5U, BLUE = 10U };
 
-class color_ct {
- public:
-  static constexpr std::size_t WIDTH = 4;
-  static constexpr std::size_t BYTE_COUNT = 1;
-  using enum_type = color_enum_t;
-  enum_type value;
+class Color {
+public:
+    static constexpr size_t WIDTH      = 4;
+    static constexpr size_t BYTE_COUNT = 1;
+    using enum_type                    = color_enum_t;
+    static constexpr uint64_t MASK     = 15U;
 
-  color_ct() : value(color_enum_t::RED) {}
-  explicit color_ct(enum_type value_in) : value(validate_value(value_in)) {}
+    enum_type value;
 
-  std::vector<std::uint8_t> to_bytes() const {
-    std::vector<std::uint8_t> bytes(1, 0);
-    std::uint64_t bits = static_cast<std::uint64_t>(value);
-    for (std::size_t idx = 0; idx < 1; ++idx) {
-      bytes[1 - 1 - idx] = static_cast<std::uint8_t>((bits >> (8U * idx)) & 0xFFU);
+    Color()
+        : value(color_enum_t::RED) {}
+    explicit Color(enum_type value_in)
+        : value(validate_value(value_in)) {}
+
+    [[nodiscard]] std::array<uint8_t, BYTE_COUNT> to_bytes() const {
+        std::array<uint8_t, BYTE_COUNT> out{};
+        pack_into(out.data());
+        return out;
     }
-    return bytes;
-  }
 
-  void from_bytes(const std::vector<std::uint8_t>& bytes) {
-    if (bytes.size() != 1) {
-      throw std::invalid_argument("byte width mismatch");
+    [[nodiscard]] static Color from_bytes(std::span<const uint8_t> bytes) {
+        if (bytes.size() != BYTE_COUNT) {
+            throw std::invalid_argument("byte width mismatch");
+        }
+        Color result;
+        result.unpack_from(bytes.data());
+        return result;
     }
-    std::uint64_t bits = 0;
-    for (std::size_t idx = 0; idx < 1; ++idx) {
-      bits = (bits << 8U) | bytes[idx];
+
+    void pack_into(uint8_t* dst) const {
+        uint64_t bits = static_cast<uint64_t>(value);
+        for (size_t i = 0; i < BYTE_COUNT; ++i) {
+            dst[BYTE_COUNT - 1 - i] = static_cast<uint8_t>((bits >> (8U * i)) & 0xFFU);
+        }
     }
-    value = validate_value(static_cast<enum_type>(bits & 15U));
-  }
 
-  color_ct clone() const {
-    return color_ct(value);
-  }
-
-  operator enum_type() const {
-    return value;
-  }
-
-  bool operator==(const color_ct& other) const = default;
-
- private:
-  static enum_type validate_value(enum_type v) {
-    switch (v) {
-      case color_enum_t::RED: return v;
-      case color_enum_t::GREEN: return v;
-      case color_enum_t::BLUE: return v;
-      default:
-        throw std::invalid_argument("unknown enum value");
+    void unpack_from(const uint8_t* src) {
+        uint64_t bits = 0;
+        for (size_t i = 0; i < BYTE_COUNT; ++i) {
+            bits = (bits << 8U) | src[i];
+        }
+        value = validate_value(static_cast<enum_type>(bits & MASK));
     }
-  }
+
+    operator enum_type() const {
+        return value;
+    }
+    bool operator==(const Color& other) const = default;
+
+private:
+    static enum_type validate_value(enum_type v) {
+        switch (v) {
+            case color_enum_t::RED: return v;
+            case color_enum_t::GREEN: return v;
+            case color_enum_t::BLUE: return v;
+            default: throw std::invalid_argument("unknown enum value");
+        }
+    }
 };
 
-enum class cmd_enum_t : std::uint8_t {NOP = 0U, READ = 5U, WRITE = 6U, RESET = 7U};
+enum class cmd_enum_t : uint8_t { NOP = 0U, READ = 5U, WRITE = 6U, RESET = 7U };
 
-class cmd_ct {
- public:
-  static constexpr std::size_t WIDTH = 8;
-  static constexpr std::size_t BYTE_COUNT = 1;
-  using enum_type = cmd_enum_t;
-  enum_type value;
+class Cmd {
+public:
+    static constexpr size_t WIDTH      = 8;
+    static constexpr size_t BYTE_COUNT = 1;
+    using enum_type                    = cmd_enum_t;
+    static constexpr uint64_t MASK     = 255U;
 
-  cmd_ct() : value(cmd_enum_t::NOP) {}
-  explicit cmd_ct(enum_type value_in) : value(validate_value(value_in)) {}
+    enum_type value;
 
-  std::vector<std::uint8_t> to_bytes() const {
-    std::vector<std::uint8_t> bytes(1, 0);
-    std::uint64_t bits = static_cast<std::uint64_t>(value);
-    for (std::size_t idx = 0; idx < 1; ++idx) {
-      bytes[1 - 1 - idx] = static_cast<std::uint8_t>((bits >> (8U * idx)) & 0xFFU);
+    Cmd()
+        : value(cmd_enum_t::NOP) {}
+    explicit Cmd(enum_type value_in)
+        : value(validate_value(value_in)) {}
+
+    [[nodiscard]] std::array<uint8_t, BYTE_COUNT> to_bytes() const {
+        std::array<uint8_t, BYTE_COUNT> out{};
+        pack_into(out.data());
+        return out;
     }
-    return bytes;
-  }
 
-  void from_bytes(const std::vector<std::uint8_t>& bytes) {
-    if (bytes.size() != 1) {
-      throw std::invalid_argument("byte width mismatch");
+    [[nodiscard]] static Cmd from_bytes(std::span<const uint8_t> bytes) {
+        if (bytes.size() != BYTE_COUNT) {
+            throw std::invalid_argument("byte width mismatch");
+        }
+        Cmd result;
+        result.unpack_from(bytes.data());
+        return result;
     }
-    std::uint64_t bits = 0;
-    for (std::size_t idx = 0; idx < 1; ++idx) {
-      bits = (bits << 8U) | bytes[idx];
+
+    void pack_into(uint8_t* dst) const {
+        uint64_t bits = static_cast<uint64_t>(value);
+        for (size_t i = 0; i < BYTE_COUNT; ++i) {
+            dst[BYTE_COUNT - 1 - i] = static_cast<uint8_t>((bits >> (8U * i)) & 0xFFU);
+        }
     }
-    value = validate_value(static_cast<enum_type>(bits & 255U));
-  }
 
-  cmd_ct clone() const {
-    return cmd_ct(value);
-  }
-
-  operator enum_type() const {
-    return value;
-  }
-
-  bool operator==(const cmd_ct& other) const = default;
-
- private:
-  static enum_type validate_value(enum_type v) {
-    switch (v) {
-      case cmd_enum_t::NOP: return v;
-      case cmd_enum_t::READ: return v;
-      case cmd_enum_t::WRITE: return v;
-      case cmd_enum_t::RESET: return v;
-      default:
-        throw std::invalid_argument("unknown enum value");
+    void unpack_from(const uint8_t* src) {
+        uint64_t bits = 0;
+        for (size_t i = 0; i < BYTE_COUNT; ++i) {
+            bits = (bits << 8U) | src[i];
+        }
+        value = validate_value(static_cast<enum_type>(bits & MASK));
     }
-  }
+
+    operator enum_type() const {
+        return value;
+    }
+    bool operator==(const Cmd& other) const = default;
+
+private:
+    static enum_type validate_value(enum_type v) {
+        switch (v) {
+            case cmd_enum_t::NOP: return v;
+            case cmd_enum_t::READ: return v;
+            case cmd_enum_t::WRITE: return v;
+            case cmd_enum_t::RESET: return v;
+            default: throw std::invalid_argument("unknown enum value");
+        }
+    }
 };
 
-enum class flag_enum_t : std::uint8_t {SET = 0U};
+enum class flag_enum_t : uint8_t { SET = 0U };
 
-class flag_ct {
- public:
-  static constexpr std::size_t WIDTH = 1;
-  static constexpr std::size_t BYTE_COUNT = 1;
-  using enum_type = flag_enum_t;
-  enum_type value;
+class Flag {
+public:
+    static constexpr size_t WIDTH      = 1;
+    static constexpr size_t BYTE_COUNT = 1;
+    using enum_type                    = flag_enum_t;
+    static constexpr uint64_t MASK     = 1U;
 
-  flag_ct() : value(flag_enum_t::SET) {}
-  explicit flag_ct(enum_type value_in) : value(validate_value(value_in)) {}
+    enum_type value;
 
-  std::vector<std::uint8_t> to_bytes() const {
-    std::vector<std::uint8_t> bytes(1, 0);
-    std::uint64_t bits = static_cast<std::uint64_t>(value);
-    for (std::size_t idx = 0; idx < 1; ++idx) {
-      bytes[1 - 1 - idx] = static_cast<std::uint8_t>((bits >> (8U * idx)) & 0xFFU);
+    Flag()
+        : value(flag_enum_t::SET) {}
+    explicit Flag(enum_type value_in)
+        : value(validate_value(value_in)) {}
+
+    [[nodiscard]] std::array<uint8_t, BYTE_COUNT> to_bytes() const {
+        std::array<uint8_t, BYTE_COUNT> out{};
+        pack_into(out.data());
+        return out;
     }
-    return bytes;
-  }
 
-  void from_bytes(const std::vector<std::uint8_t>& bytes) {
-    if (bytes.size() != 1) {
-      throw std::invalid_argument("byte width mismatch");
+    [[nodiscard]] static Flag from_bytes(std::span<const uint8_t> bytes) {
+        if (bytes.size() != BYTE_COUNT) {
+            throw std::invalid_argument("byte width mismatch");
+        }
+        Flag result;
+        result.unpack_from(bytes.data());
+        return result;
     }
-    std::uint64_t bits = 0;
-    for (std::size_t idx = 0; idx < 1; ++idx) {
-      bits = (bits << 8U) | bytes[idx];
+
+    void pack_into(uint8_t* dst) const {
+        uint64_t bits = static_cast<uint64_t>(value);
+        for (size_t i = 0; i < BYTE_COUNT; ++i) {
+            dst[BYTE_COUNT - 1 - i] = static_cast<uint8_t>((bits >> (8U * i)) & 0xFFU);
+        }
     }
-    value = validate_value(static_cast<enum_type>(bits & 1U));
-  }
 
-  flag_ct clone() const {
-    return flag_ct(value);
-  }
-
-  operator enum_type() const {
-    return value;
-  }
-
-  bool operator==(const flag_ct& other) const = default;
-
- private:
-  static enum_type validate_value(enum_type v) {
-    switch (v) {
-      case flag_enum_t::SET: return v;
-      default:
-        throw std::invalid_argument("unknown enum value");
+    void unpack_from(const uint8_t* src) {
+        uint64_t bits = 0;
+        for (size_t i = 0; i < BYTE_COUNT; ++i) {
+            bits = (bits << 8U) | src[i];
+        }
+        value = validate_value(static_cast<enum_type>(bits & MASK));
     }
-  }
+
+    operator enum_type() const {
+        return value;
+    }
+    bool operator==(const Flag& other) const = default;
+
+private:
+    static enum_type validate_value(enum_type v) {
+        switch (v) {
+            case flag_enum_t::SET: return v;
+            default: throw std::invalid_argument("unknown enum value");
+        }
+    }
 };
 
-enum class big_enum_t : std::uint64_t {SMALL = 0U, LARGE = 9223372036854775808ULL};
+enum class big_enum_t : uint64_t { SMALL = 0U, LARGE = 9223372036854775808ULL };
 
-class big_ct {
- public:
-  static constexpr std::size_t WIDTH = 64;
-  static constexpr std::size_t BYTE_COUNT = 8;
-  using enum_type = big_enum_t;
-  enum_type value;
+class Big {
+public:
+    static constexpr size_t WIDTH      = 64;
+    static constexpr size_t BYTE_COUNT = 8;
+    using enum_type                    = big_enum_t;
+    static constexpr uint64_t MASK     = 18446744073709551615ULL;
 
-  big_ct() : value(big_enum_t::SMALL) {}
-  explicit big_ct(enum_type value_in) : value(validate_value(value_in)) {}
+    enum_type value;
 
-  std::vector<std::uint8_t> to_bytes() const {
-    std::vector<std::uint8_t> bytes(8, 0);
-    std::uint64_t bits = static_cast<std::uint64_t>(value);
-    for (std::size_t idx = 0; idx < 8; ++idx) {
-      bytes[8 - 1 - idx] = static_cast<std::uint8_t>((bits >> (8U * idx)) & 0xFFU);
+    Big()
+        : value(big_enum_t::SMALL) {}
+    explicit Big(enum_type value_in)
+        : value(validate_value(value_in)) {}
+
+    [[nodiscard]] std::array<uint8_t, BYTE_COUNT> to_bytes() const {
+        std::array<uint8_t, BYTE_COUNT> out{};
+        pack_into(out.data());
+        return out;
     }
-    return bytes;
-  }
 
-  void from_bytes(const std::vector<std::uint8_t>& bytes) {
-    if (bytes.size() != 8) {
-      throw std::invalid_argument("byte width mismatch");
+    [[nodiscard]] static Big from_bytes(std::span<const uint8_t> bytes) {
+        if (bytes.size() != BYTE_COUNT) {
+            throw std::invalid_argument("byte width mismatch");
+        }
+        Big result;
+        result.unpack_from(bytes.data());
+        return result;
     }
-    std::uint64_t bits = 0;
-    for (std::size_t idx = 0; idx < 8; ++idx) {
-      bits = (bits << 8U) | bytes[idx];
+
+    void pack_into(uint8_t* dst) const {
+        uint64_t bits = static_cast<uint64_t>(value);
+        for (size_t i = 0; i < BYTE_COUNT; ++i) {
+            dst[BYTE_COUNT - 1 - i] = static_cast<uint8_t>((bits >> (8U * i)) & 0xFFU);
+        }
     }
-    value = validate_value(static_cast<enum_type>(bits & 18446744073709551615ULL));
-  }
 
-  big_ct clone() const {
-    return big_ct(value);
-  }
-
-  operator enum_type() const {
-    return value;
-  }
-
-  bool operator==(const big_ct& other) const = default;
-
- private:
-  static enum_type validate_value(enum_type v) {
-    switch (v) {
-      case big_enum_t::SMALL: return v;
-      case big_enum_t::LARGE: return v;
-      default:
-        throw std::invalid_argument("unknown enum value");
+    void unpack_from(const uint8_t* src) {
+        uint64_t bits = 0;
+        for (size_t i = 0; i < BYTE_COUNT; ++i) {
+            bits = (bits << 8U) | src[i];
+        }
+        value = validate_value(static_cast<enum_type>(bits & MASK));
     }
-  }
+
+    operator enum_type() const {
+        return value;
+    }
+    bool operator==(const Big& other) const = default;
+
+private:
+    static enum_type validate_value(enum_type v) {
+        switch (v) {
+            case big_enum_t::SMALL: return v;
+            case big_enum_t::LARGE: return v;
+            default: throw std::invalid_argument("unknown enum value");
+        }
+    }
 };
 
 }  // namespace foo::defs
-
-#endif  // FOO_PIKETYPE_DEFS_TYPES_HPP

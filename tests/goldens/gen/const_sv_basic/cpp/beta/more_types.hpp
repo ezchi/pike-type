@@ -2,15 +2,12 @@
 // Source: beta/piketype/more.py
 // Do not edit by hand.
 
-#ifndef BETA_PIKETYPE_MORE_TYPES_HPP
-#define BETA_PIKETYPE_MORE_TYPES_HPP
+#pragma once
 
 #include <cstdint>
 
 namespace beta::more {
 
-constexpr std::int32_t BAZ = 7;
+constexpr int32_t BAZ = 7;
 
 }  // namespace beta::more
-
-#endif  // BETA_PIKETYPE_MORE_TYPES_HPP

@@ -60,10 +60,15 @@ def emit_cpp(repo: RepoIR, *, config: Config, namespace: str | None = None) -> l
     return written_paths
 
 
-def _format_with_clang_format(paths: list[Path]) -> None:
-    """Run clang-format -i on each generated file using the repo's .clang-format.
+_CLANG_FORMAT_STYLE_PATH = Path(__file__).resolve().parent / "clang_format.yaml"
 
-    No-op (with a warning) if clang-format is not on PATH.
+
+def _format_with_clang_format(paths: list[Path]) -> None:
+    """Run clang-format -i on each generated file using the bundled style.
+
+    The style is bundled with the package so output is consistent
+    regardless of the gen invocation cwd. No-op (with a warning) if
+    clang-format is not on PATH.
     """
     if not paths:
         return
@@ -74,7 +79,8 @@ def _format_with_clang_format(paths: list[Path]) -> None:
             file=sys.stderr,
         )
         return
+    style_arg = f"--style=file:{_CLANG_FORMAT_STYLE_PATH}"
     subprocess.run(
-        [binary, "-i", "--style=file", *(str(p) for p in paths)],
+        [binary, "-i", style_arg, *(str(p) for p in paths)],
         check=False,
     )
