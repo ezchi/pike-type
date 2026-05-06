@@ -16,14 +16,14 @@ class ConstRangeTest:
     """Lock down supported constant boundaries."""
 
     def test_cpp_const_boundaries(self) -> None:
-        assert _render_cpp_const(value=-(2**31), signed=True, width=32) == ("std::int32_t", str(-(2**31)))
-        assert _render_cpp_const(value=2**31 - 1, signed=True, width=32) == ("std::int32_t", str(2**31 - 1))
-        assert _render_cpp_const(value=2**31, signed=False, width=32) == ("std::uint32_t", f"{2**31}U")
-        assert _render_cpp_const(value=2**32 - 1, signed=False, width=32) == ("std::uint32_t", f"{2**32 - 1}U")
-        assert _render_cpp_const(value=-(2**63), signed=True, width=64) == ("std::int64_t", f"-{2**63}LL")
-        assert _render_cpp_const(value=2**63 - 1, signed=True, width=64) == ("std::int64_t", f"{2**63 - 1}LL")
-        assert _render_cpp_const(value=2**63, signed=False, width=64) == ("std::uint64_t", f"{2**63}ULL")
-        assert _render_cpp_const(value=2**64 - 1, signed=False, width=64) == ("std::uint64_t", f"{2**64 - 1}ULL")
+        assert _render_cpp_const(value=-(2**31), signed=True, width=32) == ("int32_t", str(-(2**31)))
+        assert _render_cpp_const(value=2**31 - 1, signed=True, width=32) == ("int32_t", str(2**31 - 1))
+        assert _render_cpp_const(value=2**31, signed=False, width=32) == ("uint32_t", f"{2**31}U")
+        assert _render_cpp_const(value=2**32 - 1, signed=False, width=32) == ("uint32_t", f"{2**32 - 1}U")
+        assert _render_cpp_const(value=-(2**63), signed=True, width=64) == ("int64_t", f"-{2**63}LL")
+        assert _render_cpp_const(value=2**63 - 1, signed=True, width=64) == ("int64_t", f"{2**63 - 1}LL")
+        assert _render_cpp_const(value=2**63, signed=False, width=64) == ("uint64_t", f"{2**63}ULL")
+        assert _render_cpp_const(value=2**64 - 1, signed=False, width=64) == ("uint64_t", f"{2**64 - 1}ULL")
 
     def test_sv_const_boundaries(self) -> None:
         assert _render_sv_const(value=-(2**31), signed=True, width=32) == ("int", f"-32'sd{2**31}")

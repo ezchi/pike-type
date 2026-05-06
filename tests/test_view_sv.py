@@ -6,7 +6,9 @@ from pathlib import Path
 
 from piketype import __version__
 from piketype.backends.sv.view import (
+    SvScalarAliasView,
     SvSynthModuleView,
+    SvSynthStructView,
     SvTestModuleView,
     build_synth_module_view_sv,
     build_test_module_view_sv,
@@ -19,7 +21,16 @@ from piketype.dsl.freeze import (
     freeze_module,
     freeze_repo,
 )
-from piketype.ir.nodes import ModuleIR
+from piketype.ir.nodes import (
+    IntLiteralExprIR,
+    ModuleIR,
+    ModuleRefIR,
+    ScalarAliasIR,
+    SourceSpanIR,
+    StructFieldIR,
+    StructIR,
+    TypeRefIR,
+)
 from piketype.loader.python_loader import load_or_get_module, prepare_run
 
 _FIXTURES = Path(__file__).resolve().parent / "fixtures"
@@ -65,6 +76,54 @@ class SynthViewTests:
         view = build_synth_module_view_sv(module=module)
         for t in view.types:
             assert t.kind in {"scalar_alias", "struct", "enum", "flags"}
+
+    def test_capwords_type_names_render_as_sv_typedefs(self) -> None:
+        source = SourceSpanIR(path="types.py", line=1, column=None)
+        ref = ModuleRefIR(
+            repo_relative_path="alpha/piketype/types.py",
+            python_module_name="alpha.piketype.types",
+            namespace_parts=("alpha", "piketype", "types"),
+            basename="types",
+        )
+        width_expr = IntLiteralExprIR(value=8, source=source)
+        addr = ScalarAliasIR(
+            name="Addr",
+            source=source,
+            state_kind="logic",
+            signed=False,
+            width_expr=width_expr,
+            resolved_width=8,
+        )
+        packet = StructIR(
+            name="PacketHeader",
+            source=source,
+            fields=(
+                StructFieldIR(
+                    name="addr",
+                    source=source,
+                    type_ir=TypeRefIR(module=ref, name="Addr", source=source),
+                    rand=True,
+                ),
+            ),
+        )
+        module = ModuleIR(
+            ref=ref,
+            source=source,
+            constants=(),
+            types=(addr, packet),
+            dependencies=(),
+        )
+        repo_type_index = {(ref.python_module_name, t.name): t for t in module.types}
+
+        view = build_synth_module_view_sv(module=module, repo_type_index=repo_type_index)
+
+        scalar_view = view.types[0]
+        struct_view = view.types[1]
+        assert isinstance(scalar_view, SvScalarAliasView)
+        assert isinstance(struct_view, SvSynthStructView)
+        assert scalar_view.name == "addr_t"
+        assert struct_view.name == "packet_header_t"
+        assert struct_view.fields[0].field_type_text == "addr_t"
 
 
 class TestPackageViewTests:

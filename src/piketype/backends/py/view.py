@@ -39,6 +39,7 @@ from piketype.ir.nodes import (
     VecConstIR,
     byte_count,
 )
+from piketype.names import py_enum_class_name, py_type_class_name
 
 
 # ---------------------------------------------------------------------------
@@ -189,9 +190,7 @@ class ModuleView:
 
 def _type_class_name(type_name: str) -> str:
     """Convert a generated type name to its software wrapper class name."""
-    if type_name.endswith("_t"):
-        return f"{type_name[:-2]}_ct"
-    return f"{type_name}_ct"
+    return py_type_class_name(type_name)
 
 
 def _py_types_module_path(*, source_module: ModuleRefIR, target_module: ModuleRefIR) -> str:
@@ -371,7 +370,6 @@ def build_scalar_alias_view(*, type_ir: ScalarAliasIR) -> ScalarAliasView:
 
 
 def build_enum_view(*, type_ir: EnumIR) -> EnumView:
-    base = type_ir.name[:-2] if type_ir.name.endswith("_t") else type_ir.name
     members = tuple(
         EnumMemberView(name=v.name, resolved_value_expr=str(v.resolved_value))
         for v in type_ir.values
@@ -380,7 +378,7 @@ def build_enum_view(*, type_ir: EnumIR) -> EnumView:
     return EnumView(
         kind="enum",
         class_name=_type_class_name(type_ir.name),
-        enum_class_name=f"{base}_enum_t",
+        enum_class_name=py_enum_class_name(type_ir.name),
         width=width,
         byte_count=byte_count(width),
         mask=(1 << width) - 1,

@@ -2,67 +2,69 @@
 // Source: dir3/piketype/d.py
 // Do not edit by hand.
 
-#ifndef DIR3_PIKETYPE_D_TYPES_HPP
-#define DIR3_PIKETYPE_D_TYPES_HPP
+#pragma once
 
 #include <cstdint>
+#include <array>
 #include <cstddef>
+#include <cstring>
+#include <span>
 #include <stdexcept>
-#include <vector>
 
 namespace dir3::d {
 
-class d_ct {
- public:
-  static constexpr std::size_t WIDTH = 5;
-  static constexpr bool SIGNED = false;
-  static constexpr std::size_t BYTE_COUNT = 1;
-  using value_type = std::uint8_t;
-  value_type value;
-  static constexpr std::uint64_t MASK = 31U;
-  static constexpr value_type MAX_VALUE = static_cast<value_type>(31U);
-  d_ct() : value(0) {}
-  d_ct(value_type value_in) : value(validate_value(value_in)) {}
+class D {
+public:
+    static constexpr size_t WIDTH         = 5;
+    static constexpr bool   SIGNED        = false;
+    static constexpr size_t BYTE_COUNT    = 1;
+    using value_type                      = uint8_t;
+    static constexpr uint64_t   MASK      = 31U;
+    static constexpr value_type MAX_VALUE = static_cast<value_type>(31U);
 
-  std::vector<std::uint8_t> to_bytes() const {
-    std::vector<std::uint8_t> bytes(BYTE_COUNT, 0);
-    std::uint64_t bits = static_cast<std::uint64_t>(value);
-    for (std::size_t idx = 0; idx < BYTE_COUNT; ++idx) {
-      bytes[BYTE_COUNT - 1 - idx] = static_cast<std::uint8_t>((bits >> (8U * idx)) & 0xFFU);
+    value_type value;
+
+    D()
+        : value(0) {}
+    D(value_type value_in)
+        : value(validate_value(value_in)) {}
+
+    [[nodiscard]] std::array<uint8_t, BYTE_COUNT> to_bytes() const {
+        std::array<uint8_t, BYTE_COUNT> out{};
+        pack_into(out.data());
+        return out;
     }
-    return bytes;
-  }
 
-  void from_bytes(const std::vector<std::uint8_t>& bytes) {
-    if (bytes.size() != BYTE_COUNT) {
-      throw std::invalid_argument("byte width mismatch");
+    [[nodiscard]] static D from_bytes(std::span<const uint8_t> bytes) {
+        if (bytes.size() != BYTE_COUNT) {
+            throw std::invalid_argument("byte width mismatch");
+        }
+        D result;
+        result.unpack_from(bytes.data());
+        return result;
     }
-    std::uint64_t bits = 0;
-    for (std::size_t idx = 0; idx < BYTE_COUNT; ++idx) {
-      bits = (bits << 8U) | bytes[idx];
+
+    void pack_into(uint8_t* dst) const {
+        dst[0] = value;
     }
-    value = validate_value(static_cast<value_type>(bits & MASK));
-  }
 
-  d_ct clone() const {
-    return d_ct(value);
-  }
-
-  operator value_type() const {
-    return value;
-  }
-
-  bool operator==(const d_ct& other) const = default;
-
- private:
-  static value_type validate_value(value_type value_in) {
-    if (value_in > MAX_VALUE) {
-      throw std::out_of_range("value out of range");
+    void unpack_from(const uint8_t* src) {
+        uint64_t bits = src[0];
+        value         = validate_value(static_cast<value_type>(bits & MASK));
     }
-    return value_in;
-  }
+
+    operator value_type() const {
+        return value;
+    }
+    bool operator==(const D& other) const = default;
+
+private:
+    static value_type validate_value(value_type value_in) {
+        if (value_in > MAX_VALUE) {
+            throw std::out_of_range("value out of range");
+        }
+        return value_in;
+    }
 };
 
 }  // namespace dir3::d
-
-#endif  // DIR3_PIKETYPE_D_TYPES_HPP

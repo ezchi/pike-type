@@ -2,67 +2,59 @@
 // Source: alpha/piketype/foo.py
 // Do not edit by hand.
 
-#ifndef ALPHA_PIKETYPE_FOO_TYPES_HPP
-#define ALPHA_PIKETYPE_FOO_TYPES_HPP
+#pragma once
 
 #include <cstdint>
+#include <array>
 #include <cstddef>
+#include <cstring>
+#include <span>
 #include <stdexcept>
-#include <vector>
 
 namespace alpha::foo {
 
-class byte_ct {
- public:
-  static constexpr std::size_t WIDTH = 8;
-  static constexpr bool SIGNED = false;
-  static constexpr std::size_t BYTE_COUNT = 1;
-  using value_type = std::uint8_t;
-  value_type value;
-  static constexpr std::uint64_t MASK = 255U;
-  static constexpr value_type MAX_VALUE = static_cast<value_type>(255U);
-  byte_ct() : value(0) {}
-  byte_ct(value_type value_in) : value(validate_value(value_in)) {}
+class Byte {
+public:
+    static constexpr size_t WIDTH      = 8;
+    static constexpr bool   SIGNED     = false;
+    static constexpr size_t BYTE_COUNT = 1;
+    using value_type                   = uint8_t;
 
-  std::vector<std::uint8_t> to_bytes() const {
-    std::vector<std::uint8_t> bytes(BYTE_COUNT, 0);
-    std::uint64_t bits = static_cast<std::uint64_t>(value);
-    for (std::size_t idx = 0; idx < BYTE_COUNT; ++idx) {
-      bytes[BYTE_COUNT - 1 - idx] = static_cast<std::uint8_t>((bits >> (8U * idx)) & 0xFFU);
+    value_type value;
+
+    Byte()
+        : value(0) {}
+    Byte(value_type value_in)
+        : value(value_in) {}
+
+    [[nodiscard]] std::array<uint8_t, BYTE_COUNT> to_bytes() const {
+        std::array<uint8_t, BYTE_COUNT> out{};
+        pack_into(out.data());
+        return out;
     }
-    return bytes;
-  }
 
-  void from_bytes(const std::vector<std::uint8_t>& bytes) {
-    if (bytes.size() != BYTE_COUNT) {
-      throw std::invalid_argument("byte width mismatch");
+    [[nodiscard]] static Byte from_bytes(std::span<const uint8_t> bytes) {
+        if (bytes.size() != BYTE_COUNT) {
+            throw std::invalid_argument("byte width mismatch");
+        }
+        Byte result;
+        result.unpack_from(bytes.data());
+        return result;
     }
-    std::uint64_t bits = 0;
-    for (std::size_t idx = 0; idx < BYTE_COUNT; ++idx) {
-      bits = (bits << 8U) | bytes[idx];
+
+    void pack_into(uint8_t* dst) const {
+        dst[0] = value;
     }
-    value = validate_value(static_cast<value_type>(bits & MASK));
-  }
 
-  byte_ct clone() const {
-    return byte_ct(value);
-  }
-
-  operator value_type() const {
-    return value;
-  }
-
-  bool operator==(const byte_ct& other) const = default;
-
- private:
-  static value_type validate_value(value_type value_in) {
-    if (value_in > MAX_VALUE) {
-      throw std::out_of_range("value out of range");
+    void unpack_from(const uint8_t* src) {
+        uint64_t bits = src[0];
+        value         = static_cast<value_type>(bits);
     }
-    return value_in;
-  }
+
+    operator value_type() const {
+        return value;
+    }
+    bool operator==(const Byte& other) const = default;
 };
 
 }  // namespace alpha::foo
-
-#endif  // ALPHA_PIKETYPE_FOO_TYPES_HPP

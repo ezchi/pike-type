@@ -2,115 +2,66 @@
 // Source: alpha/piketype/logic.py
 // Do not edit by hand.
 
-#ifndef ALPHA_PIKETYPE_LOGIC_TYPES_HPP
-#define ALPHA_PIKETYPE_LOGIC_TYPES_HPP
+#pragma once
 
 #include <cstdint>
+#include <array>
 #include <cstddef>
+#include <cstring>
+#include <span>
 #include <stdexcept>
-#include <vector>
 
 namespace alpha::logic {
 
-class handler_ct {
- public:
-  static constexpr std::size_t WIDTH = 4;
-  static constexpr std::size_t BYTE_COUNT = 2;
-  std::uint8_t a = 0;
-  std::uint8_t b = 0;
+class Handler {
+public:
+    static constexpr size_t WIDTH      = 4;
+    static constexpr size_t BYTE_COUNT = 2;
+    uint8_t                 a          = 0;
+    uint8_t                 b          = 0;
 
-  handler_ct() = default;
+    Handler() = default;
 
-  std::vector<std::uint8_t> to_bytes() const {
-    std::vector<std::uint8_t> bytes;
-    bytes.reserve(BYTE_COUNT);
-    {
-      auto field_bytes = encode_a(a);
-      bytes.insert(bytes.end(), field_bytes.begin(), field_bytes.end());
+    [[nodiscard]] std::array<uint8_t, BYTE_COUNT> to_bytes() const {
+        std::array<uint8_t, BYTE_COUNT> out{};
+        pack_into(out.data());
+        return out;
     }
-    {
-      auto field_bytes = encode_b(b);
-      bytes.insert(bytes.end(), field_bytes.begin(), field_bytes.end());
+
+    [[nodiscard]] static Handler from_bytes(std::span<const uint8_t> bytes) {
+        if (bytes.size() != BYTE_COUNT) {
+            throw std::invalid_argument("byte width mismatch");
+        }
+        Handler result;
+        result.unpack_from(bytes.data());
+        return result;
     }
-    return bytes;
-  }
 
-  void from_bytes(const std::vector<std::uint8_t>& bytes) {
-    if (bytes.size() != BYTE_COUNT) {
-      throw std::invalid_argument("byte width mismatch");
+    void pack_into(uint8_t* dst) const {
+        if (a > static_cast<uint8_t>(3U)) {
+            throw std::out_of_range("a value out of range");
+        }
+        dst[0] = a;
+        if (b > static_cast<uint8_t>(3U)) {
+            throw std::out_of_range("b value out of range");
+        }
+        dst[1] = b;
     }
-    std::size_t offset = 0;
-    a = decode_a(bytes, offset);
-    offset += 1;
-    b = decode_b(bytes, offset);
-    offset += 1;
-  }
 
-  handler_ct clone() const {
-    handler_ct cloned;
-    cloned.a = a;
-    cloned.b = b;
-    return cloned;
-  }
-
-  bool operator==(const handler_ct& other) const = default;
-
- private:
-  static std::vector<std::uint8_t> encode_a(std::uint8_t v) {
-    validate_a(v);
-    std::vector<std::uint8_t> b(1, 0U);
-    std::uint64_t bits = static_cast<std::uint64_t>(v);
-    for (std::size_t i = 0; i < 1; ++i) {
-      b[1 - 1 - i] = static_cast<std::uint8_t>((bits >> (8U * i)) & 0xFFU);
+    void unpack_from(const uint8_t* src) {
+        {
+            uint64_t bits = src[0];
+            bits &= 3U;
+            a = static_cast<uint8_t>(bits);
+        }
+        {
+            uint64_t bits = src[1];
+            bits &= 3U;
+            b = static_cast<uint8_t>(bits);
+        }
     }
-    return b;
-  }
 
-  static std::uint8_t decode_a(const std::vector<std::uint8_t>& bytes, std::size_t offset) {
-    std::uint64_t bits = 0;
-    for (std::size_t i = 0; i < 1; ++i) {
-      bits = (bits << 8U) | bytes[offset + i];
-    }
-    bits &= 3U;
-    return validate_a(static_cast<std::uint8_t>(bits));
-  }
-
-  static std::uint8_t validate_a(std::uint8_t value_in) {
-    constexpr std::uint8_t MAX_VALUE = static_cast<std::uint8_t>(3U);
-    if (value_in > MAX_VALUE) {
-      throw std::out_of_range("value out of range");
-    }
-    return value_in;
-  }
-
-  static std::vector<std::uint8_t> encode_b(std::uint8_t v) {
-    validate_b(v);
-    std::vector<std::uint8_t> b(1, 0U);
-    std::uint64_t bits = static_cast<std::uint64_t>(v);
-    for (std::size_t i = 0; i < 1; ++i) {
-      b[1 - 1 - i] = static_cast<std::uint8_t>((bits >> (8U * i)) & 0xFFU);
-    }
-    return b;
-  }
-
-  static std::uint8_t decode_b(const std::vector<std::uint8_t>& bytes, std::size_t offset) {
-    std::uint64_t bits = 0;
-    for (std::size_t i = 0; i < 1; ++i) {
-      bits = (bits << 8U) | bytes[offset + i];
-    }
-    bits &= 3U;
-    return validate_b(static_cast<std::uint8_t>(bits));
-  }
-
-  static std::uint8_t validate_b(std::uint8_t value_in) {
-    constexpr std::uint8_t MAX_VALUE = static_cast<std::uint8_t>(3U);
-    if (value_in > MAX_VALUE) {
-      throw std::out_of_range("value out of range");
-    }
-    return value_in;
-  }
+    bool operator==(const Handler& other) const = default;
 };
 
 }  // namespace alpha::logic
-
-#endif  // ALPHA_PIKETYPE_LOGIC_TYPES_HPP

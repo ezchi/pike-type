@@ -2,219 +2,183 @@
 // Source: alpha/piketype/types.py
 // Do not edit by hand.
 
-#ifndef ALPHA_PIKETYPE_TYPES_TYPES_HPP
-#define ALPHA_PIKETYPE_TYPES_TYPES_HPP
+#pragma once
 
 #include <cstdint>
+#include <array>
 #include <cstddef>
+#include <cstring>
+#include <span>
 #include <stdexcept>
-#include <vector>
 
 namespace alpha::types {
 
-class status_ct {
- public:
-  static constexpr std::size_t WIDTH = 3;
-  static constexpr std::size_t BYTE_COUNT = 1;
-  using value_type = std::uint8_t;
-  static constexpr value_type ERROR_MASK = 0x80U;
-  static constexpr value_type WARNING_MASK = 0x40U;
-  static constexpr value_type READY_MASK = 0x20U;
-  value_type value = 0;
+class Status {
+public:
+    static constexpr size_t WIDTH            = 3;
+    static constexpr size_t BYTE_COUNT       = 1;
+    using value_type                         = uint8_t;
+    static constexpr value_type DATA_MASK    = 0xE0U;
+    static constexpr value_type ERROR_MASK   = 0x80U;
+    static constexpr value_type WARNING_MASK = 0x40U;
+    static constexpr value_type READY_MASK   = 0x20U;
 
-  status_ct() = default;
+    value_type value = 0;
 
-  bool get_error() const { return (value & ERROR_MASK) != 0; }
-  void set_error(bool v) { if (v) value |= ERROR_MASK; else value &= static_cast<value_type>(~ERROR_MASK); }
+    Status() = default;
 
-  bool get_warning() const { return (value & WARNING_MASK) != 0; }
-  void set_warning(bool v) { if (v) value |= WARNING_MASK; else value &= static_cast<value_type>(~WARNING_MASK); }
-
-  bool get_ready() const { return (value & READY_MASK) != 0; }
-  void set_ready(bool v) { if (v) value |= READY_MASK; else value &= static_cast<value_type>(~READY_MASK); }
-
-  std::vector<std::uint8_t> to_bytes() const {
-    std::vector<std::uint8_t> bytes(BYTE_COUNT, 0);
-    value_type masked = value & 0xE0U;
-    for (std::size_t idx = 0; idx < BYTE_COUNT; ++idx) {
-      bytes[BYTE_COUNT - 1 - idx] = static_cast<std::uint8_t>((static_cast<std::uint64_t>(masked) >> (8U * idx)) & 0xFFU);
+    bool get_error() const {
+        return (value & ERROR_MASK) != 0;
     }
-    return bytes;
-  }
-
-  void from_bytes(const std::vector<std::uint8_t>& bytes) {
-    if (bytes.size() != BYTE_COUNT) {
-      throw std::invalid_argument("byte width mismatch");
+    void set_error(bool v) {
+        if (v)
+            value |= ERROR_MASK;
+        else
+            value &= static_cast<value_type>(~ERROR_MASK);
     }
-    std::uint64_t bits = 0;
-    for (std::size_t idx = 0; idx < BYTE_COUNT; ++idx) {
-      bits = (bits << 8U) | bytes[idx];
+
+    bool get_warning() const {
+        return (value & WARNING_MASK) != 0;
     }
-    value = static_cast<value_type>(bits) & 0xE0U;
-  }
+    void set_warning(bool v) {
+        if (v)
+            value |= WARNING_MASK;
+        else
+            value &= static_cast<value_type>(~WARNING_MASK);
+    }
 
-  status_ct clone() const {
-    status_ct cloned;
-    cloned.value = value;
-    return cloned;
-  }
+    bool get_ready() const {
+        return (value & READY_MASK) != 0;
+    }
+    void set_ready(bool v) {
+        if (v)
+            value |= READY_MASK;
+        else
+            value &= static_cast<value_type>(~READY_MASK);
+    }
 
-  bool operator==(const status_ct& other) const {
-    return (value & 0xE0U) == (other.value & 0xE0U);
-  }
+    [[nodiscard]] std::array<uint8_t, BYTE_COUNT> to_bytes() const {
+        std::array<uint8_t, BYTE_COUNT> out{};
+        pack_into(out.data());
+        return out;
+    }
+
+    [[nodiscard]] static Status from_bytes(std::span<const uint8_t> bytes) {
+        if (bytes.size() != BYTE_COUNT) {
+            throw std::invalid_argument("byte width mismatch");
+        }
+        Status result;
+        result.unpack_from(bytes.data());
+        return result;
+    }
+
+    void pack_into(uint8_t* dst) const {
+        uint64_t bits = static_cast<uint64_t>(value & DATA_MASK);
+        for (size_t i = 0; i < BYTE_COUNT; ++i) {
+            dst[BYTE_COUNT - 1 - i] = static_cast<uint8_t>((bits >> (8U * i)) & 0xFFU);
+        }
+    }
+
+    void unpack_from(const uint8_t* src) {
+        uint64_t bits = 0;
+        for (size_t i = 0; i < BYTE_COUNT; ++i) {
+            bits = (bits << 8U) | src[i];
+        }
+        value = static_cast<value_type>(bits) & DATA_MASK;
+    }
+
+    bool operator==(const Status& other) const {
+        return (value & DATA_MASK) == (other.value & DATA_MASK);
+    }
 };
 
-class report_ct {
- public:
-  static constexpr std::size_t WIDTH = 8;
-  static constexpr std::size_t BYTE_COUNT = 2;
-  status_ct status{};
-  std::uint8_t code = 0;
+class Report {
+public:
+    static constexpr size_t WIDTH      = 8;
+    static constexpr size_t BYTE_COUNT = 2;
+    Status                  status{};
+    uint8_t                 code = 0;
 
-  report_ct() = default;
+    Report() = default;
 
-  std::vector<std::uint8_t> to_bytes() const {
-    std::vector<std::uint8_t> bytes;
-    bytes.reserve(BYTE_COUNT);
-    {
-      auto field_bytes = status.to_bytes();
-      bytes.insert(bytes.end(), field_bytes.begin(), field_bytes.end());
+    [[nodiscard]] std::array<uint8_t, BYTE_COUNT> to_bytes() const {
+        std::array<uint8_t, BYTE_COUNT> out{};
+        pack_into(out.data());
+        return out;
     }
-    {
-      auto field_bytes = encode_code(code);
-      bytes.insert(bytes.end(), field_bytes.begin(), field_bytes.end());
-    }
-    return bytes;
-  }
 
-  void from_bytes(const std::vector<std::uint8_t>& bytes) {
-    if (bytes.size() != BYTE_COUNT) {
-      throw std::invalid_argument("byte width mismatch");
+    [[nodiscard]] static Report from_bytes(std::span<const uint8_t> bytes) {
+        if (bytes.size() != BYTE_COUNT) {
+            throw std::invalid_argument("byte width mismatch");
+        }
+        Report result;
+        result.unpack_from(bytes.data());
+        return result;
     }
-    std::size_t offset = 0;
-    {
-      std::vector<std::uint8_t> field_bytes(bytes.begin() + static_cast<std::ptrdiff_t>(offset), bytes.begin() + static_cast<std::ptrdiff_t>(offset + 1));
-      status.from_bytes(field_bytes);
-      offset += 1;
+
+    void pack_into(uint8_t* dst) const {
+        status.pack_into(dst + 0);
+        if (code > static_cast<uint8_t>(31U)) {
+            throw std::out_of_range("code value out of range");
+        }
+        dst[1] = code;
     }
-    code = decode_code(bytes, offset);
-    offset += 1;
-  }
 
-  report_ct clone() const {
-    report_ct cloned;
-    cloned.status = status.clone();
-    cloned.code = code;
-    return cloned;
-  }
-
-  bool operator==(const report_ct& other) const = default;
-
- private:
-  static std::vector<std::uint8_t> encode_code(std::uint8_t v) {
-    validate_code(v);
-    std::vector<std::uint8_t> b(1, 0U);
-    std::uint64_t bits = static_cast<std::uint64_t>(v);
-    for (std::size_t i = 0; i < 1; ++i) {
-      b[1 - 1 - i] = static_cast<std::uint8_t>((bits >> (8U * i)) & 0xFFU);
+    void unpack_from(const uint8_t* src) {
+        status.unpack_from(src + 0);
+        {
+            uint64_t bits = src[1];
+            bits &= 31U;
+            code = static_cast<uint8_t>(bits);
+        }
     }
-    return b;
-  }
 
-  static std::uint8_t decode_code(const std::vector<std::uint8_t>& bytes, std::size_t offset) {
-    std::uint64_t bits = 0;
-    for (std::size_t i = 0; i < 1; ++i) {
-      bits = (bits << 8U) | bytes[offset + i];
-    }
-    bits &= 31U;
-    return validate_code(static_cast<std::uint8_t>(bits));
-  }
-
-  static std::uint8_t validate_code(std::uint8_t value_in) {
-    constexpr std::uint8_t MAX_VALUE = static_cast<std::uint8_t>(31U);
-    if (value_in > MAX_VALUE) {
-      throw std::out_of_range("value out of range");
-    }
-    return value_in;
-  }
+    bool operator==(const Report& other) const = default;
 };
 
-class aligned_report_ct {
- public:
-  static constexpr std::size_t WIDTH = 6;
-  static constexpr std::size_t BYTE_COUNT = 4;
-  status_ct flags{};
-  std::uint8_t data = 0;
+class AlignedReport {
+public:
+    static constexpr size_t WIDTH      = 6;
+    static constexpr size_t BYTE_COUNT = 4;
+    Status                  flags{};
+    uint8_t                 data = 0;
 
-  aligned_report_ct() = default;
+    AlignedReport() = default;
 
-  std::vector<std::uint8_t> to_bytes() const {
-    std::vector<std::uint8_t> bytes;
-    bytes.reserve(BYTE_COUNT);
-    {
-      auto field_bytes = flags.to_bytes();
-      bytes.insert(bytes.end(), field_bytes.begin(), field_bytes.end());
+    [[nodiscard]] std::array<uint8_t, BYTE_COUNT> to_bytes() const {
+        std::array<uint8_t, BYTE_COUNT> out{};
+        pack_into(out.data());
+        return out;
     }
-    {
-      auto field_bytes = encode_data(data);
-      bytes.insert(bytes.end(), field_bytes.begin(), field_bytes.end());
-    }
-    for (std::size_t i = 0; i < 2; ++i) bytes.push_back(0);
-    return bytes;
-  }
 
-  void from_bytes(const std::vector<std::uint8_t>& bytes) {
-    if (bytes.size() != BYTE_COUNT) {
-      throw std::invalid_argument("byte width mismatch");
+    [[nodiscard]] static AlignedReport from_bytes(std::span<const uint8_t> bytes) {
+        if (bytes.size() != BYTE_COUNT) {
+            throw std::invalid_argument("byte width mismatch");
+        }
+        AlignedReport result;
+        result.unpack_from(bytes.data());
+        return result;
     }
-    std::size_t offset = 0;
-    {
-      std::vector<std::uint8_t> field_bytes(bytes.begin() + static_cast<std::ptrdiff_t>(offset), bytes.begin() + static_cast<std::ptrdiff_t>(offset + 1));
-      flags.from_bytes(field_bytes);
-      offset += 1;
+
+    void pack_into(uint8_t* dst) const {
+        flags.pack_into(dst + 0);
+        if (data > static_cast<uint8_t>(7U)) {
+            throw std::out_of_range("data value out of range");
+        }
+        dst[1] = data;
+        std::memset(dst + 2, 0, 2);
     }
-    data = decode_data(bytes, offset);
-    offset += 1;
-  }
 
-  aligned_report_ct clone() const {
-    aligned_report_ct cloned;
-    cloned.flags = flags.clone();
-    cloned.data = data;
-    return cloned;
-  }
-
-  bool operator==(const aligned_report_ct& other) const = default;
-
- private:
-  static std::vector<std::uint8_t> encode_data(std::uint8_t v) {
-    validate_data(v);
-    std::vector<std::uint8_t> b(1, 0U);
-    std::uint64_t bits = static_cast<std::uint64_t>(v);
-    for (std::size_t i = 0; i < 1; ++i) {
-      b[1 - 1 - i] = static_cast<std::uint8_t>((bits >> (8U * i)) & 0xFFU);
+    void unpack_from(const uint8_t* src) {
+        flags.unpack_from(src + 0);
+        {
+            uint64_t bits = src[1];
+            bits &= 7U;
+            data = static_cast<uint8_t>(bits);
+        }
     }
-    return b;
-  }
 
-  static std::uint8_t decode_data(const std::vector<std::uint8_t>& bytes, std::size_t offset) {
-    std::uint64_t bits = 0;
-    for (std::size_t i = 0; i < 1; ++i) {
-      bits = (bits << 8U) | bytes[offset + i];
-    }
-    bits &= 7U;
-    return validate_data(static_cast<std::uint8_t>(bits));
-  }
-
-  static std::uint8_t validate_data(std::uint8_t value_in) {
-    constexpr std::uint8_t MAX_VALUE = static_cast<std::uint8_t>(7U);
-    if (value_in > MAX_VALUE) {
-      throw std::out_of_range("value out of range");
-    }
-    return value_in;
-  }
+    bool operator==(const AlignedReport& other) const = default;
 };
 
 }  // namespace alpha::types
-
-#endif  // ALPHA_PIKETYPE_TYPES_TYPES_HPP
