@@ -56,10 +56,6 @@ variables:
 
 lint:typecheck:
   stage: lint
-  # basedpyright strict mode is aspirational right now -- there are pre-existing
-  # errors in src/ and tests/. Surface the report but don't block MRs. Flip
-  # `allow_failure` to false (or remove it) once the codebase is clean.
-  allow_failure: true
   script:
     - uv run --frozen basedpyright src/piketype
 

@@ -18,7 +18,6 @@ from piketype.ir.nodes import (
     ConstIR,
     ConstRefExprIR,
     EnumIR,
-    EnumValueIR,
     ExprIR,
     FlagsIR,
     IntLiteralExprIR,
